@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { handleLogout } from '@/lib/authHelper'
@@ -41,8 +41,6 @@ const navItems = [
 export default function ResultDashboardPage() {
   const navigate = useNavigate()
   const [user, setUser] = useState<User | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const sidebarRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -55,80 +53,75 @@ export default function ResultDashboardPage() {
     })
   }, [navigate])
 
-  // Close sidebar on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (sidebarOpen && sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
-        setSidebarOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [sidebarOpen])
-
   if (!user) return <div className="spinner" />
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' }}>
-      {/* Header */}
-      <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            style={{ background: 'none', border: 'none', fontSize: '1.5em', cursor: 'pointer' }}
-            aria-label="Toggle menu"
-          >
-            ☰
-          </button>
-          <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ff7b00' }}>
-            📊 Result Processing System
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#64748b' }}>
-          <span>👤 {user.email}</span>
-          <button
-            className="btn btn-secondary"
-            style={{ padding: '6px 14px', fontSize: '13px' }}
-            onClick={() => handleLogout('/dashboard')}
-          >
-            Sign Out
-          </button>
-        </div>
-      </header>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)' }}>
 
-      {/* Sidebar */}
-      <div
-        ref={sidebarRef}
-        style={{
-          position: 'fixed', top: '65px', left: 0, bottom: 0,
-          width: '280px', background: 'rgba(255,255,255,0.97)',
-          boxShadow: '4px 0 20px rgba(0,0,0,0.1)',
-          overflowY: 'auto', zIndex: 200,
-          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.3s ease',
-        }}
-      >
-        <nav style={{ padding: '16px 0' }}>
-          {navItems.map(item => (
-            <Link
-              key={item.href}
-              to={item.href}
-              onClick={() => setSidebarOpen(false)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '12px',
-                padding: '14px 24px', color: '#64748b', textDecoration: 'none',
-                fontSize: '14px', fontWeight: 500,
-                borderLeft: item.href === '/dashboard' ? '4px solid #667eea' : '4px solid transparent',
-              }}
-            >
-              <span>{item.icon}</span>{item.label}
-            </Link>
-          ))}
+      {/* ── Always-visible sidebar ── */}
+      <aside style={{
+        width: '260px', flexShrink: 0,
+        background: 'rgba(255,255,255,0.97)',
+        boxShadow: '4px 0 20px rgba(0,0,0,0.12)',
+        overflowY: 'auto',
+        position: 'sticky', top: 0, height: '100vh',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        {/* Sidebar header */}
+        <div style={{
+          padding: '18px 20px', borderBottom: '1px solid #e2e8f0',
+          fontWeight: 800, fontSize: '1rem', color: '#ff7b00',
+          letterSpacing: '0.01em',
+        }}>
+          📊 Result Processing System
+        </div>
+        {/* Nav links */}
+        <nav style={{ padding: '8px 0', flex: 1 }}>
+          {navItems.map(item => {
+            const active = window.location.pathname === item.href
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '12px 20px', textDecoration: 'none',
+                  fontSize: '13.5px', fontWeight: active ? 700 : 500,
+                  color: active ? '#667eea' : '#64748b',
+                  background: active ? '#f0f0ff' : 'transparent',
+                  borderLeft: active ? '4px solid #667eea' : '4px solid transparent',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                {item.label}
+              </Link>
+            )
+          })}
         </nav>
-      </div>
+      </aside>
 
-      {/* Main content */}
-      <main style={{ padding: '32px', minHeight: 'calc(100vh - 65px)' }}>
+      {/* ── Right side: header + main ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+        {/* Header */}
+        <header className="app-header" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+          <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#ff7b00' }}>
+            📊 Dashboard Overview
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#64748b' }}>
+            <span>👤 {user.email}</span>
+            <button
+              className="btn btn-secondary"
+              style={{ padding: '6px 14px', fontSize: '13px' }}
+              onClick={() => handleLogout('/dashboard')}
+            >
+              Sign Out
+            </button>
+          </div>
+        </header>
+
+        {/* Main content */}
+        <main style={{ padding: '32px', flex: 1 }}>
         {/* Hero */}
         <div style={{
           background: '#f0f0f3', padding: '40px', borderRadius: '25px',
@@ -185,6 +178,7 @@ export default function ResultDashboardPage() {
           ))}
         </div>
       </main>
+      </div>  {/* end right-side column */}
     </div>
   )
 }

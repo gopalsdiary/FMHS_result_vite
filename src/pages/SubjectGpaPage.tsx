@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import PageShell from '@/components/PageShell'
@@ -6,16 +6,8 @@ import PageShell from '@/components/PageShell'
 const TABLE_NAME = 'exam_ann25'
 
 interface GradingCriteria {
-  cqPass: number
-  mcqPass: number
-  practicalPass: number
-  totalPass: number
-  gradeAPlus: number
-  gradeA: number
-  gradeAMinus: number
-  gradeB: number
-  gradeC: number
-  gradeD: number
+  cqPass: number; mcqPass: number; practicalPass: number; totalPass: number
+  gradeAPlus: number; gradeA: number; gradeAMinus: number; gradeB: number; gradeC: number; gradeD: number
 }
 
 const defaultCriteria: GradingCriteria = {
@@ -23,19 +15,29 @@ const defaultCriteria: GradingCriteria = {
   gradeAPlus: 80, gradeA: 70, gradeAMinus: 60, gradeB: 50, gradeC: 40, gradeD: 33,
 }
 
+const CRITERIA_LABELS: Record<keyof GradingCriteria, string> = {
+  cqPass: 'CQ Pass', mcqPass: 'MCQ Pass', practicalPass: 'Practical Pass', totalPass: 'Total Pass',
+  gradeAPlus: 'A+ (5.0)', gradeA: 'A (4.0)', gradeAMinus: 'A- (3.5)',
+  gradeB: 'B (3.0)', gradeC: 'C (2.0)', gradeD: 'D (1.0)',
+}
+
 interface SubjectComponentMap { CQ?: string; MCQ?: string; PRACTICAL?: string; TOTAL?: string; GPA?: string }
 type SubjectType = { type: 'single'; components: SubjectComponentMap } | { type: 'combined'; subjects: { base: string; components: SubjectComponentMap }[] }
 
 interface DataRow {
   iid: string
-  name: string
-  roll: string | number
   cq: number; mcq: number; practical: number; total: number
   gpa: number | string | null
+  _db_gpa: number | string | null   // DB snapshot for dirty detection
   originalRow: Record<string, unknown>
 }
 
-function calculateGPA(total: number, subjectName = '', criteria: GradingCriteria): number | string {
+interface SubjectDisplayCols {
+  cqCol: string; mcqCol: string; practicalCol: string; totalCol: string; gpaCol: string
+  isCombined: boolean
+}
+
+function calculateGPA(total: number, subjectName = '', criteria: GradingCriteria): number {
   if (total <= 0) return 0
   const isAgri = subjectName.toLowerCase().includes('agriculture')
   let base = 0
@@ -49,16 +51,26 @@ function calculateGPA(total: number, subjectName = '', criteria: GradingCriteria
   return base
 }
 
+function isGpaDirty(row: DataRow): boolean {
+  const norm = (v: number | string | null) => v === 'F' ? 'F' : (v == null ? null : Number(v))
+  const a = norm(row.gpa), b = norm(row._db_gpa)
+  if (a === 'F' || b === 'F') return a !== b
+  if (a == null && b == null) return false
+  if (a == null || b == null) return true
+  return Math.abs(Number(a) - Number(b)) > 0.001
+}
+
 export default function SubjectGpaPage() {
   const navigate = useNavigate()
   const [subjects, setSubjects] = useState<Map<string, SubjectType>>(new Map())
   const [selectedSubject, setSelectedSubject] = useState('')
   const [criteria, setCriteria] = useState<GradingCriteria>(defaultCriteria)
   const [data, setData] = useState<DataRow[]>([])
+  const [displayCols, setDisplayCols] = useState<SubjectDisplayCols | null>(null)
   const [iidCol, setIidCol] = useState('iid')
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
-  const [rowStatus, setRowStatus] = useState<Record<number, string>>({})
+  const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -116,32 +128,48 @@ export default function SubjectGpaPage() {
 
     if (subjInfo.type === 'single') {
       const c = subjInfo.components
+      setDisplayCols({
+        cqCol: c.CQ ?? '', mcqCol: c.MCQ ?? '', practicalCol: c.PRACTICAL ?? '',
+        totalCol: c.TOTAL ?? '', gpaCol: c.GPA ?? '', isCombined: false,
+      })
       ;(rows ?? []).forEach(row => {
         const cq = Number(row[c.CQ!]) || 0, mcq = Number(row[c.MCQ!]) || 0
         const practical = Number(row[c.PRACTICAL!]) || 0, total = Number(row[c.TOTAL!]) || 0
         const gpaRaw = c.GPA ? row[c.GPA] : null
         const hasAny = cq > 0 || mcq > 0 || practical > 0 || total > 0 || (typeof gpaRaw === 'string' && gpaRaw.trim().toUpperCase() === 'F')
         if (!hasAny) return
-        parsed.push({ iid: String(row[iidCol] ?? ''), name: String(row.student_name_en ?? ''), roll: row.roll_2025 as string, cq, mcq, practical, total, gpa: gpaRaw as string | null, originalRow: row as Record<string, unknown> })
+        parsed.push({
+          iid: String(row[iidCol] ?? ''), cq, mcq, practical, total,
+          gpa: gpaRaw as string | null, _db_gpa: gpaRaw as string | null,
+          originalRow: row as Record<string, unknown>,
+        })
       })
     } else {
       const subs = subjInfo.subjects
+      const firstPaper = subs.find(s => /1st/i.test(s.base)) ?? subs[0]
+      setDisplayCols({
+        cqCol: '', mcqCol: '', practicalCol: '', totalCol: '',
+        gpaCol: firstPaper?.components.GPA ?? '', isCombined: true,
+      })
       ;(rows ?? []).forEach(row => {
         if (subs.length < 2) return
         const t1 = Number(row[subs[0].components.TOTAL!]) || 0
         const t2 = Number(row[subs[1].components.TOTAL!]) || 0
         const convertedTotal = Math.round(((t1 + t2) / 150) * 100 * 100) / 100
-        const firstPaper = subs.find(s => /1st/i.test(s.base)) ?? subs[0]
         const gpaRaw = firstPaper.components.GPA ? row[firstPaper.components.GPA] : null
         const hasGpa = (typeof gpaRaw === 'string' && gpaRaw.trim().toUpperCase() === 'F') || Number(gpaRaw) > 0
         if (!hasGpa && t1 <= 0 && t2 <= 0) return
-        parsed.push({ iid: String(row[iidCol] ?? ''), name: String(row.student_name_en ?? ''), roll: row.roll_2025 as string, cq: 0, mcq: 0, practical: 0, total: convertedTotal, gpa: gpaRaw as string | null, originalRow: row as Record<string, unknown> })
+        parsed.push({
+          iid: String(row[iidCol] ?? ''), cq: 0, mcq: 0, practical: 0, total: convertedTotal,
+          gpa: gpaRaw as string | null, _db_gpa: gpaRaw as string | null,
+          originalRow: row as Record<string, unknown>,
+        })
       })
     }
 
     setData(parsed)
+    setRowSaved({})
     setStatus(`Loaded ${parsed.length} records`)
-    setRowStatus({})
     setLoading(false)
   }, [subjects, iidCol])
 
@@ -166,143 +194,203 @@ export default function SubjectGpaPage() {
 
       let gpa: number | string | null = null
       if (total === 0) { gpa = null }
-      else if (hasFailed) {
-        gpa = selectedSubject.toLowerCase().includes('agriculture') ? 0 : 'F'
-      } else {
-        gpa = calculateGPA(total, selectedSubject, criteria)
-      }
+      else if (hasFailed) { gpa = selectedSubject.toLowerCase().includes('agriculture') ? 0 : 'F' }
+      else { gpa = calculateGPA(total, selectedSubject, criteria) }
       return { ...row, total, gpa }
     })
     setData(updated)
-    setStatus(`GPA calculated for ${updated.length} students`)
+    setStatus(`✅ Calculation completed! — click "Bulk Update to Database" to save`)
   }
 
   async function bulkUpdate() {
-    setStatus('Updating database…')
+    if (!window.confirm(`Update ${data.length} records to database?`)) return
+    setStatus('Bulk updating…')
     const subjInfo = subjects.get(selectedSubject)
     if (!subjInfo) return
-    let updated = 0
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i]
-      const updatePayload: Record<string, unknown> = {}
+    const updates = data.map(row => {
+      const u: Record<string, unknown> = { iid: row.iid }
       if (subjInfo.type === 'single') {
         const c = subjInfo.components
-        if (c.TOTAL) updatePayload[c.TOTAL] = row.total
-        if (c.GPA) updatePayload[c.GPA] = row.gpa
+        if (c.TOTAL) u[c.TOTAL] = row.total || 0
+        if (c.GPA) u[c.GPA] = row.gpa === 'F' ? 'F' : (row.gpa == null ? null : Number(row.gpa))
       } else {
-        const firstPaper = (subjInfo as Extract<SubjectType, { type: 'combined' }>).subjects.find(s => /1st/i.test(s.base)) ?? subjInfo.subjects[0]
-        if (firstPaper.components.GPA) updatePayload[firstPaper.components.GPA] = row.gpa
+        const fp = (subjInfo as Extract<SubjectType, { type: 'combined' }>).subjects.find(s => /1st/i.test(s.base)) ?? subjInfo.subjects[0]
+        if (fp.components.GPA) u[fp.components.GPA] = row.gpa === 'F' ? 'F' : (row.gpa == null ? null : Number(row.gpa))
       }
-      const { error } = await supabase.from(TABLE_NAME).update(updatePayload).eq(iidCol, row.iid)
-      setRowStatus(prev => ({ ...prev, [i]: error ? '❌ Error' : '✅ Saved' }))
-      if (!error) updated++
+      return u
+    })
+    const { error } = await supabase.from(TABLE_NAME).upsert(updates, { onConflict: iidCol })
+    if (!error) {
+      setData(prev => prev.map(r => ({ ...r, _db_gpa: r.gpa })))
+      setStatus(`✅ Bulk update completed: ${data.length} rows updated successfully!`)
+    } else {
+      setStatus('Error: ' + error.message)
     }
-    setStatus(`Updated ${updated}/${data.length} records`)
   }
 
   async function updateSingleRow(index: number) {
     const row = data[index]
     const subjInfo = subjects.get(selectedSubject)
     if (!subjInfo) return
-    const updatePayload: Record<string, unknown> = {}
+    const u: Record<string, unknown> = {}
     if (subjInfo.type === 'single') {
       const c = subjInfo.components
-      if (c.TOTAL) updatePayload[c.TOTAL] = row.total
-      if (c.GPA) updatePayload[c.GPA] = row.gpa
+      if (c.TOTAL) u[c.TOTAL] = row.total || 0
+      if (c.GPA) u[c.GPA] = row.gpa === 'F' ? 'F' : (row.gpa == null ? null : Number(row.gpa))
+    } else {
+      const fp = (subjInfo as Extract<SubjectType, { type: 'combined' }>).subjects.find(s => /1st/i.test(s.base)) ?? subjInfo.subjects[0]
+      if (fp?.components.GPA) u[fp.components.GPA] = row.gpa === 'F' ? 'F' : (row.gpa == null ? null : Number(row.gpa))
     }
-    const { error } = await supabase.from(TABLE_NAME).update(updatePayload).eq(iidCol, row.iid)
-    setRowStatus(prev => ({ ...prev, [index]: error ? '❌ Error' : '✅ Saved' }))
+    const { error } = await supabase.from(TABLE_NAME).update(u).eq(iidCol, row.iid)
+    if (!error) {
+      setData(prev => prev.map((r, i) => i === index ? { ...r, _db_gpa: r.gpa } : r))
+      setRowSaved(prev => ({ ...prev, [index]: true }))
+      setTimeout(() => setRowSaved(prev => ({ ...prev, [index]: false })), 2000)
+      setStatus('Row updated successfully')
+    }
   }
+
+  const passMarkKeys: (keyof GradingCriteria)[] = ['cqPass', 'mcqPass', 'practicalPass', 'totalPass']
+  const gpaKeys: (keyof GradingCriteria)[] = ['gradeAPlus', 'gradeA', 'gradeAMinus', 'gradeB', 'gradeC', 'gradeD']
+  const thBase: React.CSSProperties = { padding: '6px 8px', background: '#f0f3f6', border: '1px solid #d0d7de', fontWeight: 600, fontSize: '12px', textAlign: 'center', verticalAlign: 'middle' }
 
   return (
     <PageShell title="Part 3 – Subject GPA">
       {() => (
-        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-          {/* Grading criteria */}
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <div style={{ fontWeight: 600, marginBottom: '12px', color: '#24292f' }}>Grading Criteria</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-              {(Object.keys(defaultCriteria) as (keyof GradingCriteria)[]).map(key => (
-                <div key={key} style={{ display: 'flex', flexDirection: 'column', minWidth: '100px' }}>
-                  <label style={{ fontSize: '12px' }}>{key}</label>
-                  <input
-                    type="number"
-                    value={criteria[key]}
-                    onChange={e => setCriteria(prev => ({ ...prev, [key]: Number(e.target.value) }))}
-                    style={{ padding: '6px', border: '1px solid #d0d7de', borderRadius: '4px', width: '80px' }}
-                  />
-                </div>
-              ))}
+        <div>
+          <p style={{ fontSize: '14px', color: '#6a737d', marginBottom: '14px' }}>
+            Subject-wise GPA Calculation — সাবজেক্ট অনুযায়ী GPA গণনা ও আপডেট
+          </p>
+
+          {/* Subject Selection */}
+          <div className="card" style={{ marginBottom: '14px', background: '#f8fbff' }}>
+            <div style={{ fontWeight: 600, marginBottom: '10px', color: '#495057' }}>📚 Subject Selection</div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', color: '#555', marginBottom: '4px' }}>Select Subject</label>
+              <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)} style={{ minWidth: '250px' }}>
+                <option value="">Choose a subject…</option>
+                {Array.from(subjects.keys()).sort().map(s => (
+                  <option key={s} value={s}>{s.replace(/^\*+\s*/, '')}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
-              <div>
-                <label>Subject</label>
-                <select
-                  value={selectedSubject}
-                  onChange={e => setSelectedSubject(e.target.value)}
-                  style={{ minWidth: '240px' }}
-                >
-                  <option value="">Choose a subject…</option>
-                  {Array.from(subjects.keys()).sort().map(s => (
-                    <option key={s} value={s}>{s.replace(/^\*+\s*/, '')}</option>
-                  ))}
-                </select>
+          {/* Manual Grading Criteria */}
+          <div className="card" style={{ marginBottom: '14px', background: '#f8f9fa' }}>
+            <div style={{ fontWeight: 600, marginBottom: '10px', color: '#495057' }}>⚙️ Manual Grading Criteria</div>
+            <div style={{ marginBottom: '10px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#495057', marginBottom: '6px' }}>Pass Marks</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                {passMarkKeys.map(key => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', color: '#495057', fontWeight: 500 }}>{CRITERIA_LABELS[key]}:</label>
+                    <input type="number" value={criteria[key]} min={0} max={100}
+                      onChange={e => setCriteria(prev => ({ ...prev, [key]: Number(e.target.value) }))}
+                      style={{ width: '50px', padding: '4px', border: '1px solid #ced4da', borderRadius: '3px', fontSize: '12px' }} />
+                  </div>
+                ))}
               </div>
-              <button className="btn btn-primary" onClick={calculateAll} disabled={data.length === 0 || loading}>
-                🔄 Calculate All GPA
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#495057', marginBottom: '6px' }}>GPA Thresholds</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                {gpaKeys.map(key => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <label style={{ fontSize: '12px', color: '#495057', fontWeight: 500 }}>{CRITERIA_LABELS[key]}:</label>
+                    <input type="number" value={criteria[key]} min={0} max={100}
+                      onChange={e => setCriteria(prev => ({ ...prev, [key]: Number(e.target.value) }))}
+                      style={{ width: '50px', padding: '4px', border: '1px solid #ced4da', borderRadius: '3px', fontSize: '12px' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="card" style={{ marginBottom: '14px', background: '#f0fff0' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'center' }}>
+              <button
+                className="btn"
+                style={{ background: '#ff8a00', borderColor: '#ff8a00', color: '#fff' }}
+                onClick={calculateAll} disabled={data.length === 0 || loading}
+              >
+                🧮 Calculate All GPA
               </button>
               <button className="btn btn-success" onClick={bulkUpdate} disabled={data.length === 0 || loading}>
-                💾 Bulk Update to DB
+                💾 Bulk Update to Database
               </button>
+              {status && <span style={{ fontSize: '13px', color: status.startsWith('✅') ? '#1a7f37' : status.startsWith('Error') ? '#d73a49' : '#555' }}>{status}</span>}
             </div>
-            {status && <div className="alert alert-info" style={{ marginTop: '10px' }}>{status}</div>}
           </div>
 
-          {/* Data table */}
+          {/* Data Table */}
           {loading && <div className="spinner" />}
-          {!loading && data.length > 0 && (
-            <div className="card table-responsive">
-              <table>
-                <thead>
-                  <tr>
-                    <th>IID</th>
-                    <th>Roll</th><th>Name</th>
-                    <th>CQ</th><th>MCQ</th><th>Practical</th>
-                    <th>Total</th><th>GPA</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.map((row, i) => (
-                    <tr key={row.iid}>
-                      <td>{row.iid}</td>
-                      <td>{row.roll || '—'}</td>
-                      <td style={{ textAlign: 'left' }}>{row.name || '—'}</td>
-                      <td>{row.cq || '—'}</td>
-                      <td>{row.mcq || '—'}</td>
-                      <td>{row.practical || '—'}</td>
-                      <td style={{ fontWeight: 600 }}>{row.total || '—'}</td>
-                      <td style={{ fontWeight: 600, color: row.gpa === 'F' ? '#d73a49' : '#1a7f37' }}>
-                        {row.gpa !== null && row.gpa !== undefined ? String(row.gpa) : '—'}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => updateSingleRow(i)}
-                          style={{ fontSize: '12px', padding: '4px 8px', background: '#0366d6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                          Update
-                        </button>
-                        {' '}{rowStatus[i] ?? ''}
-                      </td>
+          {!loading && data.length > 0 && displayCols && (
+            <div style={{ background: '#fff', border: '1px solid #d0d7de', borderRadius: '6px' }}>
+              <div style={{ padding: '10px 14px', background: '#f8f9fa', borderBottom: '1px solid #d0d7de', fontWeight: 600, fontSize: '14px', color: '#495057' }}>
+                📊 Data for {selectedSubject.replace(/^\*+\s*/, '')}
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: '13.5px', width: '100%', border: '1px solid #d0d7de' }}>
+                  <thead>
+                    <tr>
+                      <th style={thBase}>IID</th>
+                      {!displayCols.isCombined && displayCols.cqCol && <th style={thBase}>{displayCols.cqCol}</th>}
+                      {!displayCols.isCombined && displayCols.mcqCol && <th style={thBase}>{displayCols.mcqCol}</th>}
+                      {!displayCols.isCombined && displayCols.practicalCol && <th style={thBase}>{displayCols.practicalCol}</th>}
+                      {displayCols.totalCol && <th style={thBase}>{displayCols.totalCol}</th>}
+                      <th style={thBase}>{displayCols.gpaCol || 'GPA'}</th>
+                      <th style={thBase}>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.map((row, i) => {
+                      const dirty = isGpaDirty(row)
+                      const gpaDisplay = row.gpa === null ? '' : row.gpa === 'F' ? 'F' : Number(row.gpa).toFixed(2)
+                      return (
+                        <tr key={row.iid} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
+                          <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.iid}</td>
+                          {!displayCols.isCombined && displayCols.cqCol && (
+                            <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.cq || ''}</td>
+                          )}
+                          {!displayCols.isCombined && displayCols.mcqCol && (
+                            <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.mcq || ''}</td>
+                          )}
+                          {!displayCols.isCombined && displayCols.practicalCol && (
+                            <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.practical || ''}</td>
+                          )}
+                          {displayCols.totalCol && (
+                            <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.total || ''}</td>
+                          )}
+                          <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, color: row.gpa === 'F' ? '#d73a49' : '#ff6600' }}>
+                            {gpaDisplay}
+                          </td>
+                          <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>
+                            <button
+                              onClick={() => updateSingleRow(i)}
+                              style={{
+                                fontSize: '11px', padding: '3px 10px', border: '1px solid', borderRadius: '4px',
+                                cursor: 'pointer', fontWeight: 500,
+                                background: rowSaved[i] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
+                                borderColor: rowSaved[i] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
+                                color: '#fff',
+                              }}
+                            >
+                              {rowSaved[i] ? '✅ Updated' : 'Update'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
+          )}
+
+          {!loading && data.length === 0 && selectedSubject && (
+            <div className="card" style={{ textAlign: 'center', color: '#6a737d', padding: '30px' }}>No data for this subject</div>
           )}
         </div>
       )}
