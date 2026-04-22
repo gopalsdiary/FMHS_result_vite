@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
+import { getPostLoginRedirect } from '@/lib/userAccess'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -30,7 +31,7 @@ export default function LoginPage() {
     } else {
       localStorage.removeItem('rememberedEmail')
     }
-    const redirect = sessionStorage.getItem('redirectUrl') || '/dashboard'
+    const redirect = getPostLoginRedirect(email, sessionStorage.getItem('redirectUrl'))
     sessionStorage.removeItem('redirectUrl')
     navigate(redirect, { replace: true })
   }
@@ -107,6 +108,11 @@ export default function LoginPage() {
         {error && (
           <div role="alert" style={styles.errorBox}>{error}</div>
         )}
+
+        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: '#546e7a' }}>
+          Teacher?{' '}
+          <a href="/login-teacher" style={{ color: '#2196f3', fontWeight: 500 }}>Teacher Login</a>
+        </p>
       </div>
     </div>
   )

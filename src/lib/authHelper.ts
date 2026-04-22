@@ -101,15 +101,15 @@ export function clearFormData(storageKey: string): void {
   localStorage.removeItem(storageKey)
 }
 
-/** Signs the user out and redirects to /login. */
-export async function handleLogout(redirectAfterLogin?: string): Promise<void> {
+/** Signs the user out and redirects to the requested login page. */
+export async function handleLogout(redirectAfterLogin?: string, loginPath = '/login'): Promise<void> {
   try {
     const target = redirectAfterLogin ?? window.location.pathname
     sessionStorage.setItem('redirectUrl', target)
     await supabase.auth.signOut()
-    window.location.replace('/login')
+    window.location.replace(loginPath)
   } catch (error) {
     console.error('Logout error:', error)
-    window.location.replace('/login')
+    window.location.replace(loginPath)
   }
 }

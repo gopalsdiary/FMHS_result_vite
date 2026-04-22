@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { handleLogout } from '@/lib/authHelper'
+import { TEACHER_DASHBOARD_PATH, isAdminEmail } from '@/lib/userAccess'
 import type { User } from '@supabase/supabase-js'
 
 interface DashboardCard {
@@ -48,6 +49,10 @@ export default function ResultDashboardPage() {
         sessionStorage.setItem('redirectUrl', '/dashboard')
         navigate('/login', { replace: true })
       } else {
+        if (!isAdminEmail(user.email ?? user.id ?? '')) {
+          navigate(TEACHER_DASHBOARD_PATH, { replace: true })
+          return
+        }
         setUser(user)
       }
     })

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
+import { getPostLoginRedirect } from '@/lib/userAccess'
 
 /** Teacher login — same Supabase auth, different redirect target. */
 export default function LoginTeacherPage() {
@@ -25,7 +26,7 @@ export default function LoginTeacherPage() {
       setError(authError.message || 'Sign in failed')
       return
     }
-    const redirect = sessionStorage.getItem('redirectUrl') || '/teacher-dashboard'
+    const redirect = getPostLoginRedirect(email, sessionStorage.getItem('redirectUrl'))
     sessionStorage.removeItem('redirectUrl')
     navigate(redirect, { replace: true })
   }

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { handleLogout } from '@/lib/authHelper'
+import { ADMIN_DASHBOARD_PATH, TEACHER_DASHBOARD_PATH, isAdminEmail } from '@/lib/userAccess'
 import type { User } from '@supabase/supabase-js'
 
 interface PageShellProps {
@@ -10,6 +11,7 @@ interface PageShellProps {
   loginPath?: string
   backHref?: string
   headerColor?: string
+  requiredRole?: 'admin' | 'teacher' | 'any'
 }
 
 /**
@@ -22,6 +24,7 @@ export default function PageShell({
   loginPath = '/login',
   backHref = '/dashboard',
   headerColor = '#0366d6',
+  requiredRole = 'admin',
 }: PageShellProps) {
   const navigate = useNavigate()
   const [user, setUser] = useState<User | null>(null)
@@ -33,11 +36,22 @@ export default function PageShell({
         sessionStorage.setItem('redirectUrl', window.location.pathname)
         navigate(loginPath, { replace: true })
       } else {
+        const admin = isAdminEmail(user.email ?? user.id ?? '')
+        if (requiredRole === 'admin' && !admin) {
+          navigate(TEACHER_DASHBOARD_PATH, { replace: true })
+          setChecking(false)
+          return
+        }
+        if (requiredRole === 'teacher' && admin) {
+          navigate(ADMIN_DASHBOARD_PATH, { replace: true })
+          setChecking(false)
+          return
+        }
         setUser(user)
       }
       setChecking(false)
     })
-  }, [navigate, loginPath])
+  }, [navigate, loginPath, requiredRole])
 
   if (checking || !user) return <div className="spinner" style={{ marginTop: '80px' }} />
 
@@ -60,7 +74,7 @@ export default function PageShell({
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px' }}>
           <span>👤 {user.email}</span>
           <button
-            onClick={() => handleLogout()}
+            onClick={() => handleLogout(undefined, loginPath)}
             style={{ background: '#d73a49', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
           >
             Logout

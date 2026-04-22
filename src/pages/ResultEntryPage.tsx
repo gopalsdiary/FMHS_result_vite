@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
 import { buildResultEntryDraftKey, clearResultEntryDrafts, readResultEntryDrafts, upsertResultEntryDraft } from '@/lib/resultEntryDrafts'
+import { ADMIN_RESULT_ENTRY_PATH, TEACHER_LOGIN_PATH, isAdminEmail } from '@/lib/userAccess'
 
 interface SubjectComp { CQ?: string; MCQ?: string; Practical?: string; Total?: string; GPA?: string }
 interface StudentRow { [key: string]: unknown }
@@ -47,8 +48,16 @@ export default function ResultEntryPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) { navigate('/login', { replace: true }); return }
+      if (!user) {
+        sessionStorage.setItem('redirectUrl', '/result-entry')
+        navigate(TEACHER_LOGIN_PATH, { replace: true })
+        return
+      }
       const owner = user.email ?? user.id ?? ''
+      if (isAdminEmail(owner)) {
+        navigate(ADMIN_RESULT_ENTRY_PATH, { replace: true })
+        return
+      }
       setUserEmail(owner)
       loadSubjectsFromDB(owner)
     })

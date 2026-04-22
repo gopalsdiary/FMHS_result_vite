@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { handleLogout } from '@/lib/authHelper'
+import { ADMIN_DASHBOARD_PATH, TEACHER_LOGIN_PATH, isAdminEmail } from '@/lib/userAccess'
 import type { User } from '@supabase/supabase-js'
 
 interface AssignedSubject {
@@ -21,8 +22,13 @@ export default function TeacherDashboardPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
         sessionStorage.setItem('redirectUrl', '/teacher-dashboard')
-        navigate('/login-teacher', { replace: true })
+        navigate(TEACHER_LOGIN_PATH, { replace: true })
       } else {
+        if (isAdminEmail(user.email ?? user.id ?? '')) {
+          navigate(ADMIN_DASHBOARD_PATH, { replace: true })
+          setLoading(false)
+          return
+        }
         setUser(user)
         loadAssignedSubjects(user.email ?? '')
       }
@@ -61,7 +67,7 @@ export default function TeacherDashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px' }}>
           <span>👤 {user.email}</span>
           <button
-            onClick={() => handleLogout('/teacher-dashboard')}
+            onClick={() => handleLogout('/teacher-dashboard', TEACHER_LOGIN_PATH)}
             style={{
               background: '#d73a49', color: '#fff', border: 'none',
               padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px',
