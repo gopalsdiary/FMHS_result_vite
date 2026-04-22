@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', 'Segoe UI', sans-serif; background: radial-gradient(circle at 25% 25%, #e0f2fe 0%, #fce4ec 55%, #ffffff 100%); margin:0; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
+  .card { background: linear-gradient(135deg, rgba(255,255,255,0.86), rgba(255,255,255,0.97)); backdrop-filter: blur(28px) saturate(140%); padding:46px 44px 42px; border-radius:30px; box-shadow: 0 10px 28px -6px rgba(233,30,99,0.18), 0 28px 60px -18px rgba(33,150,243,0.28); width:100%; max-width:440px; border:1px solid rgba(255,255,255,0.4); position:relative; overflow:hidden; }
+  .card::before { content:""; position:absolute; inset:0; background:linear-gradient(160deg,rgba(233,30,99,0.08),rgba(33,150,243,0.09)); opacity:0; transition:opacity .6s ease; pointer-events:none; }
+  .card:hover::before { opacity:1; }
+  /* Ensure interactive elements are above decorative layers */
+  .card * { position:relative; z-index:2; }
+  .card { z-index:1; }
+    
+  .brand { text-align:center; margin-bottom:36px; position:relative; }
+    .brand-logo { font-size: 48px; margin-bottom: 8px; }
+    .brand-title { font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #e91e63, #2196f3); background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+    .subtitle { color: #81c784; font-size: 14px; }
+    
+  .title { font-size:29px; font-weight:800; background:linear-gradient(135deg,#e91e63,#2196f3); -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; margin-bottom:30px; text-align:center; letter-spacing:.5px; }
+    
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; color: #424242; font-size: 14px; }
+    
+  input { width:100%; padding:15px 52px 15px 18px; border:2px solid #e1f5fe; border-radius:18px; font-size:16px; transition:all .35s cubic-bezier(.4,.0,.2,1); background:rgba(255,255,255,0.9); font-weight:500; }
+  input:focus { outline:none; border-color:#2196f3; box-shadow:0 0 0 4px rgba(33,150,243,0.18); background:#fff; }
+  .password-wrapper input { padding-right:56px; }
+    input::placeholder { color: #90a4ae; }
+    
+  .password-wrapper { position:relative; }
+  .password-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:linear-gradient(135deg,#e91e63,#2196f3); border:none; cursor:pointer; font-size:15px; color:#fff; width:44px; height:44px; border-radius:16px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(233,30,99,0.35); transition:all .35s; }
+  .password-toggle:hover { box-shadow:0 6px 15px rgba(33,150,243,0.45); }
+  .password-toggle:active { transform:translateY(-50%) scale(.9); }
+    
+    .form-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .remember { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #546e7a; }
+    .remember input { width: auto; margin: 0; accent-color: #e91e63; }
+    .forgot { color: #2196f3; text-decoration: none; font-size: 14px; font-weight: 500; }
+    .forgot:hover { text-decoration: underline; color: #1976d2; }
+    
+  button { width:100%; padding:19px; border:none; border-radius:22px; font-size:16px; font-weight:600; cursor:pointer; transition:all .45s cubic-bezier(.4,.0,.2,1); position:relative; overflow:hidden; letter-spacing:.6px; }
+  .primary { background:linear-gradient(135deg,#e91e63 10%,#2196f3 90%); color:#fff; box-shadow:0 8px 24px -4px rgba(233,30,99,0.45),0 12px 38px -10px rgba(33,150,243,0.45); }
+  .primary::before { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.5),rgba(255,255,255,0)); transform:translateX(-100%); transition:transform .75s; }
+  .primary:hover::before { transform:translateX(100%); }
+  .primary:hover { transform:translateY(-4px); box-shadow:0 18px 40px -12px rgba(233,30,99,0.55),0 22px 50px -16px rgba(33,150,243,0.55); }
+  .primary:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+    
+  .error { color:#e91e63; margin-top:20px; padding:14px 18px; background:linear-gradient(120deg,rgba(233,30,99,0.12),rgba(33,150,243,0.08)); border-radius:16px; font-size:14px; text-align:center; border:1px solid rgba(233,30,99,0.25); font-weight:500; backdrop-filter:blur(6px); }
+    
+    @media (max-width:480px){
+      .card { margin:16px; padding:36px 32px 38px; border-radius:28px; }
+      .brand-logo { font-size:42px; }
+      .brand-title { font-size:22px; }
+      .title { font-size:26px; margin-bottom:26px; }
+      .password-toggle { width:42px; height:42px; right:8px; font-size:14px; }
+      input { font-size:15px; }
+    }
+    @media (max-width:360px){
+      .card { padding:30px 26px 34px; }
+      .title { font-size:24px; }
+      .password-toggle { width:38px; height:38px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="brand-logo">📊</div>
+      <div class="brand-title">Result Processing System</div>
+      <div class="subtitle">Admin Portal</div>
+    </div>
+    
+    <h2 class="title">Sign In</h2>
+    
+    <div class="form-group">
+      <label for="email">Email Address</label>
+      <input id="email" type="email" placeholder="name@school.edu" autocomplete="username" />
+    </div>
+    
+    <div class="form-group">
+      <label for="password">Password</label>
+      <div class="password-wrapper">
+        <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" />
+        <button type="button" class="password-toggle" id="togglePassword" aria-label="Show password" title="Show password">👁️</button>
+      </div>
+    </div>
+    
+    <div class="form-actions">
+      <label class="remember">
+        <input type="checkbox" id="remember" />
+        Remember me
+      </label>
+      <a href="#" class="forgot">Forgot password?</a>
+    </div>
+    
+    <button id="loginBtn" class="primary">Sign In</button>
+    <div id="msg" class="error" aria-live="polite" style="display:none;"></div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    // NOTE: For production, do NOT hard-code service-role or secret keys into client-side code.
+    // This block preserves existing behavior for local/dev use. Consider moving keys to a server endpoint.
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const loginBtn = document.getElementById('loginBtn')
+    const msg = document.getElementById('msg')
+    const togglePassword = document.getElementById('togglePassword')
+
+    // Password toggle functionality
+    // Accessible password visibility toggle (improved icon handling)
+    togglePassword.addEventListener('click', ()=>{
+      const passwordInput = document.getElementById('password')
+      const showing = passwordInput.type === 'text'
+      passwordInput.type = showing ? 'password' : 'text'
+      togglePassword.textContent = showing ? '👁️' : '🙈'
+      togglePassword.setAttribute('aria-label', showing ? 'Show password' : 'Hide password')
+      togglePassword.setAttribute('title', showing ? 'Show password' : 'Hide password')
+    })
+
+    loginBtn.addEventListener('click', async function(){
+      msg.style.display = 'none'
+      msg.textContent = ''
+      const email = document.getElementById('email').value.trim()
+      const password = document.getElementById('password').value
+      if(!email || !password){ 
+        msg.textContent = 'Please enter both email and password'
+        msg.style.display = 'block'
+        return 
+      }
+      loginBtn.disabled = true
+      loginBtn.textContent = 'Signing in...'
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      loginBtn.disabled = false
+      loginBtn.textContent = 'Sign In'
+      if(error){ 
+        msg.textContent = error.message || 'Sign in failed'
+        msg.style.display = 'block'
+      }
+      else {
+        // Get the redirect URL from sessionStorage or use 2_result_dashboard.html as default
+        const redirectUrl = sessionStorage.getItem('redirectUrl') || '2_result_dashboard.html'
+        sessionStorage.removeItem('redirectUrl')
+        window.location.href = redirectUrl
+      }
+    })
+  </script>
+</body>
+</html>

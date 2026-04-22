@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' http: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://esm.sh https://*.supabase.co https://*.supabase.io blob:; connect-src 'self' http://localhost:* http://127.0.0.1:* https://*.supabase.co https://*.supabase.io wss://*.supabase.co wss://*.supabase.io https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; font-src 'self' https: data:; object-src 'none'; base-uri 'self';">
+  <title>Part 3</title>
+  <style>
+    :root { 
+      --bg:#f6f8fa; 
+      --card:#ffffff; 
+      --border:#d0d7de; 
+      --accent:#0366d6; 
+      --accent-hover:#024c9e; 
+      --danger:#d73a49; 
+      --success:#1a7f37; 
+      --warning:#ff8a00; 
+      --radius:6px; 
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; 
+    }
+    body { margin:0; background:var(--bg); color:#24292f; }
+    .wrap { 
+      width:100%; 
+      max-width:100%; 
+      margin:0 0 60px 0; 
+      background:var(--card); 
+      border:1px solid var(--border); 
+      border-radius:var(--radius); 
+      padding:18px 12px 28px; 
+      box-shadow:0 2px 4px rgba(0,0,0,.04); 
+    }
+    h2 { font-size:20px; margin:0 0 16px 0; font-weight:600; color:#24292f; }
+    p { font-size:14px; color:#6a737d; margin:0 0 16px 0; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .card-section { 
+      margin:16px 0; 
+      padding:12px; 
+      border:1px solid var(--border); 
+      background:var(--card); 
+      border-radius:var(--radius); 
+    }
+    select, input[type=text], input[type=number] { 
+      padding:8px 10px; 
+      border:1px solid var(--border); 
+      border-radius:4px; 
+      font-size:14px; 
+      background:#fff; 
+    }
+    button { 
+      cursor:pointer; 
+      font-size:12px; 
+      line-height:1.2; 
+      padding:8px 12px; 
+      border-radius:4px; 
+      border:1px solid var(--accent); 
+      background:var(--accent); 
+      color:#fff; 
+      font-weight:500; 
+    }
+    button:hover { background:var(--accent-hover); }
+    button.warning { background:var(--warning); border-color:var(--warning); }
+    button.warning:hover { background:#e07000; }
+    button.success { background:var(--success); border-color:var(--success); }
+    button.success:hover { background:#0f5132; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
+    .table-wrap { overflow-x:auto; margin-top:12px; }
+    table { 
+      width:100%; 
+      border-collapse:collapse; 
+      font-size:13.5px; 
+      border:1px solid var(--border);
+    }
+    th, td { 
+      border:1px solid var(--border); 
+      padding:6px 8px; 
+      text-align:center; 
+      vertical-align:middle; 
+    }
+    th { 
+      font-weight:600; 
+      font-size:12px; 
+      background:#f0f3f6; 
+      position:sticky;
+      top:0;
+      z-index:5;
+    }
+    tbody tr:nth-child(even) { background:#fcfcfd; }
+    tbody tr:hover { background:#fffbe6; }
+    .status { font-size:13px; min-height:18px; margin-top:8px; }
+    .status.ok { color:var(--success); }
+    .status.err { color:var(--danger); }
+    .grading-inputs { 
+      display:flex; 
+      flex-wrap:wrap; 
+      gap:12px; 
+      margin:12px 0; 
+      align-items:center; 
+    }
+    .input-group { 
+      display:flex; 
+      align-items:center; 
+      gap:5px; 
+    }
+    .input-group label { 
+      font-size:12px; 
+      color:#495057; 
+      font-weight:500; 
+    }
+    .input-group input { 
+      width:50px; 
+      padding:4px; 
+      border:1px solid #ced4da; 
+      border-radius:3px; 
+      font-size:12px; 
+    }
+    .calculated { color:#ff6600 !important; font-weight:600; }
+    .failed { color:var(--danger) !important; font-weight:600; }
+  /* Row status next to buttons */
+  .row-status { font-size:11px; margin-left:6px; color:var(--success); }
+  .row-status.ok { color:var(--success); }
+  .row-status.err { color:var(--danger); }
+  .row-status.pending { color:var(--warning); }
+    @media (max-width: 768px) {
+      .wrap { margin:8px; padding:12px; }
+      .row { flex-direction:column; align-items:stretch; }
+      .grading-inputs { flex-direction:column; align-items:stretch; }
+      .input-group { justify-content:space-between; }
+      table { font-size:11px; }
+      th, td { padding:4px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>Subject-wise GPA Calculation</h2>
+    <p>Advanced Result Processing System - উন্নত রেজাল্ট প্রসেসিং সিস্টেম - সাবজেক্ট অনুযায়ী GPA গণনা ও আপডেট</p>
+
+    <!-- Subject Selection Section -->
+    <div class="card-section" style="background:#f8fbff;">
+      <h4 style="margin:0 0 12px 0;color:#495057">📚 Subject Selection</h4>
+      <div class="row">
+        <div>
+          <label for="subjectSelect" style="display:block;font-size:12px;color:#555;margin-bottom:4px">Select Subject</label>
+          <select id="subjectSelect" style="min-width:250px">
+            <option value="">Choose a subject...</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Grading Criteria Section -->
+    <div class="card-section" style="background:#f8f9fa;">
+      <h4 style="margin:0 0 12px 0;color:#495057">⚙️ Manual Grading Criteria</h4>
+      
+      <!-- Pass Marks -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#495057;margin-bottom:8px;display:block">Pass Marks</label>
+        <div class="grading-inputs">
+          <div class="input-group" id="cqPassGroup">
+            <label>CQ Pass:</label>
+            <input type="number" id="cqPass" value="16" min="0" max="50">
+          </div>
+          <div class="input-group" id="mcqPassGroup">
+            <label>MCQ Pass:</label>
+            <input type="number" id="mcqPass" value="8" min="0" max="50">
+          </div>
+          <div class="input-group" id="practicalPassGroup">
+            <label>Practical Pass:</label>
+            <input type="number" id="practicalPass" value="8" min="0" max="50">
+          </div>
+          <div class="input-group">
+            <label>Total Pass:</label>
+            <input type="number" id="totalPass" value="33" min="0" max="100">
+          </div>
+        </div>
+      </div>
+
+      <!-- GPA Thresholds -->
+      <div>
+        <label style="font-size:13px;font-weight:600;color:#495057;margin-bottom:8px;display:block">GPA Thresholds</label>
+        <div class="grading-inputs">
+          <div class="input-group">
+            <label>A+ (5.0):</label>
+            <input type="number" id="gradeAPlus" value="80" min="0" max="100">
+          </div>
+          <div class="input-group">
+            <label>A (4.0):</label>
+            <input type="number" id="gradeA" value="70" min="0" max="100">
+          </div>
+          <div class="input-group">
+            <label>A- (3.5):</label>
+            <input type="number" id="gradeAMinus" value="60" min="0" max="100">
+          </div>
+          <div class="input-group">
+            <label>B (3.0):</label>
+            <input type="number" id="gradeB" value="50" min="0" max="100">
+          </div>
+          <div class="input-group">
+            <label>C (2.0):</label>
+            <input type="number" id="gradeC" value="40" min="0" max="100">
+          </div>
+          <div class="input-group">
+            <label>D (1.0):</label>
+            <input type="number" id="gradeD" value="33" min="0" max="100">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons Section -->
+    <div class="card-section" style="background:#f0fff0;">
+      <div class="row" style="gap:16px">
+        <button id="calculateBtn" disabled class="warning">
+          🧮 Calculate All GPA
+        </button>
+        <button id="bulkUpdateBtn" disabled class="success">
+          💾 Bulk Update to Database
+        </button>
+      </div>
+      <div id="statusMsg" class="status"></div>
+    </div>
+
+    <!-- Data Display Section -->
+    <div id="dataDisplay"></div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const TABLE_NAME = 'exam_ann25';
+    
+    // DOM Elements
+    const subjectSelect = document.getElementById('subjectSelect');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const bulkUpdateBtn = document.getElementById('bulkUpdateBtn');
+    const statusMsg = document.getElementById('statusMsg');
+    const dataDisplay = document.getElementById('dataDisplay');
+
+    // Data storage
+    let currentData = [];
+    let currentSubject = '';
+    let subjectColumns = {};
+    let gradingCriteria = {};
+    // Meta info (detected from table)
+    const meta = { iidCol: 'iid' };
+
+    function pickKey(keys, candidates){
+      const lower = keys.reduce((m,k)=>{ m[k.toLowerCase()] = k; return m },{});
+      for(const c of candidates){
+        if(typeof c === 'string'){
+          if(lower[c.toLowerCase()]) return lower[c.toLowerCase()];
+        } else if(c instanceof RegExp){
+          const found = keys.find(k=> c.test(k));
+          if(found) return found;
+        }
+      }
+      return null;
+    }
+
+    // Initialize
+    async function init() {
+      try {
+        // Check authentication
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          alert('Please sign in first');
+          location.href = 'login.html';
+          return;
+        }
+
+        await loadSubjects();
+        setupEventListeners();
+        updateGradingCriteria();
+      } catch (error) {
+        showStatus('Initialization error: ' + error.message, 'err');
+      }
+    }
+
+    function setupEventListeners() {
+      subjectSelect.addEventListener('change', handleSubjectChange);
+      calculateBtn.addEventListener('click', calculateAllGPA);
+      bulkUpdateBtn.addEventListener('click', bulkUpdateToDatabase);
+      
+      // Update grading criteria when inputs change
+      const inputs = ['cqPass', 'mcqPass', 'practicalPass', 'totalPass', 
+                     'gradeAPlus', 'gradeA', 'gradeAMinus', 'gradeB', 'gradeC', 'gradeD'];
+      inputs.forEach(id => {
+        document.getElementById(id).addEventListener('change', updateGradingCriteria);
+      });
+    }
+
+    async function loadSubjects() {
+      try {
+        showStatus('Loading subjects...', 'ok');
+        
+        // Get table structure to find subject columns
+        const { data, error } = await supabase.from(TABLE_NAME).select('*').limit(1);
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+          showStatus('No data found in table', 'err');
+          return;
+        }
+
+  const columns = Object.keys(data[0]);
+  // Detect correct IID column name
+  meta.iidCol = pickKey(columns, ['iid','IID','siid','student_id','sid','id']) || columns.find(k=>/iid/i.test(k)) || 'iid';
+        const subjects = new Map();
+
+        // Find subject patterns: subject_CQ, subject_MCQ, subject_Practical
+        columns.forEach(col => {
+          const match = col.match(/^(.+?)_(CQ|MCQ|Practical|Total|GPA)$/i);
+          if (match) {
+            const subjectBase = match[1].trim();
+            const component = match[2].toUpperCase();
+            
+            if (!subjects.has(subjectBase)) {
+              subjects.set(subjectBase, {});
+            }
+            subjects.get(subjectBase)[component] = col;
+          }
+        });
+
+        // Handle special cases for language pairs
+        const processedSubjects = new Map();
+        
+        subjects.forEach((components, subjectBase) => {
+          // Check for language pairs (Bangla/English 1st & 2nd Paper)
+          if (subjectBase.includes('Bangla') && (subjectBase.includes('1st') || subjectBase.includes('2nd'))) {
+            const combinedKey = 'Bangla 1st+2nd Paper';
+            if (!processedSubjects.has(combinedKey)) {
+              processedSubjects.set(combinedKey, { type: 'combined', subjects: [] });
+            }
+            processedSubjects.get(combinedKey).subjects.push({ base: subjectBase, components });
+          } else if (subjectBase.includes('English') && (subjectBase.includes('1st') || subjectBase.includes('2nd'))) {
+            const combinedKey = 'English 1st+2nd Paper';
+            if (!processedSubjects.has(combinedKey)) {
+              processedSubjects.set(combinedKey, { type: 'combined', subjects: [] });
+            }
+            processedSubjects.get(combinedKey).subjects.push({ base: subjectBase, components });
+          } else {
+            // Regular subject
+            processedSubjects.set(subjectBase, { type: 'single', components });
+          }
+        });
+
+        // Populate dropdown
+        subjectSelect.innerHTML = '<option value="">Choose a subject...</option>';
+        Array.from(processedSubjects.keys()).sort().forEach(subject => {
+          const option = document.createElement('option');
+          option.value = subject;
+          option.textContent = subject.replace(/^\*+\s*/, '');
+          subjectSelect.appendChild(option);
+        });
+
+        // Store subject data
+        subjectColumns = processedSubjects;
+        showStatus(`Found ${processedSubjects.size} subjects`, 'ok');
+        
+      } catch (error) {
+        showStatus('Error loading subjects: ' + error.message, 'err');
+      }
+    }
+
+    async function handleSubjectChange() {
+      const selectedSubject = subjectSelect.value;
+      if (!selectedSubject) {
+        dataDisplay.innerHTML = '';
+        calculateBtn.disabled = true;
+        bulkUpdateBtn.disabled = true;
+        return;
+      }
+
+      currentSubject = selectedSubject;
+      await loadData();
+    }
+
+    async function loadData() {
+      try {
+        showStatus('Loading data from Supabase...', 'ok');
+        
+        // Force fresh data from Supabase (no cache), ordered by IID
+        const { data, error } = await supabase
+          .from(TABLE_NAME)
+          .select('*')
+          .order(meta.iidCol || 'iid', { ascending: true });
+        
+        if (error) throw error;
+
+        const subjectInfo = subjectColumns.get(currentSubject);
+        if (!subjectInfo) {
+          showStatus('Subject configuration not found', 'err');
+          return;
+        }
+
+        // Process data based on subject type
+        if (subjectInfo.type === 'combined') {
+          currentData = processCombinedSubjectData(data, subjectInfo);
+        } else {
+          currentData = processSingleSubjectData(data, subjectInfo);
+        }
+
+        // Sort by IID (already ordered from database, but ensure consistency)
+        currentData.sort((a, b) => {
+          const iidA = parseInt(a.iid) || 0;
+          const iidB = parseInt(b.iid) || 0;
+          return iidA - iidB;
+        });
+
+  displayData();
+  // Enable calculate; keep bulk update disabled until calculation done
+  calculateBtn.disabled = false;
+  bulkUpdateBtn.disabled = true;
+        showStatus(`Loaded ${currentData.length} records`, 'ok');
+
+      } catch (error) {
+        showStatus('Error loading data: ' + error.message, 'err');
+      }
+    }
+
+    function processSingleSubjectData(data, subjectInfo) {
+      const components = subjectInfo.components;
+      
+      const rows = [];
+      for (const row of data) {
+        // Read raw values from DB for presence check
+        const rawCQ = components.CQ ? row[components.CQ] : null;
+        const rawMCQ = components.MCQ ? row[components.MCQ] : null;
+        const rawPR = components.PRACTICAL ? row[components.PRACTICAL] : null;
+        const rawTotal = components.TOTAL ? row[components.TOTAL] : null;
+        const rawGPA = components.GPA ? row[components.GPA] : null;
+
+        const numCQ = parseFloat(rawCQ);
+        const numMCQ = parseFloat(rawMCQ);
+        const numPR = parseFloat(rawPR);
+        const numTotal = parseFloat(rawTotal);
+        const numGPA = parseFloat(rawGPA);
+        const isFGPA = typeof rawGPA === 'string' && rawGPA.trim().toUpperCase() === 'F';
+
+        const hasAny = (numCQ > 0) || (numMCQ > 0) || (numPR > 0) || (numTotal > 0) || isFGPA || (numGPA > 0);
+        if (!hasAny) continue; // skip empty rows for this subject
+
+        rows.push({
+          iid: (meta.iidCol && row[meta.iidCol] !== undefined) ? row[meta.iidCol] : (row.iid || row.id || ''),
+          name: row.name || row.student_name || '',
+          roll: row.roll || row.student_roll || '',
+          cq: parseFloat(row[components.CQ]) || 0,
+          mcq: parseFloat(row[components.MCQ]) || 0,
+          practical: parseFloat(row[components.PRACTICAL]) || 0,
+          total: parseFloat(row[components.TOTAL]) || 0,
+          grade: components.GRADE ? (row[components.GRADE] || '') : '',
+          gpa: row[components.GPA] || null,
+          subject_gpa: row[components.GPA] || null,
+          originalRow: row
+        });
+      }
+      return rows;
+    }
+
+    function processCombinedSubjectData(data, subjectInfo) {
+      // For combined subjects (Bangla/English 1st+2nd), average the totals
+      const combinedData = [];
+      
+      data.forEach(row => {
+        const subjects = subjectInfo.subjects;
+        if (subjects.length === 2) {
+          const first = subjects[0];
+          const second = subjects[1];
+          
+          const total1 = parseFloat(row[first.components.TOTAL]) || 0;
+          const total2 = parseFloat(row[second.components.TOTAL]) || 0;
+          // Convert from 150 to 100 scale (total of both papers is 150, convert to 100)
+          const combinedTotal = total1 + total2;
+          const convertedTotal = Math.round((combinedTotal / 150) * 100 * 100) / 100; // Round to 2 decimal places
+          
+          // Include only if there is any value in either subject total or GPA (1st paper)
+          const firstPaper = subjectInfo.subjects.find(s => /1st/i.test(s.base)) || subjectInfo.subjects[0];
+          const firstGpaRaw = firstPaper.components.GPA ? row[firstPaper.components.GPA] : null;
+          const hasGpa = (typeof firstGpaRaw === 'string' && firstGpaRaw.trim().toUpperCase() === 'F') || (parseFloat(firstGpaRaw) > 0);
+          if (!hasGpa && total1 <= 0 && total2 <= 0) return; // skip empty combined row
+
+          // Read GPA from database (1st Paper column)
+          const dbGpa = firstGpaRaw;
+
+          combinedData.push({
+            iid: (meta.iidCol && row[meta.iidCol] !== undefined) ? row[meta.iidCol] : (row.iid || row.id || ''),
+            name: row.name || row.student_name || '',
+            roll: row.roll || row.student_roll || '',
+            cq: 0, // Combined subjects don't show individual components
+            mcq: 0,
+            practical: 0,
+            total: convertedTotal,
+            grade: '',
+            gpa: dbGpa,
+            subject_gpa: dbGpa,
+            originalRow: row,
+            combinedData: { total1, total2, subjects }
+          });
+        }
+      });
+      
+      return combinedData;
+    }
+
+    function displayData() {
+      if (!currentData.length) {
+        dataDisplay.innerHTML = '<p>No data to display</p>';
+        return;
+      }
+
+      const subjectInfo = subjectColumns.get(currentSubject);
+      const isCombined = subjectInfo.type === 'combined';
+
+      // Get actual column names for this subject
+      let subjectColumns_CQ = '';
+      let subjectColumns_MCQ = '';
+      let subjectColumns_Practical = '';
+      let subjectColumns_Total = '';
+      let subjectColumns_GPA = '';
+
+      if (!isCombined && subjectInfo.components) {
+        subjectColumns_CQ = subjectInfo.components.CQ || '';
+        subjectColumns_MCQ = subjectInfo.components.MCQ || '';
+        subjectColumns_Practical = subjectInfo.components.PRACTICAL || '';
+        subjectColumns_Total = subjectInfo.components.TOTAL || '';
+        subjectColumns_GPA = subjectInfo.components.GPA || '';
+      } else if (isCombined) {
+        // For combined subjects, show 1st Paper GPA column
+        const firstPaper = subjectInfo.subjects.find(s => /1st/i.test(s.base)) || subjectInfo.subjects[0];
+        if (firstPaper && firstPaper.components.GPA) {
+          subjectColumns_GPA = firstPaper.components.GPA;
+        }
+      }
+
+      let tableHtml = `
+        <div class="card-section">
+          <h4 style="margin:0 0 12px 0;color:#495057">📊 Data for ${currentSubject}</h4>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>IID</th>`;
+      
+      if (!isCombined) {
+        tableHtml += `
+                  <th>${subjectColumns_CQ}</th>
+                  <th>${subjectColumns_MCQ}</th>
+                  <th>${subjectColumns_Practical}</th>`;
+      }
+      
+      tableHtml += `
+                  <th>${subjectColumns_Total}</th>
+                  <th>${subjectColumns_GPA || 'GPA'}</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>`;
+
+      currentData.forEach((row, index) => {
+        tableHtml += `
+          <tr>
+            <td>${row.iid}</td>`;
+        
+        if (!isCombined) {
+          tableHtml += `
+            <td><span id="cq_${index}">${row.cq || ''}</span></td>
+            <td><span id="mcq_${index}">${row.mcq || ''}</span></td>
+            <td><span id="practical_${index}">${row.practical || ''}</span></td>`;
+        }
+        
+        tableHtml += `
+            <td><span id="total_${index}">${row.total || ''}</span></td>
+            <td><span id="gpa_${index}">${row.gpa || ''}</span></td>
+            <td>
+              <button id="update_btn_${index}" onclick="updateRow(${index})">Update</button>
+              <span id="row_status_${index}" class="row-status"></span>
+            </td>
+          </tr>`;
+      });
+
+      tableHtml += `
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+
+      dataDisplay.innerHTML = tableHtml;
+      // After rendering, update button colors
+      for (let i = 0; i < currentData.length; i++) updateButtonColor(i);
+    }
+
+    function updateGradingCriteria() {
+      gradingCriteria = {
+        cqPass: parseInt(document.getElementById('cqPass').value) || 16,
+        mcqPass: parseInt(document.getElementById('mcqPass').value) || 8,
+        practicalPass: parseInt(document.getElementById('practicalPass').value) || 8,
+        totalPass: parseInt(document.getElementById('totalPass').value) || 33,
+        gradeAPlus: parseInt(document.getElementById('gradeAPlus').value) || 80,
+        gradeA: parseInt(document.getElementById('gradeA').value) || 70,
+        gradeAMinus: parseInt(document.getElementById('gradeAMinus').value) || 60,
+        gradeB: parseInt(document.getElementById('gradeB').value) || 50,
+        gradeC: parseInt(document.getElementById('gradeC').value) || 40,
+        gradeD: parseInt(document.getElementById('gradeD').value) || 33
+      };
+    }
+
+    function calculateGPA(total, subjectName = '') {
+      // Base GPA calculation
+      let baseGPA = 0.00;
+      
+      if (total >= gradingCriteria.gradeAPlus) baseGPA = 5.00;
+      else if (total >= gradingCriteria.gradeA) baseGPA = 4.00;
+      else if (total >= gradingCriteria.gradeAMinus) baseGPA = 3.50;
+      else if (total >= gradingCriteria.gradeB) baseGPA = 3.00;
+      else if (total >= gradingCriteria.gradeC) baseGPA = 2.00;
+      else if (total >= gradingCriteria.gradeD) baseGPA = 1.00;
+      else baseGPA = 0.00;
+
+      // Special case for Agriculture
+      if (subjectName.toLowerCase().includes('agriculture')) {
+        if (baseGPA > 2.00) {
+          return baseGPA - 2.00;
+        } else {
+          return 0.00;
+        }
+      }
+
+      return baseGPA;
+    }
+
+    function getGrade(gpa) {
+      if (gpa >= 5.00) return 'A+';
+      if (gpa >= 4.00) return 'A';
+      if (gpa >= 3.50) return 'A-';
+      if (gpa >= 3.00) return 'B';
+      if (gpa >= 2.00) return 'C';
+      if (gpa >= 1.00) return 'D';
+      return 'F';
+    }
+
+    function calculateAllGPA() {
+      if (!currentData.length) {
+        showStatus('No data to calculate!', 'err');
+        return;
+      }
+
+      showStatus('Calculating GPA for all students...', 'ok');
+      
+      const subjectInfo = subjectColumns.get(currentSubject);
+      const isCombined = subjectInfo.type === 'combined';
+      
+      let calculatedCount = 0;
+      let failedCount = 0;
+
+      currentData.forEach((row, index) => {
+        // Recalculate total from components when available
+        const summed = (Number(row.cq)||0) + (Number(row.mcq)||0) + (Number(row.practical)||0);
+        let total = summed > 0 ? summed : row.total;
+        let hasFailed = false;
+        const isAgri = (currentSubject || '').toLowerCase().includes('agriculture');
+        
+        // Check for failures (only for non-combined subjects)
+        if (!isCombined) {
+          if (row.cq > 0 && row.cq < gradingCriteria.cqPass) hasFailed = true;
+          if (row.mcq > 0 && row.mcq < gradingCriteria.mcqPass) hasFailed = true;
+          if (row.practical > 0 && row.practical < gradingCriteria.practicalPass) hasFailed = true;
+        }
+        
+        if (total > 0 && total < gradingCriteria.totalPass) hasFailed = true;
+        if (total > 100) hasFailed = true;
+
+        let gpa, grade;
+        if (total === 0) {
+          gpa = null;
+          grade = '';
+        } else if (hasFailed) {
+          // Agriculture special case: F becomes 0.00
+          if (isAgri) {
+            gpa = 0.00;
+            grade = 'F';
+          } else {
+            gpa = 'F';
+            grade = 'F';
+          }
+          failedCount++;
+        } else {
+          gpa = calculateGPA(total, currentSubject);
+          grade = getGrade(gpa);
+          calculatedCount++;
+        }
+
+        // Update data
+        row.gpa = gpa;
+        row.grade = grade;
+  row.subject_gpa = gpa; // Dynamic column
+  row.total = total; // keep recalculated total
+
+        // Update display
+        const totalSpan = document.getElementById(`total_${index}`);
+        const gpaSpan = document.getElementById(`gpa_${index}`);
+
+        if (totalSpan) {
+          totalSpan.textContent = total || '';
+          totalSpan.className = 'calculated';
+        }
+        if (gpaSpan) {
+          gpaSpan.textContent = gpa === null ? '' : (gpa === 'F' ? 'F' : Number(gpa).toFixed(2));
+          gpaSpan.className = hasFailed ? 'failed' : 'calculated';
+        }
+      });
+
+      bulkUpdateBtn.disabled = false;
+      showStatus(`✅ Calculation completed! ${calculatedCount} passed, ${failedCount} failed.`, 'ok');
+      // Refresh action buttons coloring
+      for (let i = 0; i < currentData.length; i++) updateButtonColor(i);
+    }
+
+    async function bulkUpdateToDatabase() {
+      if (!currentData.length) {
+        showStatus('No data to update!', 'err');
+        return;
+      }
+
+      if (!confirm(`Update ${currentData.length} records to database?`)) return;
+
+      try {
+        showStatus('Bulk updating...', 'ok');
+        
+        const subjectInfo = subjectColumns.get(currentSubject);
+        const isAgri = (currentSubject || '').toLowerCase().includes('agriculture');
+        
+        // Prepare all updates at once
+        const updates = [];
+        
+        for (let i = 0; i < currentData.length; i++) {
+          const row = currentData[i];
+          const updateData = { [meta.iidCol || 'iid']: row.iid };
+          
+          if (subjectInfo.type === 'combined') {
+            // For combined subjects, save only into 1st Paper GPA column
+            const firstPaper = subjectInfo.subjects.find(s => /1st/i.test(s.base)) || subjectInfo.subjects[0];
+            if (firstPaper && firstPaper.components.GPA) {
+              updateData[firstPaper.components.GPA] = row.gpa === 'F' ? (isAgri ? 0.00 : 'F') : 
+                (row.gpa === null ? null : parseFloat(row.gpa));
+            }
+          } else {
+            // For single subjects
+            const components = subjectInfo.components;
+            if (components.TOTAL) updateData[components.TOTAL] = row.total || 0;
+            if (components.GRADE) updateData[components.GRADE] = row.grade || '';
+            if (components.GPA) {
+              updateData[components.GPA] = row.gpa === 'F' ? (isAgri ? 0.00 : 'F') : 
+                (row.gpa === null ? null : parseFloat(row.gpa));
+            }
+          }
+
+          // Only add if there's data to update
+          if (Object.keys(updateData).length > 1) {
+            updates.push(updateData);
+          }
+        }
+
+        if (updates.length === 0) {
+          showStatus('No data to update!', 'err');
+          return;
+        }
+
+        // Bulk upsert all at once
+        const { data, error } = await supabase
+          .from(TABLE_NAME)
+          .upsert(updates, { onConflict: meta.iidCol || 'iid' });
+
+        if (error) {
+          console.error('Bulk update error:', error);
+          showStatus('Error updating database: ' + error.message, 'err');
+          return;
+        }
+
+        // Sync originalRow with saved values for all rows
+        for (let i = 0; i < currentData.length; i++) {
+          const row = currentData[i];
+          if (subjectInfo.type === 'combined') {
+            const firstPaper = subjectInfo.subjects.find(s => /1st/i.test(s.base)) || subjectInfo.subjects[0];
+            if (firstPaper && firstPaper.components.GPA) {
+              row.originalRow[firstPaper.components.GPA] = row.gpa === 'F' ? (isAgri ? 0.00 : 'F') : (row.gpa == null ? null : parseFloat(row.gpa));
+            }
+          } else {
+            const comps = subjectInfo.components;
+            if (comps.TOTAL) row.originalRow[comps.TOTAL] = row.total || 0;
+            if (comps.GPA) row.originalRow[comps.GPA] = row.gpa === 'F' ? (isAgri ? 0.00 : 'F') : (row.gpa === null ? null : parseFloat(row.gpa));
+            if (comps.GRADE) row.originalRow[comps.GRADE] = row.grade || '';
+          }
+          
+          // Update row status
+          const rowStatus = document.getElementById(`row_status_${i}`);
+          if (rowStatus) {
+            rowStatus.textContent = 'Updated';
+            rowStatus.className = 'row-status ok';
+          }
+        }
+        
+        showStatus(`✅ Bulk update completed: ${updates.length} rows updated successfully!`, 'ok');
+        
+        // Refresh button colors after bulk save
+        for (let i = 0; i < currentData.length; i++) updateButtonColor(i);
+        
+      } catch (error) {
+        showStatus('Error updating database: ' + error.message, 'err');
+      }
+    }
+
+    function hasLocalChanges(rowIdx){
+      const row = currentData[rowIdx];
+      if(!row) return false;
+      // Database value interpreted from originalRow
+      const subjectInfo = subjectColumns.get(currentSubject);
+      if (!subjectInfo) return false;
+      if (subjectInfo.type === 'combined') {
+        // For combined, compare calculated gpa with database value from 1st Paper column
+        const firstPaper = subjectInfo.subjects.find(s => /1st/i.test(s.base)) || subjectInfo.subjects[0];
+        if (!firstPaper || !firstPaper.components.GPA) return false;
+        const dbGpaVal = row.originalRow[firstPaper.components.GPA];
+        const dbGpa = (dbGpaVal === 'F') ? 'F' : (dbGpaVal == null ? null : parseFloat(dbGpaVal));
+        const calcGpa = (row.gpa === 'F') ? 'F' : (row.gpa == null ? null : parseFloat(row.gpa));
+        if (calcGpa === 'F' || dbGpa === 'F') return calcGpa !== dbGpa;
+        if (calcGpa == null && dbGpa == null) return false;
+        if (calcGpa == null || dbGpa == null) return true;
+        return Math.abs(calcGpa - dbGpa) > 0.001;
+      } else {
+        const comps = subjectInfo.components || {};
+        const dbGpaVal = comps.GPA ? row.originalRow[comps.GPA] : null;
+        const dbGpa = (dbGpaVal === 'F') ? 'F' : (dbGpaVal == null ? null : parseFloat(dbGpaVal));
+        const calcGpa = (row.gpa === 'F') ? 'F' : (row.gpa == null ? null : parseFloat(row.gpa));
+        // Compare with precision
+        if (calcGpa === 'F' || dbGpa === 'F') return calcGpa !== dbGpa;
+        if (calcGpa == null && dbGpa == null) return false;
+        if (calcGpa == null || dbGpa == null) return true;
+        return Math.abs(calcGpa - dbGpa) > 0.001;
+      }
+    }
+
+    function updateButtonColor(rowIdx){
+      const btn = document.getElementById(`update_btn_${rowIdx}`);
+      if(!btn) return;
+      if (hasLocalChanges(rowIdx)){
+        // Orange for needs update
+        btn.className = 'warning';
+      } else {
+        // Blue (default accent) when in sync
+        btn.className = '';
+      }
+    }
+
+    async function updateRow(rowIdx){
+      const row = currentData[rowIdx];
+      if(!row){ alert('Row not found'); return; }
+      const subjectInfo = subjectColumns.get(currentSubject);
+      if(!subjectInfo){ alert('Subject info missing'); return; }
+      try{
+        const statusEl = document.getElementById(`row_status_${rowIdx}`);
+        if (statusEl){ statusEl.textContent = 'Updating...'; statusEl.className = 'row-status pending'; }
+        const updateData = {};
+        if (subjectInfo.type === 'combined'){
+          // Update only 1st Paper GPA column for combined subjects (Bangla/English)
+          const firstPaper = subjectInfo.subjects.find(s => /1st/i.test(s.base)) || subjectInfo.subjects[0];
+          if (firstPaper && firstPaper.components.GPA){
+            const isAgri = (currentSubject || '').toLowerCase().includes('agriculture');
+            const val = (row.gpa === 'F') ? (isAgri ? 0.00 : 'F') : (row.gpa == null ? null : parseFloat(row.gpa));
+            updateData[firstPaper.components.GPA] = val;
+          }
+        } else {
+          const comps = subjectInfo.components;
+          if (comps.TOTAL) updateData[comps.TOTAL] = row.total || 0;
+          if (comps.GRADE) updateData[comps.GRADE] = row.grade || '';
+          if (comps.GPA) updateData[comps.GPA] = row.gpa === 'F' ? 'F' : (row.gpa == null ? null : parseFloat(row.gpa));
+        }
+        if(Object.keys(updateData).length === 0){ showStatus('Nothing to update for this row', 'err'); return; }
+
+        const { error } = await supabase
+          .from(TABLE_NAME)
+          .update(updateData)
+          .eq(meta.iidCol || 'iid', row.iid);
+        if(error) throw error;
+
+  // Sync originalRow with saved values to reset button color
+        if (subjectInfo.type === 'combined'){
+          // For combined subjects, save only to 1st Paper GPA column
+          // Find 1st Paper entry among the pair (prefers name containing '1st')
+          const firstPaper = subjectInfo.subjects.find(s => /1st/i.test(s.base)) || subjectInfo.subjects[0];
+          if (firstPaper && firstPaper.components.GPA){
+            const isAgri = (currentSubject || '').toLowerCase().includes('agriculture');
+            row.originalRow[firstPaper.components.GPA] = row.gpa === 'F' ? (isAgri ? 0.00 : 'F') : (row.gpa == null ? null : parseFloat(row.gpa));
+          }
+        } else {
+          const comps = subjectInfo.components;
+          if (comps.TOTAL) row.originalRow[comps.TOTAL] = updateData[comps.TOTAL];
+          if (comps.GPA) row.originalRow[comps.GPA] = updateData[comps.GPA];
+          if (comps.GRADE) row.originalRow[comps.GRADE] = updateData[comps.GRADE];
+        }
+        updateButtonColor(rowIdx);
+        showStatus('Row updated successfully', 'ok');
+        if (statusEl){ statusEl.textContent = 'Updated'; statusEl.className = 'row-status ok'; }
+      }catch(e){
+        console.error(e);
+        showStatus('Error updating row: ' + e.message, 'err');
+        const statusEl = document.getElementById(`row_status_${rowIdx}`);
+        if (statusEl){ statusEl.textContent = 'Failed'; statusEl.className = 'row-status err'; }
+      }
+    }
+
+    // Expose for inline button onclick
+    window.updateRow = updateRow;
+
+    function showStatus(message, type = '') {
+      statusMsg.textContent = message;
+      statusMsg.className = `status ${type}`;
+      if (type === 'ok' || type === 'err') {
+        setTimeout(() => {
+          statusMsg.textContent = '';
+          statusMsg.className = 'status';
+        }, 5000);
+      }
+    }
+
+    // Initialize the application
+    init();
+  </script>
+</body>
+</html>

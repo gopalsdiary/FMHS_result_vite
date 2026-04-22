@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Result Report - Annual 2025</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .screen-controls {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            min-width: 100px;
+        }
+
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #0366d6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #024c9e;
+        }
+
+        .btn-success {
+            background: #1a7f37;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #0f5132;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 16px;
+            color: #666;
+        }
+
+        /* Print Styles */
+        @media print {
+            @page {
+                size: legal landscape;
+                margin: 7.62mm; /* 0.3 inches */
+            }
+
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .screen-controls {
+                display: none !important;
+            }
+
+            .page-break {
+                page-break-after: always;
+            }
+
+            .print-page:last-child .page-break {
+                page-break-after: avoid;
+            }
+        }
+
+        /* Print Page Styles */
+        .print-page {
+            background: white;
+            padding: 5mm;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            min-height: 200mm; /* Legal height minus margins */
+            width: 340mm; /* Legal width minus margins */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media print {
+            .print-page {
+                margin-bottom: 0;
+                box-shadow: none;
+                padding: 0;
+                min-height: auto;
+                width: 100%;
+            }
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 8px;
+        }
+
+        .page-header h1 {
+            font-size: 20px;
+            margin-bottom: 3px;
+            color: #333;
+        }
+
+        .page-header h2 {
+            font-size: 16px;
+            margin-bottom: 3px;
+            color: #555;
+        }
+
+        .page-header .info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 10px;
+        }
+
+        .result-table th,
+        .result-table td {
+            border: 1px solid #333;
+            padding: 4px 6px;
+            text-align: center;
+            line-height: 2;
+        }
+
+        .result-table th {
+            background: #f0f0f0;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .result-table td {
+            font-size: 10px;
+        }
+
+        .result-table td.text-left {
+            text-align: left;
+        }
+
+        .result-table td.text-right {
+            text-align: right;
+        }
+
+        .result-table tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .fail-mark {
+            background: #ffcdd2 !important;
+            color: #c62828 !important;
+            font-weight: bold;
+        }
+
+        .subject-header {
+            background: #e0e0e0 !important;
+            font-weight: 700;
+        }
+
+        .page-footer {
+            margin-top: 15px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+            font-size: 9px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-section {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-box {
+            text-align: center;
+            border-top: 1px solid #333;
+            padding-top: 5px;
+            width: 120px;
+            font-size: 10px;
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            font-size: 16px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <!-- Screen Controls -->
+    <div class="screen-controls">
+        <h2>Result Report Generator - Annual 2025 (Legal Page)</h2>
+        
+        <div class="control-group">
+            <label for="classSelect">Class:</label>
+            <select id="classSelect">
+                <option value="">Select Class</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="sectionSelect">Section:</label>
+            <select id="sectionSelect">
+                <option value="">Select Section</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="sortByRank"> Sort by Rank (instead of Roll)
+            </label>
+        </div>
+
+        <div class="control-group">
+            <button onclick="loadResults()" class="btn btn-primary">📊 Generate Report</button>
+            <button onclick="window.print()" class="btn btn-success">🖨️ Print Report</button>
+        </div>
+
+        <div id="statusMessage"></div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingDiv" class="loading" style="display: none;">
+        Loading results...
+    </div>
+
+    <!-- Print Pages Container -->
+    <div id="printContainer"></div>
+
+    <script>
+        // Supabase configuration
+        const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        const TABLE = 'exam_ann25';
+
+        // Load class and section options
+        async function loadClassesAndSections() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from(TABLE)
+                    .select('class_2025, section_2025');
+
+                if (error) throw error;
+
+                // Get unique classes and sections
+                const classes = [...new Set(data.map(d => d.class_2025))].filter(Boolean).sort((a, b) => a - b);
+                const sections = [...new Set(data.map(d => d.section_2025))].filter(Boolean).sort();
+
+                // Populate class dropdown
+                const classSelect = document.getElementById('classSelect');
+                classes.forEach(cls => {
+                    const option = document.createElement('option');
+                    option.value = cls;
+                    option.textContent = `Class ${cls}`;
+                    classSelect.appendChild(option);
+                });
+
+                // Populate section dropdown
+                const sectionSelect = document.getElementById('sectionSelect');
+                sections.forEach(sec => {
+                    const option = document.createElement('option');
+                    option.value = sec;
+                    option.textContent = sec;
+                    sectionSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error loading filters:', error);
+                showStatus('Error loading class/section options', 'error');
+            }
+        }
+
+        // Load and display results
+        async function loadResults() {
+            const classValue = document.getElementById('classSelect').value;
+            const sectionValue = document.getElementById('sectionSelect').value;
+
+            if (!classValue || !sectionValue) {
+                showStatus('Please select both class and section', 'error');
+                return;
+            }
+
+            const loadingDiv = document.getElementById('loadingDiv');
+            const printContainer = document.getElementById('printContainer');
+
+            loadingDiv.style.display = 'block';
+            printContainer.innerHTML = '';
+            showStatus('');
+
+            try {
+                // Check if sort by rank is selected
+                const sortByRank = document.getElementById('sortByRank').checked;
+                
+                // Fetch student data
+                let query = supabaseClient
+                    .from(TABLE)
+                    .select('*')
+                    .eq('class_2025', classValue)
+                    .eq('section_2025', sectionValue);
+                
+                // Apply sorting based on checkbox
+                if (sortByRank) {
+                    query = query.order('class_rank', { ascending: true });
+                } else {
+                    query = query.order('roll_2025', { ascending: true });
+                }
+                
+                const { data, error } = await query;
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    printContainer.innerHTML = '<div class="no-data">No students found for selected class and section.</div>';
+                    loadingDiv.style.display = 'none';
+                    return;
+                }
+
+                // Detect subjects from first student
+                const subjects = detectSubjects(data[0]);
+
+                // Generate print pages
+                generatePrintPages(data, subjects, classValue, sectionValue);
+
+                loadingDiv.style.display = 'none';
+                showStatus(`Report generated for ${data.length} students`, 'success');
+
+            } catch (error) {
+                console.error('Error loading results:', error);
+                loadingDiv.style.display = 'none';
+                showStatus('Error loading results: ' + error.message, 'error');
+            }
+        }
+
+        // Detect subjects from student data
+        function detectSubjects(student) {
+            const keys = Object.keys(student);
+            const subjectMap = {};
+
+            // Find subject patterns (with asterisk and various formats)
+            keys.forEach(key => {
+                // Match patterns like "*Bangla 1st Paper_CQ", "*English 1st Paper _Total", etc.
+                const match = key.match(/^\*?(.+?)_(CQ|MCQ|Practical|Total|GPA)$/i);
+                if (match) {
+                    const subjectName = match[1].trim();
+                    const component = match[2].toUpperCase();
+                    
+                    if (!subjectMap[subjectName]) {
+                        subjectMap[subjectName] = {
+                            name: subjectName,
+                            hasCQ: false,
+                            hasMCQ: false,
+                            hasPractical: false
+                        };
+                    }
+                    
+                    if (component === 'CQ') subjectMap[subjectName].hasCQ = true;
+                    if (component === 'MCQ') subjectMap[subjectName].hasMCQ = true;
+                    if (component === 'PRACTICAL') subjectMap[subjectName].hasPractical = true;
+                }
+            });
+
+            // Return sorted subject info
+            return Object.values(subjectMap).sort((a, b) => a.name.localeCompare(b.name));
+        }
+
+        // Generate print pages
+        function generatePrintPages(students, subjects, classValue, sectionValue) {
+            const printContainer = document.getElementById('printContainer');
+            const studentsPerPage = 15; // Adjusted to 15 students per page for larger cells
+
+            // Split students into pages
+            for (let i = 0; i < students.length; i += studentsPerPage) {
+                const pageStudents = students.slice(i, i + studentsPerPage);
+                const pageNumber = Math.floor(i / studentsPerPage) + 1;
+                const totalPages = Math.ceil(students.length / studentsPerPage);
+
+                const pageHTML = generatePageHTML(pageStudents, subjects, classValue, sectionValue, pageNumber, totalPages);
+                printContainer.innerHTML += pageHTML;
+            }
+        }
+
+        // Generate HTML for a single page
+        function generatePageHTML(students, subjects, classValue, sectionValue, pageNumber, totalPages) {
+            let html = `
+                <div class="print-page">
+                    <div class="page-header">
+                        <h1>Feni Model High School</h1>
+                        <h2>Annual Examination 2025</h2>
+                        <div class="info">
+                            <strong>Class:</strong> ${classValue} | <strong>Section:</strong> ${sectionValue}
+                        </div>
+                    </div>
+
+                    <table class="result-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Roll</th>
+                                <th rowspan="2">Student Name</th>
+            `;
+
+            // Add subject headers
+            subjects.forEach(subject => {
+                let colspan = 0;
+                if (subject.hasCQ) colspan++;
+                if (subject.hasMCQ) colspan++;
+                if (subject.hasPractical) colspan++;
+                colspan++; // Always include Total
+                
+                html += `<th colspan="${colspan}">${subject.name}</th>`;
+            });
+
+            html += `
+                                <th rowspan="2">Total</th>
+                                <th rowspan="2">GPA</th>
+                                <th rowspan="2">Rank</th>
+                                <th rowspan="2">Remarks</th>
+                            </tr>
+                            <tr>
+            `;
+
+            // Add component headers for each subject
+            subjects.forEach(subject => {
+                if (subject.hasCQ) html += `<th>CQ</th>`;
+                if (subject.hasMCQ) html += `<th>MCQ</th>`;
+                if (subject.hasPractical) html += `<th>Prac</th>`;
+                html += `<th>Total</th>`;
+            });
+
+            html += `
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            // Add student rows
+            students.forEach(student => {
+                html += `
+                    <tr>
+                        <td>${student.roll_2025 || ''}</td>
+                        <td class="text-left">${student.student_name_en || ''}</td>
+                `;
+
+                // Add marks for each subject
+                subjects.forEach(subject => {
+                    const subjectName = subject.name;
+                    
+                    // Try with and without asterisk prefix
+                    const cq = student[`*${subjectName}_CQ`] || student[`${subjectName}_CQ`] || '';
+                    const mcq = student[`*${subjectName}_MCQ`] || student[`${subjectName}_MCQ`] || '';
+                    const practical = student[`*${subjectName}_Practical`] || student[`${subjectName}_Practical`] || '';
+                    const total = student[`*${subjectName}_Total`] || student[`${subjectName}_Total`] || '';
+                    const gpa = student[`*${subjectName}_GPA`] || student[`${subjectName}_GPA`] || '';
+                    
+                    // Check if subject has F grade
+                    const isFail = gpa && gpa.toString().toUpperCase() === 'F';
+                    const failClass = isFail ? ' class="fail-mark"' : '';
+
+                    if (subject.hasCQ) html += `<td${failClass}>${cq}</td>`;
+                    if (subject.hasMCQ) html += `<td${failClass}>${mcq}</td>`;
+                    if (subject.hasPractical) html += `<td${failClass}>${practical}</td>`;
+                    html += `<td><strong>${total}</strong></td>`;
+                });
+
+                // Build remark display with count_absent
+                let remarkDisplay = student.remark || '';
+                const countAbsent = student.count_absent || 0;
+                
+                if (countAbsent > 0) {
+                    // Add absent info to remark
+                    const absText = `Abs: ${countAbsent}`;
+                    if (remarkDisplay && remarkDisplay.trim() !== '') {
+                        remarkDisplay = remarkDisplay + ', ' + absText;
+                    } else {
+                        remarkDisplay = absText;
+                    }
+                }
+
+                html += `
+                        <td><strong>${student.total_mark || ''}</strong></td>
+                        <td><strong>${student.gpa_final || ''}</strong></td>
+                        <td>${student.class_rank || ''}</td>
+                        <td class="text-left">${remarkDisplay}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+
+                    <div class="signature-section">
+                        <div class="signature-box">Class Teacher</div>
+                        <div class="signature-box">Head Teacher</div>
+                    </div>
+
+                    <div class="page-footer">
+                        <div>Generated on: ${new Date().toLocaleDateString()}</div>
+                        <div>Page ${pageNumber} of ${totalPages}</div>
+                    </div>
+                </div>
+                <div class="page-break"></div>
+            `;
+
+            return html;
+        }
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            if (!message) {
+                statusDiv.innerHTML = '';
+                return;
+            }
+
+            const className = type === 'error' ? 'error-message' : 'loading';
+            statusDiv.innerHTML = `<div class="${className}">${message}</div>`;
+        }
+
+        // Initialize
+        loadClassesAndSections();
+    </script>
+</body>
+</html>

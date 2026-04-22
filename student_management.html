@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Student Management</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Segoe UI,Arial,sans-serif;background:#f5f7fb;color:#333}
+    .header{background:#1976d2;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+    .back-btn{color:#fff;text-decoration:none;padding:6px 12px;background:rgba(255,255,255,0.2);border-radius:4px}
+    .container{max-width:1400px;margin:0 auto;padding:20px}
+    .section{background:#fff;margin-bottom:20px;padding:20px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    .section-title{font-size:1.3em;margin-bottom:16px;color:#1976d2;border-bottom:2px solid #e3f2fd;padding-bottom:8px;display:flex;align-items:center}
+    .section-title .icon{margin-right:8px}
+    
+    .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px;padding:16px;background:#f8f9fa;border-radius:8px}
+    .filter-group{display:flex;flex-direction:column}
+    .filter-label{font-weight:500;margin-bottom:6px;color:#555}
+    .filter-select{padding:8px;border:1px solid #ddd;border-radius:4px;background:#fff}
+    .filter-input{padding:8px;border:1px solid #ddd;border-radius:4px}
+    .filter-btn{padding:8px 16px;background:#1976d2;color:#fff;border:0;border-radius:4px;cursor:pointer;align-self:flex-end}
+    
+    .stats-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px}
+    .stats-card{background:linear-gradient(135deg,#1976d2,#42a5f5);color:#fff;padding:16px;border-radius:8px;text-align:center}
+    .stats-number{font-size:1.6em;font-weight:bold}
+    .stats-label{font-size:0.9em;margin-top:4px;opacity:0.9}
+    
+    .table-container{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    .table-header{background:#f8f9fa;padding:16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center}
+    .search-box{padding:8px;border:1px solid #ddd;border-radius:4px;width:300px}
+    .export-btn{padding:8px 16px;background:#388e3c;color:#fff;border:0;border-radius:4px;cursor:pointer;margin-left:8px}
+    
+    .data-table{width:100%;border-collapse:collapse}
+    .data-table th,.data-table td{padding:12px;text-align:left;border-bottom:1px solid #eee}
+    .data-table th{background:#f8f9fa;font-weight:600;position:sticky;top:0;z-index:10}
+    .data-table tbody tr:hover{background:#f5f5f5}
+    
+    .table-scroll{max-height:800px;overflow-y:auto}
+    .loading{text-align:center;padding:40px;color:#666}
+    .error{text-align:center;padding:40px;color:#d32f2f;background:#ffebee;border-radius:8px}
+    
+    .student-actions{display:flex;gap:8px}
+    .action-btn{padding:4px 8px;border:0;border-radius:3px;cursor:pointer;font-size:0.85em}
+    .btn-view{background:#2196f3;color:#fff}
+    .btn-edit{background:#ff9800;color:#fff}
+    .btn-delete{background:#f44336;color:#fff}
+    
+    @media(max-width:768px){
+      .container{padding:10px}
+      .filters{grid-template-columns:1fr}
+      .search-box{width:100%;margin-bottom:8px}
+      .data-table{font-size:0.9em}
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <a href="result_dashboard.html" class="back-btn">← Dashboard</a>
+      <span style="margin-left:16px;font-size:1.2em;font-weight:600">Student Management</span>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button id="openAddModalBtn" class="back-btn" style="background:#28a745">➕ Add Student</button>
+      <div id="userInfo">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Modal for add student -->
+  <div id="addStudentModal" style="display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;padding:18px;border-radius:8px;min-width:320px;max-width:720px;margin:20px;position:relative">
+      <button id="closeAddModal" style="position:absolute;right:12px;top:12px;border:0;background:transparent;font-size:18px;cursor:pointer">✖</button>
+      <h3 style="margin:0 0 12px 0">নতুন স্টুডেন্ট যোগ করুন</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+        <div>
+          <label style="font-weight:600">IID</label>
+          <input id="modalIID" class="filter-input" placeholder="IID">
+        </div>
+        <div>
+          <label style="font-weight:600">Class</label>
+          <input id="modalClass" class="filter-input" placeholder="Class">
+        </div>
+        <div>
+          <label style="font-weight:600">Section</label>
+          <input id="modalSection" class="filter-input" placeholder="Section">
+        </div>
+        <div>
+          <label style="font-weight:600">Roll</label>
+          <input id="modalRoll" class="filter-input" placeholder="Roll">
+        </div>
+        <div>
+          <label style="font-weight:600">Student Name</label>
+          <input id="modalName" class="filter-input" placeholder="Student name">
+        </div>
+        <div>
+          <label style="font-weight:600">Father's Name</label>
+          <input id="modalFather" class="filter-input" placeholder="Father's name">
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button id="modalAddBtn" class="filter-btn">➕ Add</button>
+        <button id="modalCancelBtn" class="filter-btn" style="background:#6c757d">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for edit student -->
+  <div id="editStudentModal" style="display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:9999">
+    <div style="background:#fff;padding:18px;border-radius:8px;min-width:320px;max-width:720px;margin:20px;position:relative">
+      <button id="closeEditModal" style="position:absolute;right:12px;top:12px;border:0;background:transparent;font-size:18px;cursor:pointer">✖</button>
+      <h3 style="margin:0 0 12px 0">স্টুডেন্ট সম্পাদনা করুন</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+        <div>
+          <label style="font-weight:600">IID</label>
+          <input id="editModalIID" class="filter-input" placeholder="IID" readonly style="background:#f5f5f5;cursor:not-allowed">
+        </div>
+        <div>
+          <label style="font-weight:600">Class</label>
+          <input id="editModalClass" class="filter-input" placeholder="Class">
+        </div>
+        <div>
+          <label style="font-weight:600">Section</label>
+          <input id="editModalSection" class="filter-input" placeholder="Section">
+        </div>
+        <div>
+          <label style="font-weight:600">Roll</label>
+          <input id="editModalRoll" class="filter-input" placeholder="Roll">
+        </div>
+        <div>
+          <label style="font-weight:600">Student Name</label>
+          <input id="editModalName" class="filter-input" placeholder="Student name">
+        </div>
+        <div>
+          <label style="font-weight:600">Father's Name</label>
+          <input id="editModalFather" class="filter-input" placeholder="Father's name">
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button id="modalEditBtn" class="filter-btn" style="background:#ff9800">💾 Save</button>
+        <button id="modalEditCancelBtn" class="filter-btn" style="background:#6c757d">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Statistics Cards -->
+    <div class="stats-cards">
+      <div class="stats-card">
+        <div class="stats-number" id="totalStudents">0</div>
+        <div class="stats-label">Total Students</div>
+      </div>
+      <div class="stats-card">
+        <div class="stats-number" id="totalClasses">0</div>
+        <div class="stats-label">Classes</div>
+      </div>
+      <div class="stats-card">
+        <div class="stats-number" id="totalSections">0</div>
+        <div class="stats-label">Sections</div>
+      </div>
+      <div class="stats-card">
+        <div class="stats-number" id="filteredCount">0</div>
+        <div class="stats-label">Filtered Results</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon">🔍</span>Filters & Search
+      </div>
+      <div class="filters">
+        <div class="filter-group">
+          <label class="filter-label">Class</label>
+          <select id="classFilter" class="filter-select" onchange="applyFilters()">
+            <option value="">All Classes</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Section</label>
+          <select id="sectionFilter" class="filter-select" onchange="applyFilters()">
+            <option value="">All Sections</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Search by Name/Roll</label>
+          <input type="text" id="searchInput" class="filter-input" placeholder="Student name or roll..." onkeyup="applyFilters()">
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">&nbsp;</label>
+          <button class="filter-btn" onclick="applyFilters()">Apply Filters</button>
+        </div>
+      </div>
+    </div>
+
+    
+
+    <!-- Student Data Table -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon">👥</span>Student Database
+      </div>
+      
+      <div class="table-container">
+        <div class="table-header">
+          <div>
+            <strong>Student Records</strong>
+            <span id="recordCount" style="margin-left:12px;color:#666">(0 records)</span>
+          </div>
+          <div>
+            <input type="text" id="quickSearch" class="search-box" placeholder="Quick search..." onkeyup="quickSearch()">
+            <button class="export-btn" onclick="exportData()">📤 Export CSV</button>
+          </div>
+        </div>
+        
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>IID</th>
+                <th>Class</th>
+                <th>Section</th>
+                <th>Roll</th>
+                <th>Student Name</th>
+                <th>Father's Name</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody">
+              <tr>
+                <td colspan="7" class="loading">Loading students...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    let allStudents = []
+    let filteredStudents = []
+    const itemsPerPage = 100
+
+    // Auth check
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('Please sign in first')
+        window.location.href = 'login.html'
+        return false
+      }
+      document.getElementById('userInfo').textContent = user.email
+      return true
+    }
+
+    // Load all students from Supabase
+    async function loadStudents() {
+      try {
+        const { data, error } = await supabase
+          .from('exam_ann25')
+          .select('iid, class_2025, section_2025, roll_2025, student_name_en, father_name_en')
+          .order('class_2025, section_2025, roll_2025')
+
+        if (error) throw error
+
+        allStudents = data || []
+        filteredStudents = [...allStudents]
+        
+        updateStatistics()
+        populateFilters()
+        displayStudents()
+        
+      } catch (error) {
+        console.error('Error loading students:', error)
+        document.getElementById('studentTableBody').innerHTML = `
+          <tr><td colspan="7" class="error">Error loading students: ${error.message}</td></tr>
+        `
+      }
+    }
+
+    // Update statistics
+    function updateStatistics() {
+      const classes = [...new Set(allStudents.map(s => s.class_2025).filter(Boolean))]
+      const sections = [...new Set(allStudents.map(s => s.section_2025).filter(s => s !== null))]
+      
+      document.getElementById('totalStudents').textContent = allStudents.length
+      document.getElementById('totalClasses').textContent = classes.length
+      document.getElementById('totalSections').textContent = sections.length
+      document.getElementById('filteredCount').textContent = filteredStudents.length
+    }
+
+    // Populate filter dropdowns
+    function populateFilters() {
+      const classFilter = document.getElementById('classFilter')
+      const sectionFilter = document.getElementById('sectionFilter')
+      
+      // Populate classes
+      const classes = [...new Set(allStudents.map(s => s.class_2025).filter(Boolean))].sort()
+      classFilter.innerHTML = '<option value="">All Classes</option>'
+      classes.forEach(cls => {
+        classFilter.innerHTML += `<option value="${cls}">${cls}</option>`
+      })
+      
+      // Populate sections
+      const sections = [...new Set(allStudents.map(s => s.section_2025).filter(s => s !== null && s !== undefined))].sort((a, b) => a - b)
+      sectionFilter.innerHTML = '<option value="">All Sections</option>'
+      sections.forEach(sec => {
+        sectionFilter.innerHTML += `<option value="${sec}">${sec}</option>`
+      })
+    }
+
+    // Apply filters
+    window.applyFilters = function() {
+      const classFilter = document.getElementById('classFilter').value
+      const sectionFilter = document.getElementById('sectionFilter').value
+      const searchInput = document.getElementById('searchInput').value.toLowerCase()
+      
+      filteredStudents = allStudents.filter(student => {
+        const matchClass = !classFilter || student.class_2025 === classFilter
+        const matchSection = !sectionFilter || student.section_2025 == sectionFilter || student.section_2025 === parseInt(sectionFilter)
+        const matchSearch = !searchInput || 
+          (student.student_name_en && student.student_name_en.toLowerCase().includes(searchInput)) ||
+          (student.roll_2025 && student.roll_2025.toString().includes(searchInput))
+        
+        return matchClass && matchSection && matchSearch
+      })
+      
+      updateStatistics()
+      displayStudents()
+    }
+
+    // Quick search
+    window.quickSearch = function() {
+      const searchTerm = document.getElementById('quickSearch').value.toLowerCase()
+      
+      if (!searchTerm) {
+        filteredStudents = [...allStudents]
+      } else {
+        filteredStudents = allStudents.filter(student => 
+          (student.student_name_en && student.student_name_en.toLowerCase().includes(searchTerm)) ||
+          (student.father_name_en && student.father_name_en.toLowerCase().includes(searchTerm)) ||
+          (student.roll_2025 && student.roll_2025.toString().includes(searchTerm)) ||
+          (student.iid && student.iid.toString().includes(searchTerm))
+        )
+      }
+      
+      updateStatistics()
+      displayStudents()
+    }
+
+    // Display all students (no pagination)
+    function displayStudents() {
+      const tableBody = document.getElementById('studentTableBody')
+      
+      if (filteredStudents.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="loading">No students found</td></tr>'
+        document.getElementById('recordCount').textContent = '(0 records)'
+        return
+      }
+      
+      tableBody.innerHTML = filteredStudents.map(student => `
+        <tr>
+          <td>${student.iid || ''}</td>
+          <td>${student.class_2025 || ''}</td>
+          <td>${student.section_2025 || ''}</td>
+          <td>${student.roll_2025 || ''}</td>
+          <td>${student.student_name_en || ''}</td>
+          <td>${student.father_name_en || ''}</td>
+          <td class="student-actions">
+            <button class="action-btn btn-view" onclick="viewStudent(${student.iid})">👁️</button>
+            <button class="action-btn btn-edit" onclick="editStudent(${student.iid})">✏️</button>
+            <button class="action-btn btn-delete" onclick="deleteStudent(${student.iid})">🗑️</button>
+          </td>
+        </tr>
+      `).join('')
+      
+      document.getElementById('recordCount').textContent = `(${filteredStudents.length} records)`
+    }
+
+    // Display pagination
+    function displayPagination() {
+      const totalPages = Math.ceil(filteredStudents.length / itemsPerPage)
+      const pagination = document.getElementById('pagination')
+      
+      if (totalPages <= 1) {
+        pagination.innerHTML = ''
+        return
+      }
+      
+      let paginationHTML = ''
+      
+      // Previous button
+      if (currentPage > 1) {
+        paginationHTML += `<button class="page-btn" onclick="changePage(${currentPage - 1})">« Previous</button>`
+      }
+      
+      // Page numbers
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === currentPage) {
+          paginationHTML += `<button class="page-btn active">${i}</button>`
+        } else if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 2) {
+          paginationHTML += `<button class="page-btn" onclick="changePage(${i})">${i}</button>`
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+          paginationHTML += '<span>...</span>'
+        }
+      }
+      
+      // Next button
+      if (currentPage < totalPages) {
+        paginationHTML += `<button class="page-btn" onclick="changePage(${currentPage + 1})">Next »</button>`
+      }
+      
+      pagination.innerHTML = paginationHTML
+    }
+
+    // Change page
+    window.changePage = function(page) {
+      currentPage = page
+      displayStudents()
+    }
+
+    // Student actions
+    window.viewStudent = function(iid) {
+      const student = allStudents.find(s => s.iid === iid)
+      if (student) {
+        alert(`Student Details:\n\nIID: ${student.iid}\nName: ${student.student_name_en}\nFather: ${student.father_name_en}\nClass: ${student.class_2025}\nSection: ${student.section_2025}\nRoll: ${student.roll_2025}`)
+      }
+    }
+
+    window.editStudent = function(iid) {
+      const student = allStudents.find(s => s.iid === iid)
+      if (!student) {
+        alert('Student not found')
+        return
+      }
+      
+      // Fill edit modal with current data
+      document.getElementById('editModalIID').value = student.iid || ''
+      document.getElementById('editModalClass').value = student.class_2025 || ''
+      document.getElementById('editModalSection').value = student.section_2025 || ''
+      document.getElementById('editModalRoll').value = student.roll_2025 || ''
+      document.getElementById('editModalName').value = student.student_name_en || ''
+      document.getElementById('editModalFather').value = student.father_name_en || ''
+      
+      // Show edit modal
+      document.getElementById('editStudentModal').style.display = 'flex'
+      // Store current IID for reference during update
+      document.getElementById('editStudentModal').dataset.iid = iid
+    }
+
+    window.deleteStudent = async function(iid) {
+      const student = allStudents.find(s => s.iid === iid)
+      if (!student) {
+        alert('Student not found')
+        return
+      }
+
+      const confirmDelete = confirm(`আপনি নিশ্চিত? স্টুডেন্ট ডিলিট করতে চান?\n\nName: ${student.student_name_en}\nIID: ${student.iid}`)
+      if (!confirmDelete) return
+
+      try {
+        const { error } = await supabase
+          .from('exam_ann25')
+          .delete()
+          .eq('iid', iid)
+
+        if (error) throw error
+
+        alert('Student deleted successfully')
+        await loadStudents()
+      } catch (err) {
+        console.error('Delete error:', err)
+        alert('Error deleting student: ' + (err.message || err))
+      }
+    }
+
+    // Modal wiring
+    document.addEventListener('DOMContentLoaded', () => {
+      const openBtn = document.getElementById('openAddModalBtn')
+      const modal = document.getElementById('addStudentModal')
+      const closeBtn = document.getElementById('closeAddModal')
+      const cancelBtn = document.getElementById('modalCancelBtn')
+      const addBtn = document.getElementById('modalAddBtn')
+
+      if (openBtn) openBtn.addEventListener('click', () => {
+        modal.style.display = 'flex'
+        // focus first field
+        setTimeout(() => document.getElementById('modalIID').focus(), 100)
+      })
+
+      if (closeBtn) closeBtn.addEventListener('click', () => modal.style.display = 'none')
+      if (cancelBtn) cancelBtn.addEventListener('click', () => modal.style.display = 'none')
+
+      if (addBtn) addBtn.addEventListener('click', async () => {
+        const iid = document.getElementById('modalIID').value.trim()
+        const cls = document.getElementById('modalClass').value.trim()
+        const sec = document.getElementById('modalSection').value.trim()
+        const roll = document.getElementById('modalRoll').value.trim()
+        const name = document.getElementById('modalName').value.trim()
+        const father = document.getElementById('modalFather').value.trim()
+
+        if (!iid || !name) {
+          alert('IID and Student Name are required')
+          return
+        }
+
+        try {
+          const payload = {
+            iid: iid,
+            class_2025: cls || null,
+            section_2025: sec || null,
+            roll_2025: roll ? Number(roll) : null,
+            student_name_en: name,
+            father_name_en: father || null
+          }
+
+          const { data, error } = await supabase.from('exam_ann25').insert([payload])
+          if (error) throw error
+
+          await loadStudents()
+          modal.style.display = 'none'
+          alert('Student added')
+        } catch (err) {
+          console.error('Modal add error:', err)
+          alert('Error adding student: ' + (err.message || err))
+        }
+      })
+
+      // Edit modal wiring
+      const editModal = document.getElementById('editStudentModal')
+      const closeEditBtn = document.getElementById('closeEditModal')
+      const editCancelBtn = document.getElementById('modalEditCancelBtn')
+      const editBtn = document.getElementById('modalEditBtn')
+
+      if (closeEditBtn) closeEditBtn.addEventListener('click', () => editModal.style.display = 'none')
+      if (editCancelBtn) editCancelBtn.addEventListener('click', () => editModal.style.display = 'none')
+
+      if (editBtn) editBtn.addEventListener('click', async () => {
+        const iid = document.getElementById('editStudentModal').dataset.iid
+        const cls = document.getElementById('editModalClass').value.trim()
+        const sec = document.getElementById('editModalSection').value.trim()
+        const roll = document.getElementById('editModalRoll').value.trim()
+        const name = document.getElementById('editModalName').value.trim()
+        const father = document.getElementById('editModalFather').value.trim()
+
+        if (!name) {
+          alert('Student Name is required')
+          return
+        }
+
+        try {
+          const updateData = {
+            class_2025: cls || null,
+            section_2025: sec || null,
+            roll_2025: roll ? Number(roll) : null,
+            student_name_en: name,
+            father_name_en: father || null
+          }
+
+          const { error } = await supabase
+            .from('exam_ann25')
+            .update(updateData)
+            .eq('iid', iid)
+
+          if (error) throw error
+
+          await loadStudents()
+          editModal.style.display = 'none'
+          alert('Student updated successfully')
+        } catch (err) {
+          console.error('Modal edit error:', err)
+          alert('Error updating student: ' + (err.message || err))
+        }
+      })
+    })
+
+    // Export data
+    async function addStudent() {
+      const iid = document.getElementById('newIID').value.trim()
+      const cls = document.getElementById('newClass').value.trim()
+      const sec = document.getElementById('newSection').value.trim()
+      const roll = document.getElementById('newRoll').value.trim()
+      const name = document.getElementById('newName').value.trim()
+      const father = document.getElementById('newFather').value.trim()
+
+      if (!iid || !name) {
+        alert('IID and Student Name are required')
+        return
+      }
+
+      try {
+        const payload = {
+          iid: iid,
+          class_2025: cls || null,
+          section_2025: sec || null,
+          roll_2025: roll ? Number(roll) : null,
+          student_name_en: name,
+          father_name_en: father || null
+        }
+
+        const { data, error } = await supabase
+          .from('exam_ann25')
+          .insert([payload])
+
+        if (error) throw error
+
+        // Reload students from DB to reflect any DB-side defaults
+        await loadStudents()
+        document.getElementById('addStudentForm').reset()
+        alert('Student added successfully')
+      } catch (err) {
+        console.error('Add student error:', err)
+        alert('Error adding student: ' + (err.message || err))
+      }
+    }
+
+    window.exportData = function() {
+      if (filteredStudents.length === 0) {
+        alert('No data to export')
+        return
+      }
+      
+      const headers = ['IID', 'Class', 'Section', 'Roll', 'Student Name', 'Father Name']
+      const csvContent = [
+        headers.join(','),
+        ...filteredStudents.map(student => [
+          student.iid,
+          student.class_2025 || '',
+          student.section_2025 || '',
+          student.roll_2025 || '',
+          `"${student.student_name_en || ''}"`,
+          `"${student.father_name_en || ''}"`
+        ].join(','))
+      ].join('\n')
+      
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `students_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    // Initialize
+    checkAuth().then(isAuth => {
+      if (isAuth) {
+        loadStudents()
+      }
+    })
+  </script>
+</body>
+</html>

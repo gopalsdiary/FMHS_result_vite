@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Processing System - 2025 (fmhs.edu.bd)/</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Add security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+</head>
+<body oncontextmenu="return false;" onselectstart="return false;" oncopy="return false;">
+    <div class="header">
+        <h1>Feni Model High School</h1>
+        <p> Annual Examination Report Card-2025</p>
+    </div>
+
+    <div class="container">
+      
+        <input type="text" id="searchBox" class="search-box" placeholder="Search by Name, Roll, IID, or Mobile" oninput="filterStudentList()">
+        
+        <!-- New filter options -->
+        <select id="classFilter" class="search-box" onchange="filterStudentList()">
+            <option value="">All Classes</option>
+            <!-- Add class options dynamically -->
+        </select>
+        <select id="shiftFilter" class="search-box" onchange="filterStudentList()">
+            <option value="">All Sections</option>
+            <!-- Add shift options dynamically -->
+        </select>
+        
+        <div id="studentList" class="student-list"></div>
+        <div id="dataCount" class="data-count" style="text-align: center; margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; color: #666;">
+            <p id="countText">Loading student data...</p>
+        </div>
+        <div id="marksheet" style="display: none;">
+            <div class="marksheet" id="marksheetContent"></div>
+            <button class="back-btn" style="margin-top: 0.5rem;" onclick="showStudentList()">← Back to List</button>
+        </div>
+    </div>
+    <script>
+
+// Supabase setup
+const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+let students = [];
+let headers = [];
+let SUBJECT_MAP = {};
+let authenticatedStudents = new Set();
+
+function cleanHeaderKey(h){
+    if(!h) return '';
+    return String(h)
+        .replace(/\*/g,'')
+        .replace(/"/g,'')
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g,'_')
+        .replace(/[^\w_]/g,'_')
+        .replace(/_+/g,'_')
+        .replace(/^_|_$/g,'');
+}
+
+function normalizeRow(row, rawHeaders){
+    const out = {};
+    const seen = new Set();
+    const cols = Array.isArray(rawHeaders) && rawHeaders.length ? rawHeaders : Object.keys(row||{});
+    cols.forEach(h=>{
+        const cleanKey = cleanHeaderKey(h);
+        if(!cleanKey || seen.has(cleanKey)) return;
+        seen.add(cleanKey);
+        let v;
+        if(row && Object.prototype.hasOwnProperty.call(row,h)) v = row[h];
+        else if(row && Object.prototype.hasOwnProperty.call(row, h?.toLowerCase?.())) v = row[h.toLowerCase()];
+        else if(row && Object.prototype.hasOwnProperty.call(row, h?.toUpperCase?.())) v = row[h.toUpperCase()];
+        else v = '';
+        out[cleanKey] = (v===null||v===undefined) ? '' : String(v).trim();
+    });
+    return out;
+}
+
+async function loadData() {
+    try {
+        // Load data from Supabase table
+        const { data, error } = await supabaseClient
+            .from('exam_ann25')
+            .select('*');
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            document.getElementById('countText').innerHTML = `
+                <strong style="color: #d32f2f;">No student data found</strong><br>
+                <small>Please check the Supabase table "pre_test_2025"</small>
+            `;
+            return;
+        }
+
+        // Derive headers from the table columns of first row
+        headers = Object.keys(data[0]);
+        // Normalize and order student objects to match headers order
+        students = data.map(row => normalizeRow(row, headers));
+
+        if (students.length === 0) {
+            document.getElementById('countText').innerHTML = `
+                <strong style="color: #d32f2f;">No student data found</strong><br>
+                <small>Please check the Supabase table and try again</small>
+            `;
+            return;
+        }
+
+        // Dynamically generate SUBJECT_MAP
+        generateSubjectMap(headers);
+
+        console.log('Total students loaded:', students.length);
+        renderStudentList();
+        renderClassAndShiftOptions();
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('countText').innerHTML = `
+            <strong style="color: #d32f2f;">Error loading data</strong><br>
+            <small>Please check console for more details</small>
+        `;
+        alert('ডেটা লোড করতে সমস্যা হয়েছে!');
+    }
+}
+
+function generateSubjectMap(headers) {
+    // First collect all subjects and their column indices
+    const subjectColumns = {};
+    
+    // List of non-subject columns to exclude
+    const excludeColumns = ['fail+gpa', 'gpa', 'total', 'rank', 'remark', 'mobile', 'password', 'class_2025', 'shift_2025', 'sms', 'absent', 'fail count', 'gpa/remark'];
+    
+    headers.forEach((header, index) => {
+        const cleanHeader = header.replace(/\*/g, '').trim();
+        
+        // Skip non-subject columns
+        if (excludeColumns.some(exclude => cleanHeader.toLowerCase().includes(exclude.toLowerCase()))) {
+            return;
+        }
+        
+        const match = cleanHeader.match(/^(.*?)(_CQ|_WRITTEN|_MCQ|_CA|_Practical|_Total|_GPA)$/i);
+        if (match) {
+            const subject = match[1];
+            const component = match[2];
+            
+            // Skip if subject name is too generic or in exclude list
+            if (excludeColumns.some(exclude => subject.toLowerCase().includes(exclude.toLowerCase()))) {
+                return;
+            }
+            
+            if (!subjectColumns[subject]) {
+                subjectColumns[subject] = {};
+            }
+            subjectColumns[subject][component] = index;
+        }
+    });
+
+    // Check if subject has any valid data (not empty, not "-", and not just whitespace)
+    function hasValidData(subject) {
+        const indices = Object.values(subjectColumns[subject] || {});
+        if (indices.length === 0) return false;
+        
+        // Check data in all rows for this subject's columns
+        for (let student of students) {
+            for (let index of indices) {
+                const value = (Object.values(student)[index] || '').toString().trim();
+                // If we find any non-empty value that's not "-", consider it valid
+                if (value && value !== '-' && value !== '0' && value.toLowerCase() !== 'fail') {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Only include subjects that have valid data
+    const validSubjects = Object.keys(subjectColumns).filter(hasValidData);
+    
+    validSubjects.forEach(subject => {
+        SUBJECT_MAP[subject] = {
+            CQ: headers.find(h => /_(CQ|WRITTEN)\b/i.test(h) && h.startsWith(subject)) || '',
+            MCQ: headers.find(h => h.includes(`${subject}_MCQ`)) || '',
+            Practical: headers.find(h => h.includes(`${subject}_Practical`)) || '',
+            Total: headers.find(h => h.includes(`${subject}_Total`)) || '',
+            GPA: headers.find(h => h.includes(`${subject}_GPA`)) || ''
+        };
+    });
+}
+
+function renderStudentList() {
+    const container = document.getElementById('studentList');
+    container.innerHTML = '';
+
+    const initialStudents = students.slice(0, 201); // Show first 201 students initially
+
+    initialStudents.forEach(student => {
+        const card = document.createElement('div');
+        card.className = 'student-card';
+        card.innerHTML = `
+            <h3>${student.student_name_en || 'N/A'}</h3>
+            <div class="student-info">
+                <p>Roll: ${student.roll_2025 || 'N/A'}</p>
+                <p>IID: ${student.iid || 'N/A'}</p>
+                <p>Class: ${student.class_2025 || 'N/A'}</p>
+            </div>
+            <div class="student-action">View Result →</div>
+        `;
+        card.onclick = () => showMarksheet(student);
+        container.appendChild(card);
+    });
+
+    const comment = document.createElement('p');
+    comment.textContent = 'দ্রুত কাজ করার জন্য , রোল/নাম লিখে খুঁজুন এবং মোবাইল নাম্বার (শেষ ৭টি সংখ্যা) দিয়ে ফলাফল দেখুন।';
+    comment.style.textAlign = 'center';
+    comment.style.marginTop = '1rem';
+    container.appendChild(comment);
+    
+    // Update data count
+    updateDataCount(initialStudents.length, students.length);
+}
+
+function filterStudentList() {
+    const query = document.getElementById('searchBox').value.toLowerCase();
+    const classFilter = document.getElementById('classFilter').value;
+    const shiftFilter = document.getElementById('shiftFilter').value;
+
+    const filteredStudents = students.filter(student => {
+        // Use normalized field names present in the CSV/table
+        const name = (student.student_name_en || student.name || '').toString().toLowerCase();
+        const roll = (student.roll_2025 || student.roll || '').toString().toLowerCase();
+        const iid = (student.iid || '').toString().toLowerCase();
+        const mobile = (student.mobile || '').toString().toLowerCase();
+
+        const matchesQuery = (!!name && name.includes(query)) ||
+                             (!!roll && roll.includes(query)) ||
+                             (!!iid && iid.includes(query)) ||
+                             (!!mobile && mobile.includes(query));
+
+        const matchesClass = !classFilter || (student.class_2025 === classFilter || student.class === classFilter);
+        const studentSection = (student.section_2025 || student.shift_2025 || student.section || '').toString();
+        const matchesShift = !shiftFilter || studentSection === shiftFilter;
+
+        return matchesQuery && matchesClass && matchesShift;
+    });
+
+    // Sort by numeric Roll ascending when filtering
+    const toRoll = s => {
+        if(!s) return Number.POSITIVE_INFINITY;
+        const m = String(s).match(/\d+/);
+        return m ? parseInt(m[0],10) : Number.POSITIVE_INFINITY;
+    };
+    const sorted = filteredStudents.slice().sort((a,b)=>{
+        const ra = toRoll(a.roll_2025 || a.roll);
+        const rb = toRoll(b.roll_2025 || b.roll);
+        if(ra !== rb) return ra - rb;
+        return ( (a.student_name_en || a.name || '') ).localeCompare( (b.student_name_en || b.name || '') );
+    });
+
+    renderFilteredStudentList(sorted);
+}
+
+function renderFilteredStudentList(filteredStudents) {
+    const container = document.getElementById('studentList');
+    container.innerHTML = '';
+
+    filteredStudents.forEach(student => {
+        const card = document.createElement('div');
+        card.className = 'student-card';
+        card.innerHTML = `
+            <h3>${student.student_name_en || student.name || 'N/A'}</h3>
+            <div class="student-info">
+                <p>Roll: ${student.roll_2025 || 'N/A'}</p>
+                <p>IID: ${student.iid || 'N/A'}</p>
+                <p>Class: ${student.class_2025 || 'N/A'}</p>
+            </div>
+            <div class="student-action">View Result →</div>
+        `;
+        card.onclick = () => showMarksheet(student);
+        container.appendChild(card);
+    });
+    
+    // Update data count for filtered results
+    updateDataCount(filteredStudents.length, students.length);
+}
+
+function renderClassAndShiftOptions() {
+    // Use the normalized fields used in rendering: class_2025 and section_2025
+    const classValues = students.map(s => s.class_2025).filter(Boolean);
+    const sectionValues = students.map(s => s.section_2025 || s.shift_2025 || s.section).filter(Boolean);
+
+    const uniqueSorted = arr => Array.from(new Set(arr.map(x=>String(x).trim()))).filter(Boolean).sort((a,b)=>{
+        // try numeric compare first
+        const an = parseInt(a,10); const bn = parseInt(b,10);
+        if(!isNaN(an) && !isNaN(bn)) return an - bn;
+        return a.localeCompare(b);
+    });
+
+    const classList = uniqueSorted(classValues);
+    const sectionList = uniqueSorted(sectionValues);
+
+    const classFilter = document.getElementById('classFilter');
+    classList.forEach(cls => {
+        const option = document.createElement('option');
+        option.value = cls;
+        option.textContent = cls;
+        classFilter.appendChild(option);
+    });
+
+    const shiftFilter = document.getElementById('shiftFilter');
+    sectionList.forEach(shift => {
+        const option = document.createElement('option');
+        option.value = shift;
+        option.textContent = shift;
+        shiftFilter.appendChild(option);
+    });
+}
+
+function showMarksheet(student) {
+    // Redirect to detailed result page with IID parameter
+    const iid = student.iid || 'unknown';
+    window.location.href = `d.html?IID=${encodeURIComponent(iid)}`;
+}
+
+function showStudentList() {
+    document.getElementById('searchBox').style.display = 'block';
+    document.getElementById('classFilter').style.display = 'block';
+    document.getElementById('shiftFilter').style.display = 'block';
+    document.getElementById('studentList').style.display = 'block';
+    document.getElementById('marksheet').style.display = 'none';
+}
+
+function updateDataCount(displayedCount, totalCount) {
+    const countElement = document.getElementById('countText');
+    if (countElement) {
+        if (displayedCount === totalCount) {
+            countElement.innerHTML = `
+                <strong>Total Students: ${totalCount}</strong><br>
+                <small>Displaying all ${displayedCount} students</small>
+            `;
+        } else {
+            countElement.innerHTML = `
+                <strong>Showing: ${displayedCount} of ${totalCount} students</strong><br>
+                <small>Use search or filters to narrow down results</small>
+            `;
+        }
+    }
+}
+
+// Initialize
+loadData();
+
+    </script>
+</body>
+</html>

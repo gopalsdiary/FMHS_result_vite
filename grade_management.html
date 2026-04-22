@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Grade Management</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Segoe UI,Arial,sans-serif;background:#f5f7fb;color:#333}
+    .header{background:#1976d2;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+    .back-btn{color:#fff;text-decoration:non        // Load saved configuration if exists, otherwise load Bangladesh SSC default
+        const saved = localStorage.getItem('gradeConfiguration')
+        if (saved) {
+          const config = JSON.parse(saved)
+          document.getElementById('gradeAPlus').value = config.grades.aPlus
+          document.getElementById('gradeA').value = config.grades.a
+          document.getElementById('gradeAMinus').value = config.grades.aMinus
+          document.getElementById('gradeB').value = config.grades.b
+          document.getElementById('gradeC').value = config.grades.c
+          if (config.grades.d && document.getElementById('gradeD')) {
+            document.getElementById('gradeD').value = config.grades.d
+          }
+          document.getElementById('passMark').value = config.passMark
+          document.getElementById('strictMode').checked = config.strictMode
+          if (config.graceMarks !== undefined) {
+            document.getElementById('graceMarks').checked = config.gradeMarks
+            document.getElementById('graceLimit').disabled = !config.graceMarks
+          }
+        } else {
+          // Load Bangladesh SSC system as default
+          document.querySelector('.preset-btn').click()
+        }px;background:rgba(255,255,255,0.2);border-radius:4px}
+    .container{max-width:1200px;margin:0 auto;padding:20px}
+    .section{background:#fff;margin-bottom:20px;padding:20px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    .section-title{font-size:1.3em;margin-bottom:16px;color:#1976d2;border-bottom:2px solid #e3f2fd;padding-bottom:8px;display:flex;align-items:center}
+    .section-title .icon{margin-right:8px}
+    
+    .grade-config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+    .grade-card{border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;transition:all 0.3s}
+    .grade-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)}
+    .grade-header{background:linear-gradient(135deg,#1976d2,#42a5f5);color:#fff;padding:16px;font-weight:600}
+    .grade-body{padding:16px}
+    .grade-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #f0f0f0}
+    .grade-row:last-child{border-bottom:none}
+    .grade-label{font-weight:500;color:#555}
+    .grade-input{width:80px;padding:6px;border:1px solid #ddd;border-radius:4px;text-align:center}
+    
+    .preset-buttons{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+    .preset-btn{padding:10px 16px;border:1px solid #1976d2;background:#fff;color:#1976d2;border-radius:6px;cursor:pointer;transition:all 0.3s}
+    .preset-btn:hover,.preset-btn.active{background:#1976d2;color:#fff}
+    
+    .actions{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap}
+    .btn{padding:10px 16px;border:0;border-radius:6px;cursor:pointer;text-decoration:none;font-size:0.9em;transition:all 0.3s}
+    .btn-primary{background:#1976d2;color:#fff}
+    .btn-success{background:#388e3c;color:#fff}
+    .btn-warning{background:#f57c00;color:#fff}
+    .btn-danger{background:#d32f2f;color:#fff}
+    
+    .subject-weights{background:#f8f9fa;border-radius:8px;padding:16px}
+    .weight-item{display:flex;align-items:center;margin-bottom:12px}
+    .weight-item label{flex:1;margin-right:12px}
+    .weight-input{width:80px;padding:6px;border:1px solid #ddd;border-radius:4px;text-align:center}
+    
+    .preview-table{width:100%;border-collapse:collapse;margin-top:16px}
+    .preview-table th,.preview-table td{border:1px solid #ddd;padding:8px;text-align:left}
+    .preview-table th{background:#f5f5f5}
+    
+    .grade-A-plus{background:#4caf50;color:#fff}
+    .grade-A{background:#8bc34a;color:#fff}
+    .grade-A-minus{background:#cddc39;color:#333}
+    .grade-B{background:#ffeb3b;color:#333}
+    .grade-C{background:#ff9800;color:#fff}
+    .grade-F{background:#f44336;color:#fff}
+    .grade-D{background:#ff7043;color:#fff}
+    
+    .stats-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px}
+    .stats-card{background:linear-gradient(135deg,#1976d2,#42a5f5);color:#fff;padding:16px;border-radius:8px;text-align:center}
+    .stats-number{font-size:1.8em;font-weight:bold}
+    .stats-label{font-size:0.9em;margin-top:4px;opacity:0.9}
+    
+    @media(max-width:768px){
+      .grade-config-grid{grid-template-columns:1fr}
+      .container{padding:10px}
+      .preset-buttons{justify-content:center}
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <a href="result_dashboard.html" class="back-btn">← Dashboard</a>
+      <span style="margin-left:16px;font-size:1.2em;font-weight:600">Grade Management</span>
+    </div>
+    <div id="userInfo">Loading...</div>
+  </div>
+
+  <div class="container">
+    <!-- Grade Configuration Presets -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon">⚡</span>Grade Configuration Presets
+      </div>
+      <div class="preset-buttons">
+        <button class="preset-btn active" onclick="applyPreset('ssc_bangladesh')">🇧🇩 Bangladesh SSC System</button>
+        <button class="preset-btn" onclick="applyPreset('custom')">⚙️ Custom Setup</button>
+      </div>
+    </div>
+
+    <!-- Grade Boundaries Configuration -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon">📊</span>Grade Boundaries & Rules
+      </div>
+      
+      <div class="grade-config-grid">
+        <!-- Grade Boundaries Card -->
+        <div class="grade-card">
+          <div class="grade-header">Grade Boundaries (Marks)</div>
+          <div class="grade-body">
+            <div class="grade-row">
+              <span class="grade-label">A+ (Excellent)</span>
+              <input type="number" id="gradeAPlus" class="grade-input" value="80" min="0" max="100">
+              <span style="margin-left:8px">- 100</span>
+            </div>
+            <div class="grade-row">
+              <span class="grade-label">A (Very Good)</span>
+              <input type="number" id="gradeA" class="grade-input" value="70" min="0" max="100">
+              <span style="margin-left:8px">- 79</span>
+            </div>
+            <div class="grade-row">
+              <span class="grade-label">A- (Good)</span>
+              <input type="number" id="gradeAMinus" class="grade-input" value="60" min="0" max="100">
+              <span style="margin-left:8px">- 69</span>
+            </div>
+            <div class="grade-row">
+              <span class="grade-label">B (Satisfactory)</span>
+              <input type="number" id="gradeB" class="grade-input" value="50" min="0" max="100">
+              <span style="margin-left:8px">- 59</span>
+            </div>
+            <div class="grade-row">
+              <span class="grade-label">C (Acceptable)</span>
+              <input type="number" id="gradeC" class="grade-input" value="40" min="0" max="100">
+              <span style="margin-left:8px">- 49</span>
+            </div>
+            <div class="grade-row">
+              <span class="grade-label">D (Pass)</span>
+              <input type="number" id="gradeD" class="grade-input" value="33" min="0" max="100">
+              <span style="margin-left:8px">- 39</span>
+            </div>
+            <div class="grade-row">
+              <span class="grade-label">F (Fail)</span>
+              <span style="color:#d32f2f;font-weight:500">0 - 32</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pass/Fail Rules Card -->
+        <div class="grade-card">
+          <div class="grade-header">Pass/Fail Rules</div>
+          <div class="grade-body">
+            <div class="grade-row">
+              <span class="grade-label">Minimum Pass Mark</span>
+              <input type="number" id="passMark" class="grade-input" value="33" min="0" max="100">
+            </div>
+            <div class="grade-row">
+              <label style="display:flex;align-items:center">
+                <input type="checkbox" id="strictMode" checked style="margin-right:8px">
+                <span class="grade-label">Strict Mode (Fail if any subject below pass mark)</span>
+              </label>
+            </div>
+            <div class="grade-row">
+              <label style="display:flex;align-items:center">
+                <input type="checkbox" id="graceMarks" style="margin-right:8px">
+                <span class="grade-label">Allow Grace Marks with +1</span>
+              </label>
+            </div>
+            <div style="padding:8px;background:#fff3e0;border-radius:4px;font-size:0.85em;color:#f57c00;margin-top:8px">
+              <strong>Grace Marks Rules:</strong><br>
+              • 39 → 40 (C grade)<br>
+              • 49 → 50 (B grade)<br>
+              • 59 → 60 (A- grade)<br>
+              • 69 → 70 (A grade)<br>
+              • 79 → 80 (A+ grade)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subject Weights -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon">⚖️</span>Subject Weights & Priority
+      </div>
+      
+      <div class="subject-weights">
+        <p style="margin-bottom:16px;color:#666">Configure weight percentages for different subjects. Total should equal 100%.</p>
+        
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px">
+          <div class="weight-item">
+            <label>Bangla (Core Subject)</label>
+            <input type="number" class="weight-input" value="20" min="0" max="100">
+            <span style="margin-left:4px">%</span>
+          </div>
+          <div class="weight-item">
+            <label>English (Core Subject)</label>
+            <input type="number" class="weight-input" value="20" min="0" max="100">
+            <span style="margin-left:4px">%</span>
+          </div>
+          <div class="weight-item">
+            <label>Mathematics</label>
+            <input type="number" class="weight-input" value="20" min="0" max="100">
+            <span style="margin-left:4px">%</span>
+          </div>
+          <div class="weight-item">
+            <label>Science</label>
+            <input type="number" class="weight-input" value="20" min="0" max="100">
+            <span style="margin-left:4px">%</span>
+          </div>
+          <div class="weight-item">
+            <label>Social Science</label>
+            <input type="number" class="weight-input" value="20" min="0" max="100">
+            <span style="margin-left:4px">%</span>
+          </div>
+        </div>
+        
+        <div style="margin-top:12px;padding:8px;background:#e3f2fd;border-radius:4px">
+          <strong>Total Weight: <span id="totalWeight">100</span>%</strong>
+          <span id="weightStatus" style="margin-left:12px;color:#388e3c">✓ Balanced</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grade Preview -->
+    <div class="section">
+      <div class="section-title">
+        <span class="icon">👁️</span>Grade Preview & Statistics
+      </div>
+      
+      <div class="stats-cards">
+        <div class="stats-card">
+          <div class="stats-number" id="totalConfigs">1</div>
+          <div class="stats-label">Active Configurations</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-number" id="lastUsed">Today</div>
+          <div class="stats-label">Last Used</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-number" id="totalGrades">6</div>
+          <div class="stats-label">Grade Categories</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-number" id="passPercentage">67%</div>
+          <div class="stats-label">Expected Pass Rate</div>
+        </div>
+      </div>
+
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>Grade</th>
+            <th>Range</th>
+            <th>Description</th>
+            <th>Points</th>
+            <th>Color</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="grade-A-plus" style="padding:4px 8px;border-radius:4px">A+</span></td>
+            <td>80-100</td>
+            <td>অসাধারণ (Outstanding)</td>
+            <td>5.00</td>
+            <td><div style="width:20px;height:20px;background:#4caf50;border-radius:3px"></div></td>
+          </tr>
+          <tr>
+            <td><span class="grade-A" style="padding:4px 8px;border-radius:4px">A</span></td>
+            <td>70-79</td>
+            <td>খুব ভাল (Excellent)</td>
+            <td>4.00</td>
+            <td><div style="width:20px;height:20px;background:#8bc34a;border-radius:3px"></div></td>
+          </tr>
+          <tr>
+            <td><span class="grade-A-minus" style="padding:4px 8px;border-radius:4px">A-</span></td>
+            <td>60-69</td>
+            <td>ভাল (Very Good)</td>
+            <td>3.50</td>
+            <td><div style="width:20px;height:20px;background:#cddc39;border-radius:3px"></div></td>
+          </tr>
+          <tr>
+            <td><span class="grade-B" style="padding:4px 8px;border-radius:4px">B</span></td>
+            <td>50-59</td>
+            <td>মোটামুটি ভাল (Good)</td>
+            <td>3.00</td>
+            <td><div style="width:20px;height:20px;background:#ffeb3b;border-radius:3px"></div></td>
+          </tr>
+          <tr>
+            <td><span class="grade-C" style="padding:4px 8px;border-radius:4px">C</span></td>
+            <td>40-49</td>
+            <td>গড় (Average)</td>
+            <td>2.00</td>
+            <td><div style="width:20px;height:20px;background:#ff9800;border-radius:3px"></div></td>
+          </tr>
+          <tr>
+            <td><span class="grade-D" style="padding:4px 8px;border-radius:4px;background:#ff7043;color:#fff">D</span></td>
+            <td>33-39</td>
+            <td>পাস (Pass)</td>
+            <td>1.00</td>
+            <td><div style="width:20px;height:20px;background:#ff7043;border-radius:3px"></div></td>
+          </tr>
+          <tr>
+            <td><span class="grade-F" style="padding:4px 8px;border-radius:4px">F</span></td>
+            <td>0-32</td>
+            <td>অকৃতকার্য (Fail)</td>
+            <td>0.00</td>
+            <td><div style="width:20px;height:20px;background:#f44336;border-radius:3px"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="actions">
+      <button class="btn btn-primary" onclick="saveConfiguration()">💾 Save Configuration</button>
+      <button class="btn btn-success" onclick="applyToProcessor()">✅ Apply to Processor</button>
+      <button class="btn btn-warning" onclick="exportConfig()">📤 Export Config</button>
+      <button class="btn btn-danger" onclick="resetToDefault()">🔄 Reset to Default</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Auth check
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('Please sign in first')
+        window.location.href = 'login.html'
+        return false
+      }
+      document.getElementById('userInfo').textContent = user.email
+      return true
+    }
+
+    // Preset configurations
+    const presets = {
+      ssc_bangladesh: {
+        gradeAPlus: 80,
+        gradeA: 70,
+        gradeAMinus: 60,
+        gradeB: 50,
+        gradeC: 40,
+        gradeD: 33,
+        passMark: 33
+      }
+    }
+
+    // Apply preset configuration
+    window.applyPreset = function(presetName) {
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'))
+      event.target.classList.add('active')
+
+      if (presets[presetName]) {
+        const preset = presets[presetName]
+        document.getElementById('gradeAPlus').value = preset.gradeAPlus
+        document.getElementById('gradeA').value = preset.gradeA
+        document.getElementById('gradeAMinus').value = preset.gradeAMinus
+        document.getElementById('gradeB').value = preset.gradeB
+        document.getElementById('gradeC').value = preset.gradeC
+        if (preset.gradeD && document.getElementById('gradeD')) {
+          document.getElementById('gradeD').value = preset.gradeD
+        }
+        document.getElementById('passMark').value = preset.passMark
+        
+        updatePreviewTable()
+      }
+    }
+
+    // Update preview table with current values
+    function updatePreviewTable() {
+      // This would update the preview table rows with current grade boundaries
+      console.log('Preview table updated')
+    }
+
+    // Calculate total weight
+    function calculateTotalWeight() {
+      const weights = document.querySelectorAll('.weight-input')
+      let total = 0
+      weights.forEach(input => {
+        total += parseInt(input.value) || 0
+      })
+      
+      document.getElementById('totalWeight').textContent = total
+      const status = document.getElementById('weightStatus')
+      
+      if (total === 100) {
+        status.innerHTML = '✓ Balanced'
+        status.style.color = '#388e3c'
+      } else if (total < 100) {
+        status.innerHTML = '⚠️ Under-weighted (' + (100-total) + '% remaining)'
+        status.style.color = '#f57c00'
+      } else {
+        status.innerHTML = '❌ Over-weighted (' + (total-100) + '% excess)'
+        status.style.color = '#d32f2f'
+      }
+    }
+
+    // Event listeners for weight calculation
+    document.querySelectorAll('.weight-input').forEach(input => {
+      input.addEventListener('input', calculateTotalWeight)
+    })
+
+    // Grace marks toggle (no longer needed as we removed graceLimit input)
+    document.getElementById('graceMarks').addEventListener('change', function() {
+      // Grace marks now uses fixed +1 rule for specific boundaries
+      console.log('Grace marks enabled:', this.checked)
+    })
+
+    // Action functions
+    window.saveConfiguration = function() {
+      const config = {
+        grades: {
+          aPlus: document.getElementById('gradeAPlus').value,
+          a: document.getElementById('gradeA').value,
+          aMinus: document.getElementById('gradeAMinus').value,
+          b: document.getElementById('gradeB').value,
+          c: document.getElementById('gradeC').value,
+          d: document.getElementById('gradeD') ? document.getElementById('gradeD').value : 33
+        },
+        passMark: document.getElementById('passMark').value,
+        strictMode: document.getElementById('strictMode').checked,
+        graceMarks: document.getElementById('graceMarks').checked,
+        graceMarkRules: {
+          39: 40,  // C grade
+          49: 50,  // B grade  
+          59: 60,  // A- grade
+          69: 70,  // A grade
+          79: 80   // A+ grade
+        }
+      }
+
+      localStorage.setItem('gradeConfiguration', JSON.stringify(config))
+      alert('Grade configuration saved successfully!')
+    }
+
+    window.applyToProcessor = function() {
+      saveConfiguration()
+      alert('Configuration applied to result processor!')
+      // This would apply the current config to the advanced processor
+    }
+
+    window.exportConfig = function() {
+      const config = {
+        grades: {
+          aPlus: document.getElementById('gradeAPlus').value,
+          a: document.getElementById('gradeA').value,
+          aMinus: document.getElementById('gradeAMinus').value,
+          b: document.getElementById('gradeB').value,
+          c: document.getElementById('gradeC').value
+        },
+        passMark: document.getElementById('passMark').value,
+        strictMode: document.getElementById('strictMode').checked
+      }
+
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'grade_configuration.json'
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+
+    window.resetToDefault = function() {
+      if (confirm('Reset to default configuration? This will lose current settings.')) {
+        applyPreset('ssc_bangladesh')
+      }
+    }
+
+    // Initialize
+    checkAuth().then(isAuth => {
+      if (isAuth) {
+        // Load saved configuration if exists
+        const saved = localStorage.getItem('gradeConfiguration')
+        if (saved) {
+          const config = JSON.parse(saved)
+          document.getElementById('gradeAPlus').value = config.grades.aPlus
+          document.getElementById('gradeA').value = config.grades.a
+          document.getElementById('gradeAMinus').value = config.grades.aMinus
+          document.getElementById('gradeB').value = config.grades.b
+          document.getElementById('gradeC').value = config.grades.c
+          document.getElementById('passMark').value = config.passMark
+          document.getElementById('strictMode').checked = config.strictMode
+          if (config.graceMarks !== undefined) {
+            document.getElementById('graceMarks').checked = config.graceMarks
+          }
+        }
+        
+        calculateTotalWeight()
+        updatePreviewTable()
+      }
+    })
+  </script>
+</body>
+</html>

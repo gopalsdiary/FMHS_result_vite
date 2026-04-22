@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Summary</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .summary-table th,
+        .summary-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        .summary-table th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        .summary-table tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .summary-table tr:hover {
+            background-color: #e8f5e8;
+        }
+        .loading {
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+            margin: 20px 0;
+        }
+        .error {
+            color: #d32f2f;
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
+        }
+        .refresh-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .refresh-btn:hover {
+            background-color: #45a049;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 150px;
+            margin: 5px;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+        /* Highlight data cells that need attention with 70% orange */
+        .needs-attention,
+        .summary-table td.needs-attention,
+        .summary-table tr.needs-attention {
+            background-color: rgba(255,165,0,0.7) !important; /* orange at 70% opacity */
+            color: #000 !important; /* ensure text remains readable */
+        }
+        /* Data cells with No Entries highlighted in 60% red */
+        .no-entries,
+        .summary-table td.no-entries,
+        .summary-table tr.no-entries {
+            background-color: rgba(255,0,0,0.6) !important; /* red at 60% opacity */
+            color: #000 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Result Summary</h1>
+        
+        <button class="refresh-btn" onclick="loadSummaryData()">Refresh Data</button>
+        
+        <div class="stats" id="statsContainer">
+            <!-- Statistics will be populated here -->
+        </div>
+        
+        <div id="loadingMessage" class="loading">Loading summary data...</div>
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        
+        <table class="summary-table" id="summaryTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Class</th>
+                    <th>Section</th>
+                    <th>Subject Name</th>
+                    <th>Teacher Name</th>
+                    <th>Total Students</th>
+                    <th>Entry Result</th>
+                    <th>Comment</th>
+                </tr>
+            </thead>
+            <tbody id="summaryTableBody">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        let subjectTeacherMap = {};
+
+        // Get all teacher assignments from subject_selection
+        async function getSubjectTeachers() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('subject_selection')
+                    .select('subject_name, class, section, teacher_name_en, teacher_email_id');
+
+                if (error) throw error;
+
+                // Create a map of subject+class+section -> teacher name
+                subjectTeacherMap = {};
+                (data || []).forEach(item => {
+                    const key = `${item.class}_${item.section}_${item.subject_name}`;
+                    subjectTeacherMap[key] = item.teacher_name_en || 'Not Assigned';
+                });
+
+                console.log('Subject teacher map:', subjectTeacherMap);
+                return subjectTeacherMap;
+
+            } catch (error) {
+                console.error('Error fetching subject teachers:', error);
+                return {};
+            }
+        }
+
+        // Load and display summary data
+        async function loadSummaryData() {
+            const loadingEl = document.getElementById('loadingMessage');
+            const errorEl = document.getElementById('errorMessage');
+            const tableEl = document.getElementById('summaryTable');
+            const statsEl = document.getElementById('statsContainer');
+
+            // Show loading state
+            loadingEl.style.display = 'block';
+            errorEl.style.display = 'none';
+            tableEl.style.display = 'none';
+
+            try {
+                // Get teacher assignments for all subjects
+                await getSubjectTeachers();
+
+                // Fetch data from Supabase
+                const { data, error } = await supabaseClient
+                    .from('exam_ann25')
+                    .select('*');
+
+                if (error) {
+                    throw error;
+                }
+
+                // Process and group the data
+                const summaryData = processSummaryData(data);
+                
+                // Display statistics
+                displayStatistics(summaryData, data);
+                
+                // Display summary table
+                displaySummaryTable(summaryData);
+
+                // Hide loading and show table
+                loadingEl.style.display = 'none';
+                tableEl.style.display = 'table';
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Error loading data: ' + error.message;
+            }
+        }
+
+        // Process raw data into summary format
+        function processSummaryData(rawData) {
+            const summary = {};
+
+            rawData.forEach(record => {
+                // Use class_2025 and section_2025 columns from exam_ann25 table
+                const classValue = record.class_2025 || record.class || 'N/A';
+                const sectionValue = record.section_2025 || record.section || 'N/A';
+                
+                // Detect subjects from column names that contain subject components
+                const subjectColumns = Object.keys(record).filter(col => 
+                    col.match(/(.+?)(?:_|\s)(CQ|MCQ|Practical|Total|GPA)$/i)
+                );
+                
+                // Group by unique subject bases
+                const subjectBases = [...new Set(subjectColumns.map(col => {
+                    const match = col.match(/(.+?)(?:_|\s)(CQ|MCQ|Practical|Total|GPA)$/i);
+                    return match ? match[1].trim().replace(/^\*+\s*/, '') : null;
+                }).filter(Boolean))];
+                
+                // Process each subject
+                subjectBases.forEach(subjectBase => {
+                    const key = `${classValue}_${sectionValue}_${subjectBase}`;
+                    
+                    if (!summary[key]) {
+                        summary[key] = {
+                            class: classValue,
+                            section: sectionValue,
+                            subject: subjectBase,
+                            teacher: subjectTeacherMap[key] || 'Not Assigned',
+                            totalStudents: 0,
+                            entryResults: 0
+                        };
+                    }
+
+                    summary[key].totalStudents++;
+                    
+                    // Check if this student has any marks for this subject
+                    const subjectCols = subjectColumns.filter(col => 
+                        col.startsWith(subjectBase + '_') || col.startsWith('*' + subjectBase + '_')
+                    );
+                    
+                    const hasMarks = subjectCols.some(col => {
+                        const value = record[col];
+                        return value !== null && value !== undefined && value !== '' && parseFloat(value) > 0;
+                    });
+                    
+                    if (hasMarks) {
+                        summary[key].entryResults++;
+                    }
+                });
+            });
+
+            // Convert to array and add comments
+            return Object.values(summary)
+                .map(item => ({
+                    ...item,
+                    comment: getComment(item.entryResults, item.totalStudents)
+                }))
+                .filter(item => item.teacher && item.teacher !== 'Not Assigned');
+        }
+
+        // Generate comment based on entry percentage
+        function getComment(entryResults, totalStudents) {
+            if (totalStudents === 0) return 'No Data';
+            
+            const percentage = (entryResults / totalStudents) * 100;
+            
+            if (percentage >= 90) return 'Excellent';
+            if (percentage >= 75) return 'Good';
+            if (percentage >= 50) return 'Average';
+            if (percentage > 0) return 'Needs Attention';
+            return 'No Entries';
+        }
+
+        // Display statistics
+        function displayStatistics(summaryData, rawData) {
+            const statsContainer = document.getElementById('statsContainer');
+            
+            const totalClasses = new Set(summaryData.map(item => item.class)).size;
+            // Fix: Count unique class-section combinations, not total rows
+            const totalSections = new Set(summaryData.map(item => `${item.class}_${item.section}`)).size;
+            // Fix: Sum of all totalStudents from summary data (total entry needed)
+            const totalEntryNeeded = summaryData.reduce((sum, item) => sum + item.totalStudents, 0);
+            const totalEntries = summaryData.reduce((sum, item) => sum + item.entryResults, 0);
+            const entryPercentage = totalEntryNeeded > 0 ? ((totalEntries / totalEntryNeeded) * 100).toFixed(1) : 0;
+
+            statsContainer.innerHTML = `
+                <div class="stat-box">
+                    <div class="stat-number">${totalClasses}</div>
+                    <div class="stat-label">Total Classes</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${totalSections}</div>
+                    <div class="stat-label">Total Sections</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${totalEntryNeeded}</div>
+                    <div class="stat-label">Total Entry needed</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${totalEntries}</div>
+                    <div class="stat-label">Result Entries</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">${entryPercentage}%</div>
+                    <div class="stat-label">Entry Rate</div>
+                </div>
+            `;
+        }
+
+        // Display summary table
+        function displaySummaryTable(summaryData) {
+            const tbody = document.getElementById('summaryTableBody');
+            
+            // Sort by class, then section, then subject
+            summaryData.sort((a, b) => {
+                if (a.class !== b.class) return a.class.toString().localeCompare(b.class.toString());
+                if (a.section !== b.section) return a.section.localeCompare(b.section);
+                return a.subject.localeCompare(b.subject);
+            });
+
+            // Group data for merged cells
+            let html = '';
+            let prevClass = null;
+            let prevSection = null;
+            let classRowspan = 0;
+            let sectionRowspan = 0;
+            let classStartIndex = 0;
+            let sectionStartIndex = 0;
+
+            // First pass: calculate rowspans
+            const processedData = [];
+            for (let i = 0; i < summaryData.length; i++) {
+                const item = summaryData[i];
+                let showClass = false;
+                let showSection = false;
+                let classSpan = 1;
+                let sectionSpan = 1;
+
+                // Calculate class rowspan
+                if (item.class !== prevClass) {
+                    showClass = true;
+                    classSpan = summaryData.filter((d, idx) => idx >= i && d.class === item.class).length;
+                }
+
+                // Calculate section rowspan  
+                if (item.class !== prevClass || item.section !== prevSection) {
+                    showSection = true;
+                    sectionSpan = summaryData.filter((d, idx) => 
+                        idx >= i && d.class === item.class && d.section === item.section
+                    ).length;
+                }
+
+                processedData.push({
+                    ...item,
+                    showClass,
+                    showSection,
+                    classSpan,
+                    sectionSpan
+                });
+
+                prevClass = item.class;
+                prevSection = item.section;
+            }
+
+            // Generate HTML with merged cells
+            tbody.innerHTML = processedData.map(item => {
+                // Determine class for data cells
+                let dataCellClass = '';
+                if (item.comment === 'No Entries') {
+                    dataCellClass = 'no-entries';
+                } else if (item.comment === 'Needs Attention') {
+                    dataCellClass = 'needs-attention';
+                }
+                let row = '<tr>';
+
+                // Class cell (only show if showClass is true) - do not color this cell
+                if (item.showClass) {
+                    row += `<td rowspan="${item.classSpan}">${item.class}</td>`;
+                }
+
+                // Section cell (only show if showSection is true) - do not color this cell  
+                if (item.showSection) {
+                    row += `<td rowspan="${item.sectionSpan}">${item.section}</td>`;
+                }
+
+                // Subject and other cells (always show)
+                row += `
+                    <td class="${dataCellClass}">${item.subject}</td>
+                    <td class="${dataCellClass}">${item.teacher || 'Not Assigned'}</td>
+                    <td class="${dataCellClass}">${item.totalStudents}</td>
+                    <td class="${dataCellClass}">${item.entryResults}</td>
+                    <td class="${dataCellClass}">${item.comment}</td>
+                </tr>`;
+                
+                return row;
+            }).join('');
+        }
+
+        // Load data when page loads
+        document.addEventListener('DOMContentLoaded', loadSummaryData);
+    </script>
+</body>
+</html>

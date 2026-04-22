@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Column Manager - exam_ann25</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg: #f6f8fa;
+            --card: #ffffff;
+            --border: #d0d7de;
+            --accent: #0366d6;
+            --accent-hover: #024c9e;
+            --danger: #d73a49;
+            --success: #1a7f37;
+            --warning: #ff8a00;
+            --radius: 6px;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: #24292f;
+            padding: 20px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: var(--radius);
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .section {
+            margin-bottom: 32px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        .section h2 {
+            font-size: 1.4rem;
+            margin-bottom: 16px;
+            color: #24292f;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(3, 102, 214, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .btn {
+            cursor: pointer;
+            font-size: 14px;
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #0f5132;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            border-color: var(--warning);
+        }
+
+        .btn-warning:hover {
+            background: #e07000;
+        }
+
+        .status {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            background: #f0fdf4;
+            color: var(--success);
+            border: 1px solid var(--success);
+            display: block;
+        }
+
+        .status.error {
+            background: #fef2f2;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            display: block;
+        }
+
+        .status.info {
+            background: #eff6ff;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            display: block;
+        }
+
+        .columns-list {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .column-header {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1.5fr 120px;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #f0f3f6;
+            border-bottom: 2px solid var(--border);
+            font-weight: 600;
+            font-size: 13px;
+            color: #555;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .column-item {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1.5fr 120px;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+
+        .column-item:hover {
+            background: #f8fafc;
+        }
+
+        .column-item:last-child {
+            border-bottom: none;
+        }
+
+        .column-name {
+            font-family: 'Courier New', monospace;
+            font-weight: 500;
+            color: #24292f;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+        }
+
+        .column-checkbox {
+            margin-right: 8px;
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        .column-name label {
+            cursor: pointer;
+        }
+
+        .column-type {
+            font-size: 12px;
+            color: #6a737d;
+            background: #e7f3ff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: 500;
+        }
+
+        .column-default {
+            font-size: 12px;
+            color: #6a737d;
+            font-style: italic;
+        }
+
+        .btn-small {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+
+        .note {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 4px;
+            border: 1px solid #ffeeba;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6a737d;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #004085;
+        }
+
+        .column-row {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1.5fr 60px;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            align-items: end;
+        }
+
+        .column-row-label {
+            font-size: 11px;
+            color: #555;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .delete-row-btn {
+            padding: 8px;
+            cursor: pointer;
+            background: var(--danger);
+            border: 1px solid var(--danger);
+            color: white;
+            border-radius: 4px;
+            font-size: 16px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-row-btn:hover {
+            background: #c82333;
+        }
+
+        .selected-columns-list {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .selected-column-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            background: #f8fafc;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+
+        .selected-column-item:last-child {
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.4rem;
+            }
+
+            .container {
+                padding: 16px;
+            }
+
+            .section {
+                padding: 16px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .column-header {
+                grid-template-columns: 1.5fr 1fr 1fr 80px;
+                font-size: 11px;
+                padding: 10px 8px;
+                gap: 8px;
+            }
+
+            .column-item {
+                grid-template-columns: 1.5fr 1fr 1fr 80px;
+                padding: 10px 8px;
+                gap: 8px;
+                font-size: 12px;
+            }
+
+            .column-name {
+                font-size: 11px;
+            }
+
+            .column-type {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+
+            .column-default {
+                font-size: 10px;
+            }
+
+            .btn-small {
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Table Column Manager</h1>
+        <p>Manage columns in exam_ann25 table - Add or Delete columns</p>
+    </div>
+
+    <div class="container">
+        <div id="statusDiv" class="status"></div>
+
+        <!-- Important Note -->
+        <div class="info-box">
+            <strong>ℹ️ কিভাবে কাজ করে:</strong><br>
+            ১. নতুন কলাম যোগ করতে: নিচের ফর্ম পূরণ করে SQL generate করুন<br>
+            ২. কলাম ডিলিট করতে: কলাম টেবিল থেকে 🗑️ Delete বাটনে ক্লিক করুন<br>
+            ৩. Generated SQL কপি করে Supabase Dashboard → SQL Editor-এ paste করে run করুন
+        </div>
+
+        <!-- Add Column Section -->
+        <div class="section">
+            <h2>➕ Add New Columns</h2>
+            <div class="note">
+                ⚠️ নতুন কলাম যোগ করার সময় সাবধানতা অবলম্বন করুন। কলাম নাম অবশ্যই unique হতে হবে।
+            </div>
+            
+            <div id="columnsToAdd"></div>
+            
+            <button class="btn btn-success" onclick="addColumnRow()" style="margin-top: 12px;">➕ Add Another Column</button>
+            <button class="btn btn-success" onclick="generateAddSQL()" style="margin-top: 12px;">🔨 Generate SQL</button>
+            
+            <div id="addSQLOutput" style="display:none; margin-top:16px;">
+                <label style="font-weight:500; margin-bottom:8px; display:block;">SQL Command to Run:</label>
+                <textarea id="addSQLCode" readonly style="width:100%; padding:12px; border:1px solid var(--border); border-radius:4px; font-family: 'Courier New', monospace; min-height:150px;"></textarea>
+                <button class="btn" onclick="copySQL('addSQLCode')" style="margin-top:8px;">📋 Copy SQL</button>
+            </div>
+        </div>
+
+        <!-- Current Columns Section with Table -->
+        <div class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 style="margin: 0;">📋 Current Columns in exam_ann25</h2>
+                <button class="btn btn-success" onclick="loadColumns()">🔄 Refresh</button>
+            </div>
+            
+            <div id="loadingDiv" class="loading" style="display: none;">Loading columns...</div>
+            <div id="columnsListDiv" class="columns-list"></div>
+            
+            <!-- Multiple Delete Button -->
+            <div style="margin-top: 16px; padding: 12px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
+                <p style="margin: 0 0 12px 0; color: #856404; font-size: 14px;">
+                    ⚠️ Select multiple columns using checkboxes above, then click this button to generate SQL for deleting them all at once.
+                </p>
+                <button onclick="generateDeleteSQL()" class="btn btn-danger" style="background: #dc3545;">
+                    🗑️ Generate Delete SQL for Selected Columns
+                </button>
+            </div>
+        </div>
+
+        <!-- SQL Output Section for Delete -->
+        <div id="deleteSQLSection" class="section" style="display:none; background: #fff3cd; border: 2px solid var(--warning);">
+            <h2>🗑️ Delete Column SQL Command</h2>
+            <p style="color: #856404; margin-bottom: 12px;">
+                ⚠️ কলাম ডিলিট করলে সেই কলামের সকল ডেটা মুছে যাবে। এই কাজটি undo করা যাবে না!
+            </p>
+            <label style="font-weight:500; margin-bottom:8px; display:block;">SQL Command to Run:</label>
+            <textarea id="deleteSQLCode" readonly style="width:100%; padding:12px; border:1px solid var(--border); border-radius:4px; font-family: 'Courier New', monospace; min-height:80px; background: white;"></textarea>
+            <button class="btn" onclick="copySQL('deleteSQLCode')" style="margin-top:8px;">📋 Copy SQL</button>
+        </div>
+
+        <!-- Instructions Section -->
+        <div class="section" style="background: #e7f3ff; border: 2px solid var(--accent);">
+            <h2>📖 How to Execute SQL Commands</h2>
+            <ol style="line-height: 2; margin-left: 20px; color: #004085;">
+                <li>Generate SQL command using buttons above</li>
+                <li>Copy the SQL command (click "📋 Copy SQL" button)</li>
+                <li>Go to <strong>Supabase Dashboard</strong> → <strong>SQL Editor</strong></li>
+                <li>Paste and run the SQL command</li>
+                <li>Come back here and click "🔄 Refresh" to see changes</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        const TABLE_NAME = 'exam_ann25';
+
+        // Counter for unique IDs
+        let columnRowCounter = 0;
+
+        // Add a new column input row
+        function addColumnRow() {
+            const container = document.getElementById('columnsToAdd');
+            const rowId = ++columnRowCounter;
+            
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'column-row';
+            rowDiv.id = `columnRow_${rowId}`;
+            
+            rowDiv.innerHTML = `
+                <div>
+                    <div class="column-row-label">Column Name *</div>
+                    <input type="text" id="colName_${rowId}" placeholder="e.g., *Bangla_CQ" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:4px;" />
+                </div>
+                <div>
+                    <div class="column-row-label">Data Type *</div>
+                    <select id="colType_${rowId}" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:4px;">
+                        <option value="integer">Integer</option>
+                        <option value="numeric">Numeric</option>
+                        <option value="text">Text</option>
+                        <option value="boolean">Boolean</option>
+                        <option value="timestamp">Timestamp</option>
+                    </select>
+                </div>
+                <div>
+                    <div class="column-row-label">Default Value</div>
+                    <input type="text" id="colDefault_${rowId}" placeholder="NULL" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:4px;" />
+                </div>
+                <button class="delete-row-btn" onclick="removeColumnRow(${rowId})" title="Remove">✕</button>
+            `;
+            
+            container.appendChild(rowDiv);
+        }
+
+        // Remove a column row
+        function removeColumnRow(rowId) {
+            const row = document.getElementById(`columnRow_${rowId}`);
+            if (row) {
+                row.remove();
+            }
+        }
+
+        // Check authentication
+        async function checkAuth() {
+            try {
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (!user) {
+                    alert('Please sign in first');
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                return true;
+            } catch (error) {
+                console.error('Auth error:', error);
+                return false;
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusDiv');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Load all columns from the table
+        async function loadColumns() {
+            const loadingDiv = document.getElementById('loadingDiv');
+            const columnsListDiv = document.getElementById('columnsListDiv');
+            
+            loadingDiv.style.display = 'block';
+            columnsListDiv.innerHTML = '';
+            
+            try {
+                // Get table structure by querying rows
+                const { data, error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .limit(100);
+
+                if (error) throw error;
+
+                // If no data, show helpful message
+                if (!data || data.length === 0) {
+                    columnsListDiv.innerHTML = `
+                        <div style="padding: 40px; text-align: center; color: #6a737d;">
+                            <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+                            <h3 style="margin-bottom: 12px; color: #24292f;">Table is Empty</h3>
+                            <p style="margin-bottom: 24px;">The <strong>${TABLE_NAME}</strong> table exists but has no data yet.</p>
+                            <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px; padding: 16px; margin: 20px auto; max-width: 500px; text-align: left;">
+                                <strong>💡 To view columns:</strong>
+                                <ol style="margin: 12px 0 0 20px; line-height: 1.8;">
+                                    <li>Add at least one row of data to the table</li>
+                                    <li>Or check Supabase Dashboard → Table Editor</li>
+                                    <li>You can still add new columns using the form above</li>
+                                </ol>
+                            </div>
+                        </div>
+                    `;
+                    showStatus('Table is empty. Add data to view columns, or use Supabase Dashboard.', 'info');
+                    loadingDiv.style.display = 'none';
+                    return;
+                }
+
+                const columns = Object.keys(data[0]);
+                const protectedColumns = ['iid', 'id', 'created_at', 'updated_at'];
+                    
+                    // Display columns in table format
+                    columnsListDiv.innerHTML = `
+                        <div class="column-header">
+                            <div><input type="checkbox" id="selectAllColumns" onchange="toggleSelectAll(this)" /> Select All</div>
+                            <div>Data Type</div>
+                            <div>Default Value</div>
+                            <div>Action</div>
+                        </div>
+                    `;
+                    
+                    columns.forEach(col => {
+                        const item = document.createElement('div');
+                        item.className = 'column-item';
+                        
+                        // Column Name with Checkbox
+                        const nameDiv = document.createElement('div');
+                        nameDiv.className = 'column-name';
+                        
+                        const isProtected = protectedColumns.includes(col.toLowerCase());
+                        
+                        if (!isProtected) {
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.className = 'column-checkbox';
+                            checkbox.value = col;
+                            checkbox.id = `col_${col}`;
+                            nameDiv.appendChild(checkbox);
+                        }
+                        
+                        const label = document.createElement('label');
+                        label.htmlFor = `col_${col}`;
+                        label.textContent = col;
+                        label.style.marginLeft = isProtected ? '0' : '8px';
+                        label.style.cursor = isProtected ? 'default' : 'pointer';
+                        if (isProtected) {
+                            label.style.color = '#999';
+                            label.innerHTML = `🔒 ${col}`;
+                        }
+                        
+                        nameDiv.appendChild(label);
+                        
+                        // Data Type
+                        const typeDiv = document.createElement('div');
+                        const typeSpan = document.createElement('span');
+                        typeSpan.className = 'column-type';
+                        const jsType = typeof data[0][col];
+                        // Map JavaScript types to SQL types
+                        let sqlType = 'unknown';
+                        if (jsType === 'number') {
+                            sqlType = Number.isInteger(data[0][col]) ? 'integer' : 'numeric';
+                        } else if (jsType === 'string') {
+                            sqlType = 'text';
+                        } else if (jsType === 'boolean') {
+                            sqlType = 'boolean';
+                        } else if (data[0][col] === null) {
+                            sqlType = 'null';
+                        }
+                        typeSpan.textContent = sqlType;
+                        typeDiv.appendChild(typeSpan);
+                        
+                        // Default Value
+                        const defaultDiv = document.createElement('div');
+                        defaultDiv.className = 'column-default';
+                        const defaultVal = data[0][col];
+                        defaultDiv.textContent = defaultVal === null || defaultVal === undefined ? 'NULL' : String(defaultVal);
+                        
+                        // Delete Button
+                        const actionDiv = document.createElement('div');
+                        if (isProtected) {
+                            const protectedLabel = document.createElement('span');
+                            protectedLabel.style.fontSize = '11px';
+                            protectedLabel.style.color = '#999';
+                            protectedLabel.textContent = '🔒 Protected';
+                            actionDiv.appendChild(protectedLabel);
+                        } else {
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'btn-small btn-danger';
+                            deleteBtn.textContent = '🗑️ Delete';
+                            deleteBtn.onclick = () => deleteColumnDirect(col);
+                            actionDiv.appendChild(deleteBtn);
+                        }
+                        
+                        item.appendChild(nameDiv);
+                        item.appendChild(typeDiv);
+                        item.appendChild(defaultDiv);
+                        item.appendChild(actionDiv);
+                        columnsListDiv.appendChild(item);
+                    });
+
+                    showStatus(`✅ Found ${columns.length} columns in ${TABLE_NAME} table`, 'success');
+            } catch (error) {
+                console.error('Error loading columns:', error);
+                
+                // Show friendly error message
+                columnsListDiv.innerHTML = `
+                    <div style="padding: 40px; text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                        <h3 style="margin-bottom: 12px; color: var(--danger);">Error Loading Table</h3>
+                        <p style="color: #6a737d; margin-bottom: 20px;">${error.message}</p>
+                        <div style="background: #fef2f2; border: 1px solid var(--danger); border-radius: 4px; padding: 16px; margin: 20px auto; max-width: 500px; text-align: left;">
+                            <strong>🔍 Possible Solutions:</strong>
+                            <ul style="margin: 12px 0 0 20px; line-height: 1.8;">
+                                <li>Check if table <strong>${TABLE_NAME}</strong> exists in Supabase</li>
+                                <li>Verify your database permissions</li>
+                                <li>Check your internet connection</li>
+                                <li>Try refreshing the page</li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-success" onclick="loadColumns()" style="margin-top: 16px;">🔄 Try Again</button>
+                    </div>
+                `;
+                showStatus('❌ Error: ' + error.message, 'error');
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+
+        // Generate SQL for adding multiple columns
+        function generateAddSQL() {
+            const container = document.getElementById('columnsToAdd');
+            const rows = container.querySelectorAll('.column-row');
+            
+            if (rows.length === 0) {
+                showStatus('Please add at least one column', 'error');
+                return;
+            }
+
+            let sqlStatements = [];
+            let hasError = false;
+
+            rows.forEach((row) => {
+                const rowId = row.id.split('_')[1];
+                const columnName = document.getElementById(`colName_${rowId}`).value.trim();
+                const columnType = document.getElementById(`colType_${rowId}`).value;
+                const defaultValue = document.getElementById(`colDefault_${rowId}`).value.trim();
+
+                if (!columnName) {
+                    showStatus('Please fill in all column names', 'error');
+                    hasError = true;
+                    return;
+                }
+
+                // Validate column name
+                if (!/^[a-zA-Z0-9_*]+$/.test(columnName)) {
+                    showStatus(`Invalid column name: ${columnName}. Only letters, numbers, underscore, and asterisk allowed.`, 'error');
+                    hasError = true;
+                    return;
+                }
+
+                // Construct SQL for this column
+                let sql = `ALTER TABLE ${TABLE_NAME} ADD COLUMN "${columnName}" ${columnType}`;
+                
+                if (defaultValue && defaultValue.toLowerCase() !== 'null') {
+                    if (columnType === 'text') {
+                        sql += ` DEFAULT '${defaultValue}'`;
+                    } else if (columnType === 'boolean') {
+                        sql += ` DEFAULT ${defaultValue.toLowerCase() === 'true' ? 'true' : 'false'}`;
+                    } else {
+                        sql += ` DEFAULT ${defaultValue}`;
+                    }
+                }
+
+                sql += ';';
+                sqlStatements.push(sql);
+            });
+
+            if (hasError) return;
+
+            // Combine all SQL statements
+            const finalSQL = sqlStatements.join('\n');
+
+            // Display SQL
+            document.getElementById('addSQLCode').value = finalSQL;
+            document.getElementById('addSQLOutput').style.display = 'block';
+            
+            showStatus(`✅ Generated SQL for ${sqlStatements.length} column(s)!`, 'success');
+        }
+
+        // Delete column directly from row button
+        function deleteColumnDirect(columnName) {
+            if (!columnName) return;
+
+            const confirmDelete = confirm(`⚠️ WARNING! Are you sure you want to generate SQL to delete column "${columnName}"?\n\nThis will permanently delete all data in this column when executed!`);
+            if (!confirmDelete) return;
+
+            // Construct SQL query to drop column
+            const sql = `ALTER TABLE ${TABLE_NAME} DROP COLUMN "${columnName}";`;
+
+            // Display SQL
+            document.getElementById('deleteSQLCode').value = sql;
+            document.getElementById('deleteSQLSection').style.display = 'block';
+            
+            // Scroll to the SQL output
+            document.getElementById('deleteSQLSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            showStatus(`✅ SQL command generated for deleting column "${columnName}"!`, 'success');
+        }
+
+        // Toggle select all checkboxes
+        function toggleSelectAll(checkbox) {
+            const checkboxes = document.querySelectorAll('.column-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = checkbox.checked;
+            });
+        }
+
+        // Generate SQL for deleting multiple selected columns
+        function generateDeleteSQL() {
+            const checkboxes = document.querySelectorAll('.column-checkbox:checked');
+            
+            if (checkboxes.length === 0) {
+                showStatus('❌ Please select at least one column to delete', 'error');
+                return;
+            }
+
+            const columnNames = Array.from(checkboxes).map(cb => cb.value);
+            
+            const confirmDelete = confirm(`⚠️ DANGER! Are you sure you want to delete ${columnNames.length} column(s)?\n\nColumns: ${columnNames.join(', ')}\n\nThis will permanently delete all data in these columns when executed in Supabase!`);
+            if (!confirmDelete) return;
+
+            // Generate SQL statements
+            const sqlStatements = columnNames.map(name => 
+                `ALTER TABLE ${TABLE_NAME} DROP COLUMN "${name}";`
+            );
+
+            const finalSQL = sqlStatements.join('\n');
+
+            // Display SQL
+            document.getElementById('deleteSQLCode').value = finalSQL;
+            document.getElementById('deleteSQLSection').style.display = 'block';
+            
+            // Scroll to the SQL output
+            document.getElementById('deleteSQLSection').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            showStatus(`✅ Generated SQL for deleting ${columnNames.length} column(s)!`, 'success');
+            
+            // Uncheck all checkboxes
+            checkboxes.forEach(cb => cb.checked = false);
+            document.getElementById('selectAllColumns').checked = false;
+        }
+
+        // Copy SQL to clipboard
+        function copySQL(textareaId) {
+            const textarea = document.getElementById(textareaId);
+            textarea.select();
+            textarea.setSelectionRange(0, 99999); // For mobile devices
+
+            try {
+                document.execCommand('copy');
+                showStatus('✅ SQL command copied to clipboard!', 'success');
+            } catch (err) {
+                // Fallback for modern browsers
+                navigator.clipboard.writeText(textarea.value).then(() => {
+                    showStatus('✅ SQL command copied to clipboard!', 'success');
+                }).catch(() => {
+                    showStatus('❌ Failed to copy SQL command', 'error');
+                });
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            const isAuthenticated = await checkAuth();
+            if (isAuthenticated) {
+                await loadColumns();
+                // Add first column row by default
+                addColumnRow();
+            }
+        });
+    </script>
+</body>
+</html>

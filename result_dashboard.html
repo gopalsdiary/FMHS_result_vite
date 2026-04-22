@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>Result Processing Dashboard</title>
+  <style>
+    :root { --primary:#667eea; --primary-dark:#5a67d8; --secondary:#764ba2; --accent:#667eea; --accent-hover:#5a67d8; --success:#10b981; --warning:#f59e0b; --danger:#ef4444; --info:#3b82f6; --bg:#f8fafc; --card:#ffffff; --text:#1a202c; --text-muted:#64748b; --border:#e2e8f0; --shadow:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06); --shadow-hover:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04); --radius:12px; --font-family:'Inter','Segoe UI',sans-serif; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:var(--font-family); background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); background-attachment:fixed; color:var(--text); line-height:1.6; min-height:100vh; }
+    
+    /* Header */
+    .header { background:rgba(255,255,255,0.95); backdrop-filter:blur(10px); color:var(--text); padding:20px 32px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 8px 32px rgba(0,0,0,0.1); position:sticky; top:0; z-index:100; border-bottom:1px solid rgba(255,255,255,0.2); }
+    .logo { font-size:1.6em; font-weight:800; background:linear-gradient(135deg,var(--primary),var(--secondary)); background-clip:text; -webkit-background-clip:text; color:transparent; -webkit-text-fill-color:transparent; letter-spacing:-0.8px; }
+    .user-info { display:flex; align-items:center; gap:16px; font-weight:500; color:var(--text-muted); }
+    .menu-toggle { background:none; border:none; font-size:1.5em; color:var(--text); cursor:pointer; display:none; }
+    
+    /* Sidebar */
+    .sidebar { width:300px; background:rgba(255,255,255,0.95); backdrop-filter:blur(20px); height:calc(100vh - 80px); position:fixed; top:80px; left:0; box-shadow:0 10px 40px rgba(0,0,0,0.1); overflow-y:auto; border-right:1px solid rgba(255,255,255,0.2); }
+    .main-content { margin-left:300px; padding:32px; min-height:calc(100vh - 80px); }
+    .nav-menu { padding:24px 0; }
+    .nav-item { display:flex; align-items:center; padding:16px 32px; color:var(--text-muted); text-decoration:none; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); font-weight:500; margin:4px 16px; border-radius:12px; }
+    .nav-item:hover { background:rgba(102,126,234,0.1); color:var(--primary); transform:translateX(4px); }
+    .nav-item.active { background:linear-gradient(135deg,rgba(102,126,234,0.15),rgba(118,75,162,0.1)); color:var(--primary); border-left:4px solid var(--primary); font-weight:600; }
+    .nav-item .icon { margin-right:16px; width:24px; font-size:18px; text-align:center; }
+    
+    /* Dashboard Grid */
+    .dashboard-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(380px,1fr)); gap:32px; margin-bottom:40px; }
+    .card { background:rgba(255,255,255,0.95); backdrop-filter:blur(20px); padding:32px; border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,0.1); transition:all 0.4s cubic-bezier(0.4,0,0.2,1); border:1px solid rgba(255,255,255,0.2); position:relative; overflow:hidden; }
+    .card::before { content:''; position:absolute; top:0; left:0; right:0; height:6px; background:linear-gradient(90deg,var(--primary),var(--secondary)); }
+    .card:hover { transform:translateY(-8px) scale(1.02); box-shadow:0 25px 50px rgba(0,0,0,0.15); }
+    .card-title { font-size:1.4em; font-weight:700; margin-bottom:12px; color:var(--text); }
+    .card-desc { color:var(--text-muted); font-size:1rem; margin-bottom:24px; line-height:1.6; }
+    .card-action { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; padding:14px 28px; border-radius:10px; text-decoration:none; display:inline-flex; align-items:center; gap:10px; font-size:1rem; font-weight:600; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); box-shadow:0 4px 15px rgba(102,126,234,0.3); }
+    .card-action:hover { background:linear-gradient(135deg,var(--primary-dark),var(--primary)); transform:translateY(-2px); box-shadow:0 8px 25px rgba(102,126,234,0.4); }
+    
+    /* Stats Grid */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:24px; margin-bottom:40px; }
+    .stat-card { background:rgba(255,255,255,0.95); backdrop-filter:blur(20px); padding:28px; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,0.1); text-align:center; border:1px solid rgba(255,255,255,0.2); position:relative; transition:all 0.3s ease; }
+    .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--primary),var(--secondary)); border-radius:16px 16px 0 0; }
+    .stat-card:hover { transform:translateY(-4px); box-shadow:0 12px 40px rgba(0,0,0,0.15); }
+    .stat-number { font-size:2.8em; font-weight:800; background:linear-gradient(135deg,var(--primary),var(--secondary)); background-clip:text; -webkit-background-clip:text; color:transparent; -webkit-text-fill-color:transparent; margin-bottom:8px; }
+    .stat-label { color:var(--text-muted); font-size:1rem; font-weight:600; }
+    
+    /* Quick Actions */
+    .quick-actions { background:rgba(255,255,255,0.95); backdrop-filter:blur(20px); padding:32px; border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,0.1); border:1px solid rgba(255,255,255,0.2); }
+    .quick-actions h3 { margin-bottom:24px; color:var(--text); font-weight:700; font-size:1.3em; }
+    .btn { display:inline-flex; align-items:center; gap:10px; padding:14px 24px; background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; border-radius:10px; text-decoration:none; margin:6px 12px 6px 0; font-size:1rem; font-weight:600; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); border:none; cursor:pointer; box-shadow:0 4px 15px rgba(102,126,234,0.3); }
+    .btn:hover { background:linear-gradient(135deg,var(--primary-dark),var(--primary)); transform:translateY(-2px); box-shadow:0 8px 25px rgba(102,126,234,0.4); }
+    .btn-secondary { background:linear-gradient(135deg,var(--text-muted),#495057); box-shadow:0 4px 15px rgba(100,116,139,0.3); }
+    .btn-secondary:hover { background:linear-gradient(135deg,#495057,var(--text-muted)); box-shadow:0 8px 25px rgba(100,116,139,0.4); }
+    .btn-success { background:linear-gradient(135deg,var(--success),#059669); box-shadow:0 4px 15px rgba(16,185,129,0.3); }
+    .btn-success:hover { background:linear-gradient(135deg,#059669,var(--success)); box-shadow:0 8px 25px rgba(16,185,129,0.4); }
+    
+    /* Form Elements */
+    input, select, textarea { padding:12px 16px; border:2px solid var(--border); border-radius:10px; font-size:1rem; background:rgba(255,255,255,0.9); color:var(--text); transition:all 0.3s ease; }
+    input:focus, select:focus, textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 4px rgba(102,126,234,0.1); background:rgba(255,255,255,1); }
+    label { font-size:1rem; color:var(--text); margin-bottom:8px; font-weight:600; display:block; }
+    
+    /* Table */
+    .results-table { width:100%; border-collapse:collapse; font-size:1rem; margin-top:20px; background:rgba(255,255,255,0.95); border-radius:12px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.1); }
+    .results-table th { background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; border:none; padding:16px; text-align:left; font-weight:600; }
+    .results-table td { border:1px solid var(--border); padding:16px; }
+    .results-table tbody tr:hover { background:rgba(102,126,234,0.05); }
+    
+    /* Page Headers */
+    .page-header { margin-bottom:32px; padding-bottom:20px; border-bottom:3px solid var(--border); }
+    .page-header h2 { font-size:2.2em; font-weight:800; background:linear-gradient(135deg,var(--primary),var(--secondary)); background-clip:text; -webkit-background-clip:text; color:transparent; -webkit-text-fill-color:transparent; margin-bottom:12px; }
+    .page-header p { color:var(--text-muted); font-size:1.1em; }
+    
+    /* Responsive */
+    @media(max-width:768px) {
+      .sidebar { transform:translateX(-100%); transition:transform 0.3s ease; z-index:200; width:280px; }
+      .main-content { margin-left:0; padding:20px; }
+      .sidebar.open { transform:translateX(0); }
+      .dashboard-cards { grid-template-columns:1fr; gap:20px; }
+      .stats-grid { grid-template-columns:repeat(2,1fr); gap:16px; }
+      .menu-toggle { display:block; }
+      .header { padding:16px 20px; }
+      .logo { font-size:1.3em; }
+    }
+  </style>
+    
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="logo" style="background:none !important; color:#ff7b00 !important; -webkit-text-fill-color:#ff7b00 !important;">📊 Result Processing System</div>
+    </div>
+    <div class="user-info">
+      <span id="userArea">Loading...</span>
+    </div>
+  </div>
+
+  <div class="sidebar" id="sidebar">
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <span class="icon">🏠</span>Dashboard
+      </a>
+      
+      
+      <a href="1_print_results.html" class="nav-item" data-page="process">
+        <span class="icon">⚙️</span>Print Results for class
+      </a>
+      <a href="Teacher_setup.html" class="nav-item" data-page="subject">
+        <span class="icon">📚</span>Teacher Setup
+      </a>
+      <a href="student_management.html" class="nav-item" data-page="students">
+        <span class="icon">👥</span>Student Management
+      </a>
+      <a href="result_entry_admin.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Part 1 - Result Entry
+      </a>
+
+      <a href="2_total_average.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Part 2 - Total & Average
+      </a>
+      <a href="3_Subject_GPA.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Part 3 - Subject wise GPA 
+      </a>
+      <a href="4_gpa_final.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Part 4 - GPA Finalization
+        
+        <a href="5_resultlist.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Part 5 -Final Result View
+      </a>
+
+      <a href="6_process_results_fail_report.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Part 6 - Pass-Fail Report
+      </a>
+      <a href="7_sms.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Part 7 -SMS
+      </a>
+      <a href="2_result_dashboard.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>Teacher option
+      </a>
+
+      <a href="class_subject.html" class="nav-item" data-page="settings">
+        <span class="icon">⚙️</span>configuration
+      </a>
+    </nav>
+  </div>
+
+  <div class="main-content">
+    <div id="dashboard-content">
+      <div style="background:#f0f0f3;padding:40px;border-radius:25px;margin-bottom:32px;box-shadow:20px 20px 60px #bebebe,-20px -20px 60px #ffffff;position:relative;">
+        <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;">
+          <div style="background:#f0f0f3;width:60px;height:60px;border-radius:20px;display:flex;align-items:center;justify-content:center;box-shadow:8px 8px 16px #bebebe,-8px -8px 16px #ffffff;font-size:28px;">📊</div>
+          <div>
+            <h2 style="margin:0;font-size:2.2em;font-weight:800;color:#2d3748;text-shadow:2px 2px 4px rgba(255,255,255,0.8),-2px -2px 4px rgba(0,0,0,0.1);">Dashboard Overview (6-8 Class) </h2>
+            <p style="margin:0;color:#4a5568;font-size:1.1em;font-weight:500;margin-top:8px;">Real-time insights and analytics for your result processing system</p>
+          </div>
+        </div>
+        <div style="position:absolute;top:15px;right:15px;width:12px;height:12px;background:#f0f0f3;border-radius:50%;box-shadow:inset 3px 3px 6px #bebebe,inset -3px -3px 6px #ffffff;"></div>
+        <div style="position:absolute;bottom:15px;left:15px;width:8px;height:8px;background:#f0f0f3;border-radius:50%;box-shadow:inset 2px 2px 4px #bebebe,inset -2px -2px 4px #ffffff;"></div>
+      </div>
+      
+      
+
+      <div class="dashboard-cards">
+        <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);">Result Entry</div>
+          <div class="card-desc" style="color:#4a5568;">Enter and manage student results with dynamic grading for CQ, MCQ, and Practical</div>
+          <a href="result_entry_admin.html" class="card-action" style="background:#f0f0f3;color:#ff7b00;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">Result Entry</a>
+        </div>
+        
+        <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);">Grade Configuration</div>
+          <div class="card-desc" style="color:#4a5568;">Set grade boundaries, subject weights, and pass/fail criteria</div>
+          <a href="grade_management.html" class="card-action" style="background:#f0f0f3;color:#4a5568;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">Configure Grades</a>
+        </div>
+        
+        <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);">Student Database</div>
+          <div class="card-desc" style="color:#4a5568;">Manage student information, view individual records and history</div>
+          <a href="student_management.html" class="card-action" style="background:#f0f0f3;color:#4a5568;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">Manage Students</a>
+        </div>
+        
+         
+        <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);">Summery (কে কতটি এন্ট্রি দিয়েছে) </div>
+          <div class="card-desc" style="color:#4a5568;">See how many entry </div>
+          <a href="summary.html" class="card-action" style="background:#f0f0f3;color:#4a5568;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">Total Entry Count </a>
+        </div>
+         <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);">Subject Setup access </div>
+          <div class="card-desc" style="color:#4a5568;">See subject & setup teacher for mark entry </div>
+          <a href="subjectsetup.html" class="card-action" style="background:#f0f0f3;color:#4a5568;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">setup teacher </a>
+        </div>
+
+         <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);"> Result View Google Sheet </div>
+          <div class="card-desc" style="color:#4a5568;">See subject result view </div>
+          <a href="result_view.html" class="card-action" style="background:#f0f0f3;color:#4a5568;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">setup teacher </a>
+        </div>
+
+      <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);"> Teacher Subject View </div>
+          <div class="card-desc" style="color:#4a5568;">See Teacher subject result </div>
+          <a href="subject_teacher.html" class="card-action" style="background:#f0f0f3;color:#4a5568;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">see teachers subject </a>
+        </div>
+
+        <div class="card" style="background:#f0f0f3;box-shadow:12px 12px 24px #bebebe,-12px -12px 24px #ffffff;border:none;border-radius:25px;">
+          <div class="card-title" style="color:#2d3748;text-shadow:1px 1px 2px rgba(255,255,255,0.8),-1px -1px 2px rgba(0,0,0,0.1);"> Grade management server </div>
+          <div class="card-desc" style="color:#4a5568;">Grade  </div>
+          <a href="grade_entry.html" class="card-action" style="background:#f0f0f3;color:#4a5568;padding:14px 28px;border-radius:15px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;font-size:1rem;font-weight:600;box-shadow:6px 6px 12px #bebebe,-6px -6px 12px #ffffff;transition:all 0.3s ease;border:none;">Grade  Entry</a>
+        </div>
+    
+
+      </div>
+    </div>
+
+    <!-- Other page contents will be loaded here -->
+    <div id="other-content" style="display:none">
+      <div id="process-content">
+        <h2>Process Results</h2>
+        <p>This will redirect to the advanced processing page.</p>
+      </div>
+      
+      <div id="grades-content" style="display:none">
+        <h2>Grade Management</h2>
+        <p>Configure grade boundaries and rules here.</p>
+      </div>
+
+      <div id="subject-content" style="display:none">
+        <h2 style="margin-bottom:16px">Subject Setup</h2>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-title">Add New Subject</div>
+          <div class="card-desc">Add a subject and assign it to a class</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div style="display:flex;flex-direction:column">
+              <label for="subjectName" style="font-size:0.9em;color:#555;margin-bottom:4px">Subject Name</label>
+              <input id="subjectName" type="text" placeholder="e.g., Mathematics" style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:220px">
+            </div>
+            <div style="display:flex;flex-direction:column">
+              <label for="className" style="font-size:0.9em;color:#555;margin-bottom:4px">Class</label>
+              <select id="className" style="padding:8px;border:1px solid #ddd;border-radius:6px;min-width:180px"></select>
+            </div>
+            <button class="btn" style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;" onclick="addSubject()">➕ Add Subject</button>
+          </div>
+          <div id="subjectMessage" style="margin-top:10px;font-size:0.9em;color:#1976d2"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Existing Subjects</div>
+          <div class="card-desc">Subjects stored in <code>subject_selection</code></div>
+          <div style="overflow:auto">
+            <table class="results-table" style="width:100%;border-collapse:collapse;font-size:0.9em" id="subjectTable">
+              <thead>
+                <tr style="background:#f8f9fa">
+                  <th style="border:1px solid #eee;padding:8px;text-align:left">#</th>
+                  <th style="border:1px solid #eee;padding:8px;text-align:left">Subject</th>
+                  <th style="border:1px solid #eee;padding:8px;text-align:left">Class</th>
+                  <th style="border:1px solid #eee;padding:8px;text-align:left">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="subjectTbody">
+                <tr><td colspan="4" style="border:1px solid #eee;padding:8px;text-align:center;color:#666">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    
+      <div id="settings-content" style="display:none">
+        <h2>Settings</h2>
+        <p>বাম মেন্যু থেকে সেটিংস কনফিগার করুন। এবং ধাপে ধাপে সম্পন্ন করুন।</p>
+      </div>
+      
+      
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+  const userArea = document.getElementById('userArea')
+
+    // Authorization config:
+    // - If list contains 'all' (any case), any authenticated user can click buttons
+    // - Otherwise, only listed emails can click; others see buttons but cannot click
+    const allowedEditors = [
+      'fenimodelhighschool@gmail.com',
+      'roy.gopal159@gmail.com',
+      'all'
+     // keep or remove as needed; 'all' enables for any authenticated user
+    ]
+
+    function canUserEdit(email){
+      const lowerList = allowedEditors.map(x => (x||'').toLowerCase())
+      if (lowerList.includes('all')) return true
+      const e = (email||'').toLowerCase()
+      return lowerList.includes(e)
+    }
+
+    function setButtonsEnabled(enabled){
+      document.querySelectorAll('.card-action, .btn, .nav-item').forEach(btn => {
+        if (enabled) {
+          btn.style.pointerEvents = ''
+          btn.style.opacity = ''
+          btn.removeAttribute('title')
+        } else {
+          btn.style.pointerEvents = 'none'
+          btn.style.opacity = '0.6'
+          if (!btn.getAttribute('title')) btn.setAttribute('title','View only')
+        }
+      })
+    }
+
+    let isEditor = false
+
+    async function checkUser(){
+      const { data: { user } } = await supabase.auth.getUser()
+      if(user){
+        userArea.innerHTML = user.email + ' <button id="logout" style="margin-left:8px;padding:4px 8px;background:#e74c3c;color:#fff;border:0;border-radius:4px;cursor:pointer">Sign out</button>'
+        document.getElementById('logout').addEventListener('click', async function(){
+          // Store current page URL before logout
+          const currentPage = window.location.pathname.split('/').pop() || 'result_dashboard.html'
+          sessionStorage.setItem('redirectUrl', currentPage)
+          await supabase.auth.signOut()
+          location.href = 'login.html'
+        })
+        // Enable/disable buttons based on authorization
+        const editable = canUserEdit(user.email)
+        isEditor = editable
+        setButtonsEnabled(editable)
+        loadDashboardStats()
+      } else {
+        // User not logged in - store current page and redirect to login
+        const currentPage = window.location.pathname.split('/').pop() || 'result_dashboard.html'
+        sessionStorage.setItem('redirectUrl', currentPage)
+        userArea.innerHTML = '<a href="login.html" style="color:#fff;text-decoration:none">Sign in</a>'
+        setButtonsEnabled(false)
+        // Uncomment the line below if you want to force redirect to login for unauthenticated users
+        // window.location.href = 'login.html'
+      }
+    }
+
+    async function loadDashboardStats(){
+      // Load stats from Supabase or localStorage
+      try {
+        const stats = JSON.parse(localStorage.getItem('dashboardStats')) || {}
+        document.getElementById('totalBatches').textContent = stats.totalBatches || 0
+        document.getElementById('totalStudents').textContent = stats.totalStudents || 0
+        document.getElementById('avgPassRate').textContent = (stats.avgPassRate || 0) + '%'
+        document.getElementById('lastProcessed').textContent = stats.lastProcessed || '-'
+      } catch(e) {
+        console.log('Stats loading error:', e)
+      }
+    }
+
+    // Navigation
+    function showPage(pageId) {
+      document.getElementById('dashboard-content').style.display = pageId === 'dashboard' ? 'block' : 'none'
+      document.getElementById('other-content').style.display = pageId === 'dashboard' ? 'none' : 'block'
+      
+      // Hide all content divs
+      document.querySelectorAll('#other-content > div').forEach(div => div.style.display = 'none')
+      
+      // Show selected content
+      if (pageId !== 'dashboard') {
+        const contentDiv = document.getElementById(pageId + '-content')
+        if (contentDiv) contentDiv.style.display = 'block'
+      }
+
+      // Update active nav
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'))
+      document.querySelector(`.nav-item[data-page="${pageId}"]`).classList.add('active')
+    }
+
+    // Quick actions
+    window.quickGradeSetup = function() {
+      alert('Quick grade setup functionality coming soon!')
+    }
+
+    window.generateReport = function() {
+      alert('Report generation functionality coming soon!')
+    }
+
+    window.exportLastBatch = function() {
+      alert('Export functionality coming soon!')
+    }
+
+    window.showPage = showPage
+
+    // Subject Setup logic
+    const CLASS_OPTIONS = [
+      'Class 6','Class 7','Class 8','Class 9','Class 10'
+    ]
+
+      // Will adapt to your actual table columns automatically
+      let SUBJECT_COL = 'subject_name'
+      let CLASS_COL = 'class_name'
+      const ID_COL = 'id'
+
+    function populateClassDropdown() {
+      const sel = document.getElementById('className')
+      if (!sel) return
+      sel.innerHTML = ''
+      CLASS_OPTIONS.forEach(c => {
+        const opt = document.createElement('option')
+        opt.value = c
+        opt.textContent = c
+        sel.appendChild(opt)
+      })
+    }
+
+    async function loadSubjects() {
+      const tbody = document.getElementById('subjectTbody')
+      if (!tbody) return
+      tbody.innerHTML = '<tr><td colspan="4" style="border:1px solid #eee;padding:8px;text-align:center;color:#666">Loading...</td></tr>'
+      try {
+        const { data, error } = await supabase
+          .from('subject_selection')
+          .select('*')
+          .order('id', { ascending: true })
+        if (error) throw error
+          // Detect column names from sample row, if available
+          if (data && data.length > 0) {
+            const sample = data[0]
+            SUBJECT_COL = 'subject_name' in sample ? 'subject_name' : ('subject' in sample ? 'subject' : 'subject_name')
+            CLASS_COL = 'class_name' in sample ? 'class_name' : ('class' in sample ? 'class' : 'class_name')
+          }
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="border:1px solid #eee;padding:8px;text-align:center;color:#666">No subjects found</td></tr>'
+          return
+        }
+        tbody.innerHTML = ''
+        data.forEach((row, idx) => {
+          const tr = document.createElement('tr')
+          tr.innerHTML = `
+            <td style="border:1px solid #eee;padding:8px">${idx + 1}</td>
+              <td style="border:1px solid #eee;padding:8px">${row[SUBJECT_COL] || ''}</td>
+              <td style="border:1px solid #eee;padding:8px">${row[CLASS_COL] || ''}</td>
+            <td style="border:1px solid #eee;padding:8px">
+              <button class="btn btn-warning" style="padding:6px 10px" onclick="deleteSubject(${row.id})">Delete</button>
+            </td>
+          `
+          tbody.appendChild(tr)
+        })
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="4" style="border:1px solid #eee;padding:8px;color:#c62828">Error: ${e.message}</td></tr>`
+      }
+    }
+
+    window.addSubject = async function() {
+      const nameEl = document.getElementById('subjectName')
+      const classEl = document.getElementById('className')
+      const msgEl = document.getElementById('subjectMessage')
+      if (!nameEl || !classEl) return
+      const subject = nameEl.value.trim()
+      const className = classEl.value
+      if (!subject) {
+        msgEl.textContent = 'Please enter a subject name.'
+        msgEl.style.color = '#c62828'
+        return
+      }
+      msgEl.textContent = 'Saving...'
+      msgEl.style.color = '#1976d2'
+      try {
+        const payload = { [SUBJECT_COL]: subject, [CLASS_COL]: className }
+        const { error } = await supabase
+          .from('subject_selection')
+          .insert([payload])
+        if (error) throw error
+        nameEl.value = ''
+        msgEl.textContent = 'Subject added successfully.'
+        msgEl.style.color = '#2e7d32'
+        await loadSubjects()
+      } catch (e) {
+        msgEl.textContent = 'Error: ' + e.message
+        msgEl.style.color = '#c62828'
+      }
+    }
+
+    window.deleteSubject = async function(id) {
+      if (!confirm('Delete this subject?')) return
+      const msgEl = document.getElementById('subjectMessage')
+      try {
+        const { error } = await supabase
+          .from('subject_selection')
+          .delete()
+          .eq('id', id)
+        if (error) throw error
+        msgEl.textContent = 'Subject deleted.'
+        msgEl.style.color = '#2e7d32'
+        await loadSubjects()
+      } catch (e) {
+        msgEl.textContent = 'Error: ' + e.message
+        msgEl.style.color = '#c62828'
+      }
+    }
+
+    // Navigation event listeners
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function(e) {
+        // Block navigation for view-only users
+        if (!isEditor) { e.preventDefault(); return }
+        // If this nav-item has a real href (not '#' or empty), allow normal navigation
+        const href = this.getAttribute('href')
+        if (href && href !== '#' && href.trim() !== '') {
+          // let the browser follow the link (use default behavior)
+          return
+        }
+
+        // Otherwise handle as SPA navigation
+        e.preventDefault()
+        const page = this.dataset.page
+        if (page === 'process') {
+          window.location.href = 'advanced_process_results.html'
+        } else if (page === 'grades') {
+          window.location.href = 'grade_management.html'
+        } else if (page === 'subject') {
+          showPage('subject')
+          populateClassDropdown()
+          loadSubjects()
+        } else {
+          showPage(page)
+        }
+      })
+    })
+
+    // Initialize dashboard and, if the subject tab is directly navigated to, prepare that view
+    checkUser()
+  </script>
+</body>
+</html>

@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8        th.subject-group { 
+            writing-mode:initial; 
+            transform:none; 
+            padding:6px 4px; 
+            height:2.5cm; 
+            min-height:2.5cm; 
+            max-height:2.5cm; 
+            white-space:normal; 
+            word-wrap:break-word; 
+            vertical-align:top; 
+            text-align:center; 
+        }ta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Result Viewer</title>
+    <style>
+        :root { 
+            --bg: #f0f2f5; 
+            --card: #ffffff; 
+            --border: #e1e4e8; 
+            --accent: #0969da; 
+            --accent-hover: #0354a6; 
+            --danger: #cf222e; 
+            --warning: #d29922; 
+            --success: #1a7f37;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --radius: 6px; 
+            --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        }
+        body { margin:0; background:var(--bg); color:var(--text-primary); font-size: 14px; line-height: 1.5; }
+        
+        header { 
+            background: #24292f; 
+            color: #fff; 
+            padding: 16px 24px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .hdr-badge { 
+            font-size: 12px; 
+            background: rgba(255,255,255,0.15); 
+            padding: 2px 8px; 
+            border-radius: 12px; 
+            color: #fff; 
+            font-weight: 500;
+        }
+        h1 { font-size: 20px; margin: 0; font-weight: 600; letter-spacing: -0.5px; }
+        
+        .container { 
+            width: 95%; 
+            max-width: 1600px; 
+            margin: 20px auto 60px; 
+            background: var(--card); 
+            border-radius: var(--radius); 
+            padding: 24px; 
+            box-shadow: var(--shadow); 
+        }
+        
+        .toolbar { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 16px; 
+            align-items: flex-end; 
+            margin-bottom: 20px; 
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .toolbar > div { display: flex; flex-direction: column; gap: 6px; }
+        .toolbar label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+        
+        .toolbar select { 
+            padding: 8px 12px; 
+            border: 1px solid var(--border); 
+            border-radius: var(--radius); 
+            font-size: 14px; 
+            background: #fff; 
+            min-width: 140px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .toolbar select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15); }
+        
+        /* Checkbox styling wrapper */
+        .toolbar input[type="checkbox"] {
+            width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--accent);
+        }
+        .toolbar > div:has(input[type="checkbox"]) {
+            flex-direction: row; align-items: center; padding-bottom: 8px;
+        }
+        .toolbar > div:has(input[type="checkbox"]) label { margin-bottom: 0; cursor: pointer; }
+
+        button { 
+            cursor: pointer; 
+            font-size: 13px; 
+            line-height: 20px; 
+            padding: 6px 16px; 
+            border-radius: var(--radius); 
+            border: 1px solid rgba(27,31,36,0.15); 
+            background: var(--accent); 
+            color: #fff; 
+            font-weight: 500; 
+            transition: 0.2s cubic-bezier(0.3, 0, 0.5, 1);
+            box-shadow: 0 1px 0 rgba(27,31,36,0.1);
+        }
+        button:hover { background: var(--accent-hover); }
+        button:active { box-shadow: inset 0 1px 0 rgba(20,70,150,0.2); }
+        button:disabled { background: #94d3a2; cursor: not-allowed; opacity: 0.6; }
+        
+        button.secondary { background: #f6f8fa; color: var(--text-primary); border-color: rgba(27,31,36,0.15); }
+        button.secondary:hover { background: #f3f4f6; border-color: rgba(27,31,36,0.15); }
+        
+        button.warning { background: var(--warning); border-color: rgba(27,31,36,0.15); color: #fff; }
+        button.warning:hover { background: #bf8700; }
+
+        .status { font-size: 14px; min-height: 20px; font-weight: 500; margin-left: 10px; }
+        .status.ok { color: var(--success); }
+        .status.err { color: var(--danger); }
+        
+        .fail-cell { background-color: #ffebee !important; color: #d73a49 !important; font-weight: 600; }
+        
+        .table-wrap { 
+            overflow: auto; 
+            max-height: 75vh; 
+            border: 1px solid var(--border); 
+            border-radius: var(--radius);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+        }
+        
+        table { 
+            width: max-content; 
+            min-width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0; 
+            font-size: 13px; 
+            table-layout: auto;
+        }
+        
+        thead { position: sticky; top: 0; z-index: 10; }
+        thead tr:first-child th { position: sticky; top: 0; z-index: 11; border-top: none; }
+        thead tr:nth-child(2) th { position: sticky; top: 39px; z-index: 11; } /* Adjusted for taller header */
+        
+        th, td { 
+            border-right: 1px solid var(--border); 
+            border-bottom: 1px solid var(--border); 
+            padding: 8px 10px; 
+            text-align: left; 
+            vertical-align: middle; 
+        }
+        th:last-child, td:last-child { border-right: none; }
+        
+        th { 
+            font-weight: 600; 
+            font-size: 12px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            background: #f6f8fa; 
+            color: var(--text-secondary);
+        }
+        
+        th.base-col { background: #f0f3f6; }
+        
+        /* Fixed width columns */
+        .fixedcm { width: 3cm; min-width: 1.5cm; max-width: 1.5cm; white-space: normal; word-break: break-word; line-height: 1.2; }
+        .col-iid { width: 1.8cm; min-width: 1.8cm; max-width: 1.8cm; }
+        .col-student-name { width: 3cm; min-width: 3cm; max-width: 3cm; }
+        .col-father-name { width: 3cm; min-width: 3cm; max-width: 3cm; }
+        .col-roll { width: 1cm; min-width: 1cm; max-width: 1cm; text-align: center; }
+        .col-class { white-space: nowrap; padding: 6px 12px; }
+        
+        th.subject-group { 
+            writing-mode: vertical-rl; 
+            transform: rotate(180deg); 
+            padding: 8px 4px; 
+            height: 2.8cm; 
+            min-height: 2.8cm; 
+            max-height: 2.8cm; 
+            white-space: normal; 
+            vertical-align: top; 
+            text-align: center; 
+            background: #eef2f6;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        th.component-col { 
+            background: #f6f8fa; 
+            font-size: 10px; 
+            padding: 6px 4px; 
+            min-width: 36px; 
+            writing-mode: vertical-rl; 
+            transform: rotate(180deg); 
+            white-space: nowrap; 
+            text-align: center;
+        }
+        
+        td.component-col { text-align: center; font-family: 'SF Mono', 'Segoe UI Mono', 'Roboto Mono', monospace; font-size: 12px; }
+        
+        tbody tr:nth-child(even) { background: #fafbfc; }
+        tbody tr:hover { background: #f0f8ff; transition: background 0.1s; }
+        
+        .export-bar { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--border); }
+        .toolbar-actions { display: flex; gap: 10px; align-items: flex-end; margin-left: auto; }
+        
+        .hidden { display: none !important; }
+        
+        .cs-banner { 
+            text-align: center; 
+            font-weight: 600; 
+            margin: 0 0 16px; 
+            font-size: 16px; 
+            color: var(--accent); 
+            background: #f0f8ff; 
+            padding: 10px; 
+            border-radius: var(--radius); 
+            border: 1px solid #d0e7ff;
+        }
+        
+        #count { font-size: 13px; color: var(--text-secondary); margin-top: 8px; font-weight: 500; text-align: right; }
+        
+        /* Responsive adjustments */
+        @media (max-width: 820px){
+            .container { width: 100%; padding: 12px; margin: 0; border-radius: 0; box-shadow: none; }
+            th.subject-group { 
+                writing-mode: initial; 
+                transform: none; 
+                height: auto; 
+                min-height: auto; 
+                max-height: auto; 
+                padding: 8px;
+            }
+            th.component-col { writing-mode: initial; transform: none; padding: 6px; }
+            thead tr:nth-child(2) th { top: 40px; }
+            .toolbar { gap: 12px; }
+        }
+        
+        /* Print styles */
+        @media print {
+            /* Hide UI elements when printing */
+            .toolbar, .export-bar, #msg, #count, .toolbar-actions { display: none !important; }
+            
+            /* Print header that appears on each page */
+            .cs-banner {
+                display: block !important;
+                position: static !important;
+                background: white;
+                border-bottom: 2px solid #000;
+                padding: 15px 0;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 20px;
+                page-break-after: avoid;
+            }
+            
+            /* Reset container margins for print */
+            .container {
+                margin: 0 !important;
+                padding: 20px !important;
+                max-width: none !important;
+                border: none !important;
+                box-shadow: none !important;
+            }
+            
+            /* Ensure table starts properly */
+            .table-wrap {
+                margin-top: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            
+            /* Optimize table for printing */
+            table {
+                font-size: 12px !important;
+                page-break-inside: auto;
+                margin-top: 0 !important;
+                width: auto !important;
+                min-width: 100% !important;
+                border-collapse: collapse !important;
+                table-layout: auto !important;
+            }
+            
+            /* Ensure table header repeats on each page */
+            thead {
+                display: table-header-group !important;
+                position: static !important;
+            }
+            
+            tbody {
+                display: table-row-group !important;
+            }
+            
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+
+            thead th { position: static !important; }
+            
+            /* Better borders for printing */
+            th, td {
+                border: 1px solid #000 !important;
+                padding: 5px !important;
+            }
+            
+            th {
+                background: #f0f0f0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            
+            /* Subject group headers with 3cm height for print */
+            th.subject-group {
+                height: 3cm !important;
+                min-height: 3cm !important;
+                max-height: 3cm !important;
+                white-space: normal !important;
+                word-wrap: break-word !important;
+                vertical-align: top !important;
+                writing-mode: vertical-rl !important;
+                transform: rotate(180deg) !important;
+            }
+        }
+        
+        @media (max-width:820px){
+            .container { padding:14px 10px 24px; }
+            th,td{padding:5px 6px;font-size:12.5px;}
+            button{padding:5px 8px;}
+        }
+    </style>
+    <style>
+    /* Print (Legal landscape fit) */
+    @media print {
+        @page { size: legal landscape; margin: 0.3cm; }
+        body { background:#fff; }
+        header, .toolbar, .export-bar { display:none !important; }
+        .container { border:none; box-shadow:none; padding:0; margin:0; }
+        .table-wrap { overflow:visible; }
+        table { 
+            font-size:11px; 
+            width: auto !important;
+            min-width: 100% !important;
+            table-layout: auto !important;
+        }
+        thead th { position: static !important; }
+        th.base-col, th.subject-group, th.component-col { font-size:10px; }
+        th.subject-group { 
+            writing-mode:vertical-rl; 
+            transform:rotate(180deg); 
+            height:3cm !important; 
+            min-height:3cm !important; 
+            max-height:3cm !important; 
+            white-space:normal !important; 
+            word-wrap:break-word !important; 
+            vertical-align:top !important; 
+            text-align:center !important; 
+            border: 1px solid #000 !important; 
+            box-sizing: border-box !important; 
+        }
+        th, td { padding:4px 4px; }
+        .col-class { width:auto !important; min-width:fit-content !important; max-width:none !important; white-space:nowrap !important; }
+        thead tr:nth-child(2) th { top:0 !important; }
+        /* Optionally hide GPA when unchecked already handled in DOM; nothing extra needed */
+    }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Result Viewer</h1>
+    <span class="hdr-badge">exam_test_2025</span>
+    </header>
+    <div class="container">
+        <div class="toolbar">
+            <div>
+                <label for="classSelect">Class</label>
+                <select id="classSelect"><option value="">Loading...</option></select>
+            </div>
+            <div>
+                <label for="sectionSelect">Section</label>
+                <select id="sectionSelect" disabled><option value="">Select Class first</option></select>
+            </div>
+            <div>
+                <label for="toggleIID">Show IID</label>
+                <input type="checkbox" id="toggleIID" />
+            </div>
+            <div>
+                <label for="toggleFatherName">Show Father Name</label>
+                <input type="checkbox" id="toggleFatherName" />
+            </div>
+            <div>
+                <label for="toggleFullReport">Full Report</label>
+                <input type="checkbox" id="toggleFullReport" />
+            </div>
+            <div class="toolbar-actions">
+                <button id="clearBtn" class="secondary" disabled>Clear</button>
+            </div>
+        </div>
+    <div id="msg" class="status"></div>
+    <div id="classSectionBanner" class="cs-banner hidden"></div>
+    <div id="count"></div>
+    <div class="table-wrap hidden" id="tableWrap">
+            <table id="dataTable">
+                <thead id="thead"></thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+        <div class="export-bar">
+            <!-- Fullscreen functionality removed -->
+            <button id="exportExcelBtn" disabled>Export Excel</button>
+            <button id="exportCsvBtn" disabled class="secondary">Export CSV</button>
+            <button id="exportPdfBtn" disabled class="secondary">Export PDF</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+        const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w'
+        const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const TABLE = 'exam_ann25'
+    let showGpa = false
+    let showTotal = true
+    let showIID = false
+    let showFatherName = false
+    let colorFail = true
+    let showFullReport = false
+    let subjectOrder = []
+    let subjectOrderMap = new Map()
+
+        const classSelect = document.getElementById('classSelect')
+        const sectionSelect = document.getElementById('sectionSelect')
+        const clearBtn = document.getElementById('clearBtn')
+        const toggleIID = document.getElementById('toggleIID')
+        const toggleFatherName = document.getElementById('toggleFatherName')
+        const toggleFullReport = document.getElementById('toggleFullReport')
+        const classSectionBanner = document.getElementById('classSectionBanner')
+        const msg = document.getElementById('msg')
+        const countEl = document.getElementById('count')
+        const tableWrap = document.getElementById('tableWrap')
+        const thead = document.getElementById('thead')
+        const tbody = document.getElementById('tbody')
+        const exportExcelBtn = document.getElementById('exportExcelBtn')
+        const exportCsvBtn = document.getElementById('exportCsvBtn')
+        const exportPdfBtn = document.getElementById('exportPdfBtn')
+
+        // Configuration: treat numeric 0 as empty for specific columns (by exact key or regex pattern)
+        // Example: add keys like '*Bangla_Total' or patterns like /_GPA$/i to ignore zeros
+        const zeroEmptyColumns = new Set([
+            // 'some_column_key',
+        ])
+        const zeroEmptyPatterns = [
+            // /_GPA$/i,
+            // /_Total$/i,
+        ]
+
+        function shouldTreatZeroAsEmpty(colKey){
+            if(zeroEmptyColumns.has(colKey)) return true
+            return zeroEmptyPatterns.some(rx=> rx.test(colKey))
+        }
+
+        function isValueEmptyForColumn(colKey, value){
+            if(value === null || value === undefined) return true
+            const s = String(value).trim()
+            if(s === '') return true
+            if(shouldTreatZeroAsEmpty(colKey)){
+                const n = Number(s)
+                if(!isNaN(n) && n === 0) return true
+            }
+            return false
+        }
+
+        let meta = { classCol:null, sectionCol:null }
+        let currentRows = []
+
+        function pickKey(keys, candidates){
+            const lower = keys.reduce((m,k)=> (m[k.toLowerCase()] = k, m), {})
+            for(const c of candidates){
+                if(typeof c === 'string'){
+                    if(lower[c.toLowerCase()]) return lower[c.toLowerCase()]
+                } else if(c instanceof RegExp){
+                    const found = keys.find(k=> c.test(k))
+                    if(found) return found
+                }
+            }
+            return null
+        }
+
+        const normalizeSubjectName = (name) => (name || '')
+            .replace(/^\*/,'')
+            .replace(/_/g,' ')
+            .replace(/\s+/g,' ')
+            .trim()
+            .toLowerCase()
+
+        // Load subject order from subject_serial.csv (columns: subject_name, serial_order)
+        async function loadSubjectOrder(){
+            try {
+                const res = await fetch('subject_serial.csv')
+                if(!res.ok) return
+                const text = await res.text()
+                const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+                if(lines.length <= 1) return
+                // skip header
+                const entries = []
+                for(let i=1;i<lines.length;i++){
+                    const parts = lines[i].split(',')
+                    if(parts.length < 2) continue
+                    const subj = parts[0].trim()
+                    const serial = Number(parts[1].trim())
+                    if(!subj) continue
+                    const norm = normalizeSubjectName(subj)
+                    if(Number.isFinite(serial)) entries.push({ subj, norm, serial })
+                }
+                entries.sort((a,b)=> a.serial - b.serial || a.subj.localeCompare(b.subj))
+                subjectOrder = entries.map(e => e.subj)
+                subjectOrderMap = new Map(entries.map((e,idx)=> [e.norm, idx]))
+            } catch(err){
+                console.error('Failed to load subject_serial.csv', err)
+            }
+        }
+
+            async function detectMeta(){
+                msg.textContent = 'Detecting columns...'
+                try {
+                    const { data, error } = await supabase.from(TABLE).select('*').limit(1)
+                    if(error){
+                        console.error('Meta detection error', error)
+                        msg.textContent = 'Error reading table: '+ error.message
+                        msg.className='status err'
+                        return false
+                    }
+                    if(!data || !data.length){
+                        msg.textContent = 'No rows yet. Please insert data in '+TABLE
+                        msg.className='status'
+                        return false
+                    }
+                    const sample = data[0]
+                    const keys = Object.keys(sample)
+                    console.log('Available columns:', keys)
+                    meta.classCol = pickKey(keys, ['class_2025','class','Class','class_name','cls']) || 'class_2025'
+                    meta.sectionCol = pickKey(keys, ['section_2025','section','Section','sec']) || 'section_2025'
+                    if(!keys.includes(meta.classCol)){
+                        msg.textContent = 'Class column not found (tried class_2025 / class).'
+                        msg.className='status err'
+                        return false
+                    }
+                    if(!keys.includes(meta.sectionCol)){
+                        msg.textContent = 'Section column not found (tried section_2025 / section).'
+                        msg.className='status err'
+                        return false
+                    }
+                    return true
+                } catch(e){
+                    console.error('Unexpected meta detection failure', e)
+                    msg.textContent = 'Unexpected error detecting columns.'
+                    msg.className='status err'
+                    return false
+                }
+            }
+
+            async function ensureAuthAndInit(){
+                msg.textContent = 'Checking session...'
+                try {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if(!user){
+                        msg.textContent = 'Not signed in. Redirecting to login...'
+                        setTimeout(()=> location.href='login.html', 1200)
+                        return
+                    }
+                    const ok = await detectMeta()
+                    if(ok){ await loadClasses() }
+                } catch(e){
+                    console.error('Auth/init error', e)
+                    msg.textContent = 'Auth/init error: ' + e.message
+                    msg.className='status err'
+                }
+            }
+
+        async function loadClasses(){
+            msg.textContent = 'Loading classes...'
+            const { data, error } = await supabase
+                .from(TABLE)
+                .select(`${meta.classCol}`)
+                .not(meta.classCol,'is',null)
+                .limit(5000)
+            if(error){ msg.textContent = 'Error: '+error.message; msg.className='status err'; return }
+            const values = Array.from(new Set((data||[]).map(r=> r[meta.classCol]).filter(Boolean)))
+            values.sort()
+            classSelect.innerHTML = '<option value="">Select Class</option>' + values.map(v=>`<option value="${String(v)}">${String(v)}</option>`).join('')
+            classSelect.disabled = false
+            msg.textContent = 'Select a class'
+        }
+
+        async function loadSections(cls){
+            sectionSelect.disabled = true
+            sectionSelect.innerHTML = '<option value="">Loading...</option>'
+            const { data, error } = await supabase
+                .from(TABLE)
+                .select(`${meta.sectionCol}`)
+                .eq(meta.classCol, cls)
+                .not(meta.sectionCol,'is',null)
+                .limit(5000)
+            if(error){ msg.textContent = 'Error: '+error.message; msg.className='status err'; return }
+            const values = Array.from(new Set((data||[]).map(r=> r[meta.sectionCol]).filter(Boolean)))
+            values.sort()
+            sectionSelect.innerHTML = '<option value="">Select Section</option>' + values.map(v=>`<option value="${String(v)}">${String(v)}</option>`).join('')
+            sectionSelect.disabled = false
+            msg.textContent = 'Select section then Load Data'
+        }
+
+        async function loadRows(){
+            const cls = classSelect.value
+            const sec = sectionSelect.value
+            if(!cls || !sec){ msg.textContent='Select class & section'; msg.className='status'; return }
+            msg.textContent = 'Loading rows...'
+            const { data, error } = await supabase
+                .from(TABLE)
+                .select('*')
+                .eq(meta.classCol, cls)
+                .eq(meta.sectionCol, sec)
+                .limit(2000)
+            if(error){ msg.textContent = 'Error: '+error.message; msg.className='status err'; return }
+            currentRows = data || []
+            renderTable()
+            
+            // Show class and section banner
+            classSectionBanner.textContent = `Class: ${cls} | Section: ${sec}`
+            classSectionBanner.classList.remove('hidden')
+            
+            msg.textContent = 'Loaded successfully.'
+            msg.className='status ok'
+            setTimeout(()=> msg.textContent='', 3000)
+        }
+
+    let orderedKeys = [] // stores the display order for export
+
+        function renderTable(){
+            if(!currentRows.length){
+                thead.innerHTML=''
+                tbody.innerHTML='<tr><td style="padding:12px;text-align:center" colspan="5">No rows found</td></tr>'
+                tableWrap.classList.remove('hidden')
+                tableWrap.style.display='block'
+                exportExcelBtn.disabled = true
+                exportCsvBtn.disabled = true
+                exportPdfBtn.disabled = true
+                countEl.textContent = ''
+                return
+            }
+            const allKeys = Object.keys(currentRows[0])
+
+            // Detect the Average column key (e.g., average_mark), case-insensitive -- 
+            const averageKey = (function(){
+                // try exact then regex variants
+                const lowerMap = allKeys.reduce((m,k)=> (m[k.toLowerCase()] = k, m), {})
+                if(lowerMap['average_mark']) return lowerMap['average_mark']
+                // Generic matcher for 'average' or 'average_mark'
+                const found = allKeys.find(k=> /^average(_mark)?$/i.test(k))
+                return found || null
+            })()
+
+            // Determine which columns actually have any data across all rows
+            const nonEmptyColumns = new Set()
+            for(const k of allKeys){
+                for(const r of currentRows){
+                    const v = r[k]
+                    if(!isValueEmptyForColumn(k, v)){ nonEmptyColumns.add(k); break }
+                }
+            }
+
+            // Determine base columns and preferred order (class & section hidden from table)
+            const baseOrderPreferred = [
+                'iid',
+                'student_name_en','name','student_name','student','student_en',
+                'roll_2025','roll','student_roll',
+                'father_name_en','father_name','father','f_name','father_name_bn'
+            ]
+            const baseCols = []
+            for(const c of baseOrderPreferred){
+                if(c && allKeys.includes(c) && !baseCols.includes(c)) baseCols.push(c)
+            }
+            const baseSet = new Set(baseCols)
+
+            // Detect subject component columns (exclude GPA for grouping)
+            const compRegex = /^(.*)_(CQ|MCQ|Practical|Total)$/i
+            const gpaRegex = /^(.*)_GPA$/i
+            const groupsMap = new Map() // baseName -> array of components
+            const gpaCols = []
+            for(const k of allKeys){
+                if(baseSet.has(k)) continue
+                let m = k.match(compRegex)
+                if(m){
+                    if(!nonEmptyColumns.has(k)) continue // skip empty component columns
+                    const base = m[1]
+                    const suffix = m[2].toUpperCase().replace('PRACTICAL','Practical')
+                    if(!groupsMap.has(base)) groupsMap.set(base, [])
+                    groupsMap.get(base).push({ key:k, suffix })
+                    continue
+                }
+                m = k.match(gpaRegex)
+                if(m){
+                    if(!nonEmptyColumns.has(k)) continue // skip empty GPA columns
+                    gpaCols.push({ key:k, base:m[1] })
+                    continue
+                }
+                // Non-matching extras become additional base columns (rowspan=2)
+                // Exclude specific columns we don't want to show
+                const hiddenCols = ['class_2025', 'section_2025', 'father_mobile', 'class', 'section']
+                // Also exclude the Average column here; we'll place it at the very end separately
+                if(!baseSet.has(k) && !hiddenCols.includes(k) && nonEmptyColumns.has(k) && k !== averageKey) { 
+                    baseCols.push(k); baseSet.add(k) 
+                }
+            }
+
+            // Remove any empty groups (shouldn't exist) and sort groups alphabetically by base name
+            const orderIndex = (name) => {
+                const key = normalizeSubjectName(name)
+                if(subjectOrderMap.has(key)) return subjectOrderMap.get(key)
+                return Number.MAX_SAFE_INTEGER
+            }
+
+            const groups = Array.from(groupsMap.entries()).map(([base, comps])=>({ base, comps }))
+                .filter(g=> g.comps.length)
+                .sort((a,b)=> {
+                    const ai = orderIndex(a.base)
+                    const bi = orderIndex(b.base)
+                    if(ai !== bi) return ai - bi
+                    return normalizeSubjectName(a.base).localeCompare(normalizeSubjectName(b.base))
+                })
+
+            // Order components inside group (CQ, MCQ, Practical, Total)
+            const compOrder = ['CQ','MCQ','Practical','TOTAL']
+            for(const g of groups){
+                g.comps.sort((a,b)=> compOrder.indexOf(a.suffix.toUpperCase()) - compOrder.indexOf(b.suffix.toUpperCase()))
+            }
+
+            // Sort GPA columns alphabetically by base name
+            gpaCols.sort((a,b)=> {
+                const ai = orderIndex(a.base)
+                const bi = orderIndex(b.base)
+                if(ai !== bi) return ai - bi
+                return normalizeSubjectName(a.base).localeCompare(normalizeSubjectName(b.base))
+            })
+
+            // Reorder special columns to appear near the end (before average)
+            const gpaFinalKey = allKeys.find(k => /^gpa_?final$/i.test(k)) || null
+            const countAbsentKey = allKeys.find(k => /(count_?absent|absent_?count)/i.test(k)) || null
+            const totalMarkKey = allKeys.find(k => /^total(_mark)?$/i.test(k)) || null
+            const moveToEnd = (key) => {
+                if(!key) return
+                const idx = baseCols.indexOf(key)
+                if(idx >= 0){ baseCols.splice(idx,1); baseCols.push(key) }
+            }
+            moveToEnd(gpaFinalKey)
+            moveToEnd(countAbsentKey)
+            moveToEnd(totalMarkKey)
+
+            const firstRowParts = []
+            const secondRowParts = []
+
+            // Base column headers (rowspan=2)
+            const fixedTargets = new Set(['iid','student_name_en','roll_2025','father_name_en'])
+            for(const b of baseCols){
+                // Skip IID column if not enabled
+                if(b === 'iid' && !showIID) continue
+                // Skip Father Name column if not enabled
+                if(b === 'father_name_en' && !showFatherName) continue
+                
+                const clean = b.replace(/_/g,' ')
+                let cls = 'base-col'
+                if(fixedTargets.has(b)) {
+                    // Assign specific CSS class based on column type
+                    if(b === 'iid') cls += ' col-iid'
+                    else if(b === 'student_name_en') cls += ' col-student-name'
+                    else if(b === 'father_name_en') cls += ' col-father-name'
+                    else if(b === 'roll_2025') cls += ' col-roll'
+                    else if(b === 'class_2025' || b === 'class') cls += ' col-class'
+                    else cls += ' fixedcm' // fallback for other fixed columns
+                }
+                firstRowParts.push(`<th class="${cls}" rowspan="2">${clean}</th>`)
+            }
+
+            // Subject groups - REMOVED component columns
+            // Instead we will show a "Failed Subjects" column
+            
+            const failColLabel = showFullReport ? 'All Report' : 'Failed Subjects'
+            firstRowParts.push(`<th class="base-col" rowspan="2">${failColLabel}</th>`)
+
+            // GPA columns appended at end (rowspan=2) if toggle ON
+            if(showGpa){
+                for(const g of gpaCols){
+                    firstRowParts.push(`<th class="base-col gpa-col" rowspan="2" title="${g.key}">${g.base} GPA</th>`)
+                }
+            }
+
+            // Append Average column header at the far right (rowspan=2)
+            if(averageKey && nonEmptyColumns.has(averageKey)){
+                const avgLabel = averageKey.replace(/_/g, ' ')
+                firstRowParts.push(`<th class="base-col" rowspan="2" title="${averageKey}">${avgLabel}</th>`)
+            }
+
+            if(secondRowParts.length){
+                thead.innerHTML = '<tr>' + firstRowParts.join('') + '</tr><tr>' + secondRowParts.join('') + '</tr>'
+            } else {
+                thead.innerHTML = '<tr>' + firstRowParts.join('') + '</tr>'
+            }
+
+
+            
+            const keepAlways = new Set([gpaFinalKey, countAbsentKey, totalMarkKey].filter(Boolean))
+
+            // Build ordered keys array
+            orderedKeys = [...baseCols.filter(col => {
+                // Filter out IID if not enabled
+                if(col === 'iid' && !showIID) return false
+                // Filter out Father Name if not enabled
+                if(col === 'father_name_en' && !showFatherName) return false
+                // Remove empty columns
+                if(!nonEmptyColumns.has(col) && !keepAlways.has(col)) return false
+                return true
+            })]
+            // Add Failed Subjects column
+            orderedKeys.push('__failed_subjects__')
+            if(showGpa){ for(const g of gpaCols){ if(nonEmptyColumns.has(g.key)) orderedKeys.push(g.key) } }
+            // Finally, push Average column as the last column
+            if(averageKey && nonEmptyColumns.has(averageKey)) orderedKeys.push(averageKey)
+
+            // Sort rows by roll_2025 column (numeric sort)
+            currentRows.sort((a, b) => {
+                const rollA = parseInt(a['roll_2025'] || a['roll']) || 0
+                const rollB = parseInt(b['roll_2025'] || b['roll']) || 0
+                return rollA - rollB
+            })
+
+            // Pre-calculate maps for F-grade highlighting
+            const colToBaseMap = {}
+            for(const g of groups){
+                for(const c of g.comps){
+                    colToBaseMap[c.key] = g.base
+                }
+            }
+            const baseToGpaKey = {}
+            for(const g of gpaCols){
+                baseToGpaKey[g.base] = g.key
+            }
+
+            // Render body rows in that order
+            // reuse fixedTargets defined above
+            tbody.innerHTML = currentRows.map(r=> '<tr>' + orderedKeys.map(k=> {
+                if (k === '__failed_subjects__') {
+                    const list = []
+
+                    // helper to build mark string for a subject; skips zero/empty components and hides subject if all zero/empty
+                    const formatSubject = (baseName) => {
+                        const cleanBase = (baseName || '').replace(/^\*/, '').trim()
+                        const grp = groups.find(x => normalizeSubjectName(x.base) === normalizeSubjectName(cleanBase) || normalizeSubjectName(x.base) === normalizeSubjectName(baseName))
+                        if(!grp || !grp.comps || !grp.comps.length) return cleanBase
+                        const compOrder = ['CQ','MCQ','Practical','TOTAL']
+                        const orderedComps = [...grp.comps].sort((a,b)=> compOrder.indexOf(a.suffix.toUpperCase()) - compOrder.indexOf(b.suffix.toUpperCase()))
+                        const parts = []
+                        for(const c of orderedComps){
+                            const raw = r[c.key]
+                            if(raw === undefined || raw === null || raw === '') continue
+                            const num = Number(String(raw).trim())
+                            if(!Number.isNaN(num) && num === 0) continue
+                            const mapLbl = { CQ:'CQ', MCQ:'MCQ', Practical:'Practical', TOTAL:'Total' }
+                            const lbl = mapLbl[c.suffix.toUpperCase()] || c.suffix
+                            parts.push(`${lbl}-${raw}`)
+                        }
+                        if(!parts.length) return '' // hide subject if all parts are zero/empty
+                        return `${cleanBase} (${parts.join(', ')})`
+                    }
+
+                    if(showFullReport){
+                        for(const g of groups){
+                            const entry = formatSubject(g.base)
+                            if(entry) list.push(entry)
+                        }
+                    } else {
+                        for(const g of gpaCols){
+                            const baseName = g.base ? g.base.trim() : ''
+                            const gpaVal = r[g.key]
+                            if(String(gpaVal).trim().toUpperCase() === 'F'){
+                                const entry = formatSubject(baseName)
+                                if(entry) list.push(entry)
+                            }
+                        }
+                    }
+
+                    return `<td class="fail-list-col">${list.join(', ')}</td>`
+                }
+
+                const val = r[k] ?? ''
+                let cellClass = /_(CQ|MCQ|Practical|Total)$/i.test(k) ? 'component-col' : ''
+                
+                // Check for F grade
+                const base = colToBaseMap[k]
+                if(base && colorFail){
+                    const gpaKey = baseToGpaKey[base]
+                    if(gpaKey){
+                        const gpaVal = r[gpaKey]
+                        if(String(gpaVal).trim().toUpperCase() === 'F'){
+                            cellClass += ' fail-cell'
+                        }
+                    }
+                }
+
+                if(fixedTargets.has(k)) {
+                    // Assign specific CSS class based on column type
+                    if(k === 'iid') cellClass += (cellClass? ' ':'') + 'col-iid'
+                    else if(k === 'student_name_en') cellClass += (cellClass? ' ':'') + 'col-student-name'
+                    else if(k === 'father_name_en') cellClass += (cellClass? ' ':'') + 'col-father-name'
+                    else if(k === 'roll_2025') cellClass += (cellClass? ' ':'') + 'col-roll'
+                    else if(k === 'class_2025' || k === 'class') cellClass += (cellClass? ' ':'') + 'col-class'
+                    else cellClass += (cellClass? ' ':'') + 'fixedcm' // fallback for other fixed columns
+                }
+                return `<td class="${cellClass}">${val}</td>`
+            }).join('') + '</tr>').join('')
+
+            tableWrap.classList.remove('hidden')
+            tableWrap.style.display='block'
+            exportExcelBtn.disabled = false
+            exportCsvBtn.disabled = false
+            exportPdfBtn.disabled = false
+            countEl.textContent = currentRows.length + ' rows'
+        }
+
+        function exportExcel(){
+            if(!currentRows.length) return
+            if(!orderedKeys.length){ orderedKeys = Object.keys(currentRows[0]) }
+            // Simple single-row header for Excel with full column names (keeps clarity)
+            const header = '<tr>' + orderedKeys.map(k=> `<th>${k}</th>`).join('') + '</tr>'
+            const body = currentRows.map(r=> '<tr>' + orderedKeys.map(k=> `<td>${r[k] ?? ''}</td>`).join('') + '</tr>').join('')
+            const html = `<table><thead>${header}</thead><tbody>${body}</tbody></table>`
+            const blob = new Blob([html], { type:'application/vnd.ms-excel' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `results_${classSelect.value}_${sectionSelect.value}.xls`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(url)
+        }
+
+        function exportCsv(){
+            if(!currentRows.length) return
+            if(!orderedKeys.length){ orderedKeys = Object.keys(currentRows[0]) }
+            const lines = [ orderedKeys.join(',') ]
+            currentRows.forEach(r=>{
+                lines.push(orderedKeys.map(k=> '"'+ String(r[k] ?? '').replace(/"/g,'""') +'"').join(','))
+            })
+            const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `results_${classSelect.value}_${sectionSelect.value}.csv`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(url)
+        }
+
+        classSelect.addEventListener('change', ()=>{
+            sectionSelect.innerHTML = '<option value="">Select Class first</option>'
+            sectionSelect.disabled = true
+            if(classSelect.value){ 
+                loadSections(classSelect.value); 
+                clearBtn.disabled = false 
+            }
+            else { 
+                clearBtn.disabled = true 
+            }
+        })
+        sectionSelect.addEventListener('change', ()=>{
+            // Auto-load data when both class and section are selected
+            if(classSelect.value && sectionSelect.value) {
+                loadRows()
+            }
+        })
+        clearBtn.addEventListener('click', ()=>{
+            tbody.innerHTML=''; thead.innerHTML=''; currentRows=[]; exportExcelBtn.disabled=true; exportCsvBtn.disabled=true; exportPdfBtn.disabled=true; countEl.textContent=''; msg.textContent='Cleared.'; msg.className='status'; tableWrap.classList.add('hidden'); classSectionBanner.classList.add('hidden');
+        })
+        exportExcelBtn.addEventListener('click', exportExcel)
+        exportCsvBtn.addEventListener('click', exportCsv)
+        exportPdfBtn.addEventListener('click', () => window.print())
+
+        // Initialize checkbox states
+        showIID = toggleIID.checked
+        showFatherName = toggleFatherName.checked
+        showFullReport = toggleFullReport.checked
+        
+        // Add event listeners for checkboxes
+        toggleIID.addEventListener('change', ()=>{ showIID = toggleIID.checked; if(currentRows.length) renderTable() })
+        toggleFatherName.addEventListener('change', ()=>{ showFatherName = toggleFatherName.checked; if(currentRows.length) renderTable() })
+        toggleFullReport.addEventListener('change', ()=>{ showFullReport = toggleFullReport.checked; if(currentRows.length) renderTable() })
+
+        loadSubjectOrder().finally(()=> ensureAuthAndInit())
+    </script>
+</body>
+</html>

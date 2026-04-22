@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Total Average - Part 2</title>
+    <link rel="stylesheet" href="../Clusterize_js/clusterize.css">
+    <script src="../Clusterize_js/clusterize.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        :root { 
+            --bg:#f6f8fa; 
+            --card:#ffffff; 
+            --border:#d0d7de; 
+            --accent:#0366d6; 
+            --accent-hover:#024c9e; 
+            --danger:#d73a49; 
+            --success:#1a7f37; 
+            --warning:#ff8a00; 
+            --radius:6px; 
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; 
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body { 
+            margin:0; 
+            background:var(--bg); 
+            color:#24292f; 
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .container {
+            width:100%; 
+            max-width:100%; 
+            margin:0 auto; 
+            background:var(--card); 
+            border:1px solid var(--border); 
+            border-radius:var(--radius); 
+            padding:18px 12px 28px; 
+            box-shadow:0 2px 4px rgba(0,0,0,.04);
+        }
+
+        .toolbar { 
+            display:flex; 
+            flex-wrap:wrap; 
+            gap:12px; 
+            align-items:center; 
+            margin-bottom:14px; 
+        }
+
+        .btn {
+            cursor:pointer; 
+            font-size:12px; 
+            line-height:1.2; 
+            padding:6px 10px; 
+            border-radius:4px; 
+            border:1px solid var(--accent); 
+            background:var(--accent); 
+            color:#fff; 
+            font-weight:500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn.small {
+            font-size:10px;
+            padding:4px 8px;
+            min-width: auto;
+        }
+
+        .btn:hover { 
+            background:var(--accent-hover); 
+        }
+
+        .btn-success { 
+            background:var(--success); 
+            border-color:var(--success); 
+            color: white;
+        }
+
+        .btn-success:hover { 
+            background:#0f5132; 
+        }
+
+        .btn-success { 
+            background:var(--success); 
+            border-color:var(--success); 
+        }
+
+        .btn-success:hover { 
+            background:#0f5132; 
+        }
+
+        .btn-outline { 
+            background:#fff; 
+            color:var(--accent); 
+        }
+
+        .btn-outline:hover { 
+            background:#e7f3ff; 
+        }
+
+        .btn-orange {
+            background: var(--warning);
+            border-color: var(--warning);
+            color: white;
+        }
+
+        .btn-orange:hover {
+            background: #e07000;
+        }
+
+        .btn-mismatch {
+            background: #fff3cd;
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .btn-mismatch:hover {
+            background: #ffeaa7;
+        }
+
+        .status { 
+            font-size:13px; 
+            min-height:18px; 
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .status.loading {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status.success { 
+            color:var(--success); 
+        }
+
+        .status.error { 
+            color:var(--danger); 
+        }
+
+        .table-container {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            margin-top: 16px;
+        }
+
+        .table-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8fafc;
+        }
+
+        .table-header h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #24292f;
+        }
+
+        .table-wrap { 
+            overflow-x:auto;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 0 0 var(--radius) var(--radius);
+        }
+
+        /* Keep data cells single line except for name */
+        td { 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+
+        td:nth-child(5) { 
+            white-space: normal; 
+            word-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.2; 
+            max-width: 120px; 
+        }
+
+        .grade-input {
+            width: 60px;
+            padding: 4px 6px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+            background: #fff;
+        }
+
+        .grade-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(3, 102, 214, 0.1);
+        }
+
+        .grade-input.error {
+            border-color: var(--danger);
+            background: #fef2f2;
+        }
+
+        .total-cell {
+            font-weight: 600;
+            background: #f0f9ff;
+        }
+
+        .gpa-cell {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6a737d;
+        }
+
+        .error {
+            background: #fef2f2;
+            color: var(--danger);
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            border-left: 4px solid var(--danger);
+        }
+
+        .success-message {
+            background: #f0fdf4;
+            color: var(--success);
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            border-left: 4px solid var(--success);
+        }
+
+        table { 
+            width:100%; 
+            border-collapse:collapse; 
+            font-size:13.5px; 
+            margin:0;
+            background: white;
+        }
+
+        thead { 
+            background:#fafbfc; 
+            position:sticky; 
+            top:0; 
+            z-index:5; 
+        }
+
+        th, td { 
+            border:1px solid var(--border); 
+            padding:6px 8px; 
+            text-align:left; 
+            vertical-align:middle; 
+        }
+
+        th { 
+            font-weight:600; 
+            font-size:12.5px; 
+            letter-spacing:.5px; 
+            background:#f0f3f6; 
+            text-align:center; 
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            vertical-align: bottom;
+            height: 120px;
+            min-width: 50px;
+            padding: 8px 4px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        tbody tr:nth-child(even){ 
+            background:#fcfcfd; 
+        }
+
+        tbody tr:hover { 
+            background:#fffbe6; 
+        }
+
+        /* Keep some columns horizontal */
+        th:nth-child(1), th:nth-child(2), th:nth-child(3), th:nth-child(4), th:nth-child(5), th:nth-child(6), th:nth-child(7), th:nth-child(8), th:nth-child(9), th:nth-child(10) {
+            writing-mode: horizontal-tb;
+            text-orientation: initial;
+            height: auto;
+            min-width: auto;
+            padding: 6px 8px;
+            white-space: normal; 
+            word-wrap: break-word; 
+            line-height: 1.3; 
+            vertical-align: middle; 
+            text-align: center; 
+        }
+
+        /* Action column styling */
+        th:nth-child(7) {
+            min-width: 120px;
+        }
+
+        /* Subject header columns remain vertical */
+        th:nth-child(n+11) { 
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            vertical-align: bottom;
+            height: 120px;
+            min-width: 50px;
+            padding: 8px 4px;
+            white-space: nowrap; 
+            word-wrap: normal; 
+            line-height: 1.2; 
+            text-align: center; 
+        }
+
+        /* Hide number input spinner arrows */
+        input[type=number]::-webkit-outer-spin-button, 
+        input[type=number]::-webkit-inner-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+
+        input[type=number] { 
+            -moz-appearance: textfield; 
+            appearance: textfield; 
+        }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            .container { 
+                margin: 8px; 
+                padding: 12px; 
+                border-radius: 6px; 
+            }
+
+            .header h1 { 
+                font-size: 18px; 
+            }
+
+            .toolbar { 
+                flex-direction: column; 
+                align-items: stretch; 
+            }
+
+            .btn { 
+                min-width: auto !important; 
+                width: 100%; 
+                padding: 10px 8px; 
+                font-size: 14px; 
+            }
+
+            /* Mobile table styles - horizontal scroll with fixed layout */
+            table { 
+                font-size: 12px; 
+                white-space: nowrap; 
+                display: block; 
+                overflow-x: auto; 
+                border: 1px solid #ddd; 
+            }
+
+            table thead, table tbody { 
+                display: table; 
+                width: 100%; 
+                table-layout: fixed; 
+            }
+
+            th, td { 
+                padding: 4px; 
+                min-width: 45px; 
+                word-break: keep-all; 
+                overflow: hidden; 
+                text-overflow: ellipsis; 
+            }
+
+            /* Mobile header adjustments */
+            th {
+                height: 80px;
+                font-size: 10px;
+                min-width: 35px;
+                padding: 4px 2px;
+            }
+
+            /* Keep basic info columns horizontal on mobile */
+            th:nth-child(1), th:nth-child(2), th:nth-child(3), th:nth-child(4), th:nth-child(5), th:nth-child(6), th:nth-child(7), th:nth-child(8), th:nth-child(9), th:nth-child(10) { 
+                writing-mode: horizontal-tb;
+                text-orientation: initial;
+                height: auto;
+                white-space: normal !important; 
+                word-wrap: break-word; 
+                line-height: 1.2; 
+                vertical-align: top; 
+                min-width: 50px;
+                padding: 4px;
+            }
+
+            /* Action column horizontal on mobile */
+            th:nth-child(7) {
+                min-width: 80px;
+            }
+
+            /* Subject header columns remain vertical on mobile */
+            th:nth-child(n+11) { 
+                writing-mode: vertical-rl;
+                text-orientation: mixed;
+                white-space: nowrap !important; 
+                word-wrap: normal; 
+                text-align: center; 
+            }
+
+            /* Allow name wrapping on mobile */
+            td:nth-child(5) { 
+                white-space: normal !important; 
+                word-wrap: break-word; 
+                word-break: break-word; 
+                line-height: 1.1; 
+                padding: 2px; 
+            }
+
+            .grade-input { 
+                width: 50px !important; 
+                padding: 2px !important; 
+                font-size: 12px; 
+            }
+
+            .table-header h2 { 
+                font-size: 18px; 
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container { 
+                margin: 4px; 
+                padding: 8px; 
+            }
+
+            table { 
+                font-size: 11px; 
+            }
+
+            th, td { 
+                padding: 2px; 
+                min-width: 45px; 
+            }
+
+            .grade-input { 
+                width: 40px !important; 
+                padding: 1px !important; 
+                font-size: 11px; 
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Part 2 - Total & Average</h1>
+        <div class="user-info">
+            <span>👤</span>
+            <span id="userInfo"></span>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="toolbar">
+            <button class="btn" onclick="loadAllStudents()">
+                📊 Refresh Data
+            </button>
+            <button class="btn btn-success" onclick="updateCalculations(); setTimeout(() => { studentsData.forEach((student, index) => updateButtonColor(index)); }, 100);">
+                🔄 Update Calculations
+            </button>
+            <button class="btn btn-outline" onclick="updateDatabase()" id="updateDbBtn">
+                💾 Update Database
+            </button>
+            <div style="margin-left: auto;">
+                <span id="status" class="status"></span>
+            </div>
+        </div>
+
+        <div id="loadingDiv" class="loading" style="display: none;">
+            <div>📚 Loading student data...</div>
+        </div>
+
+        <div id="errorDiv" class="error" style="display: none;"></div>
+        <div id="successDiv" class="success-message" style="display: none;"></div>
+
+        <div class="table-container" id="tableContainer" style="display: none;">
+            <div class="table-header">
+                <h2>Grade View</h2>
+                <div>
+                    <span id="studentCount">0 students</span>
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table id="gradesTable">
+                    <thead id="gradesTableHead">
+                        <!-- Dynamic header will be inserted here -->
+                    </thead>
+                </table>
+                <div id="scrollArea" class="clusterize-scroll" style="max-height: 70vh; overflow: auto;">
+                    <table>
+                        <tbody id="gradesTableBody" class="clusterize-content">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        // Authorized users for editing
+        const authorizedUsers = [
+            'fenimodelhighschool@gmail.com',
+            'gopalsdiary@gmail.com', 
+            'roy.gopal159@gmail.com'
+        ];
+
+        let currentUser = null;
+        let studentsData = [];
+        let isAuthorized = false;
+        let detectedSubjects = [];
+        let subjectMap = {};
+
+        // Auth check
+        async function checkAuth() {
+            try {
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (!user) {
+                    alert('Please sign in first');
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                
+                currentUser = user;
+                document.getElementById('userInfo').textContent = user.email;
+                isAuthorized = authorizedUsers.includes(user.email);
+                
+                if (!isAuthorized) {
+                    document.getElementById('saveBtn').style.display = 'none';
+                    showStatus('You have read-only access', 'warning');
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Auth error:', error);
+                return false;
+            }
+        }
+
+        // Detect subjects dynamically from table structure
+        async function detectSubjects() {
+            try {
+                console.log('Starting subject detection...');
+                const { data, error } = await supabaseClient.from('exam_ann25').select('*').limit(1);
+                if (error) {
+                    console.error('Supabase error:', error);
+                    throw error;
+                }
+                if (!data || !data.length) {
+                    console.error('No data found in exam_ann25 table');
+                    throw new Error('No data found in exam_ann25 table');
+                }
+
+                console.log('Sample data from exam_ann25:', data[0]);
+                const sample = data[0];
+                const keys = Object.keys(sample);
+                console.log('All column keys:', keys);
+                
+                // Detect subjects by looking for patterns like *Subject_Total or *Subject_GPA
+                const compRe = /(.+?)(?:_|\s)(Total|GPA)$/i;
+                const subjectMapTemp = {};
+                
+                keys.forEach(k => {
+                    const m = k.match(compRe);
+                    if (m) {
+                        const base = m[1].trim();
+                        const comp = m[2].toUpperCase();
+                        const normComp = comp === 'TOTAL' ? 'Total' : 'GPA';
+                        
+                        // Only include subjects that start with *
+                        if (base.startsWith('*')) {
+                            subjectMapTemp[base] = subjectMapTemp[base] || {};
+                            subjectMapTemp[base][normComp] = k;
+                            console.log(`Found subject component: ${base} -> ${normComp} = ${k}`);
+                        }
+                    }
+                });
+                
+                subjectMap = subjectMapTemp;
+                detectedSubjects = Object.keys(subjectMap).sort((a, b) => {
+                    // Sort by display name (without leading asterisks)
+                    const displayA = a.replace(/^\*+\s*/, '').toLowerCase();
+                    const displayB = b.replace(/^\*+\s*/, '').toLowerCase();
+                    return displayA.localeCompare(displayB);
+                });
+                
+                console.log('Detected subjects:', detectedSubjects);
+                console.log('Subject map:', subjectMap);
+                
+                if (detectedSubjects.length === 0) {
+                    console.warn('No subjects detected!');
+                    showError('No subjects detected in the database');
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error detecting subjects:', error);
+                showError('Failed to detect subjects: ' + error.message);
+                return false;
+            }
+        }
+
+        // Generate dynamic table header
+        function generateTableHeader() {
+            let headerHTML = `
+                <tr>
+                    <th>IID</th>
+                    <th>Action</th>
+                    <th>Total Marks</th>
+                    <th>Average</th>
+                    <th>Count Absent</th>`;
+            
+            // Add subject columns dynamically - show original Total column names
+            detectedSubjects.forEach(subject => {
+                const totalColumn = subjectMap[subject].Total;
+                if (totalColumn) {
+                    headerHTML += `<th>${totalColumn}</th>`;
+                }
+            });
+            
+            headerHTML += `
+                </tr>`;
+            
+            return headerHTML;
+        }
+
+        // Calculate totals and averages for all students
+        function updateCalculations() {
+            if (studentsData.length === 0) {
+                showError('No data to calculate');
+                return;
+            }
+
+            showStatus('Updating calculations...', 'loading');
+
+            studentsData.forEach((student, index) => {
+                // Store original database values for comparison
+                student.db_total_mark = student.total_mark;
+                student.db_average_mark = student.average_mark; 
+                student.db_count_absent = student.count_absent;
+                
+                // Calculate total marks from all subject columns
+                let totalMarks = 0;
+                let validSubjects = 0;
+                let attendedSubjects = 0; // For absent calculation - count subjects with marks
+                
+                detectedSubjects.forEach(subject => {
+                    const totalColumn = subjectMap[subject].Total;
+                    if (totalColumn && student[totalColumn] !== null && student[totalColumn] !== undefined && student[totalColumn] !== '') {
+                        const marks = parseFloat(student[totalColumn]) || 0;
+                        if (marks > 0) {
+                            totalMarks += marks;
+                            validSubjects++;
+                            
+                            // Count all subjects with marks (Bangla 1st & 2nd paper are separate, English 1st & 2nd paper are separate)
+                            attendedSubjects++;
+                        }
+                    }
+                });
+                
+                // Update calculated values
+                student.total_mark = totalMarks;
+                const avgCalc = validSubjects > 0 ? (totalMarks / validSubjects) : 0;
+                student.average_mark = Math.round(avgCalc);
+                student.count_absent = Math.max(0, 9 - attendedSubjects);
+
+                // Update UI
+                const totalElement = document.getElementById(`total_${index}`);
+                const averageElement = document.getElementById(`average_${index}`);
+                const absentElement = document.getElementById(`absent_${index}`);
+                
+                if (totalElement) {
+                    totalElement.textContent = (student.total_mark && student.total_mark > 0) ? student.total_mark : '';
+                }
+                if (averageElement) {
+                    averageElement.textContent = (student.average_mark && student.average_mark > 0) ? student.average_mark : '';
+                }
+                if (absentElement) {
+                    absentElement.textContent = (student.count_absent && student.count_absent > 0) ? student.count_absent : '';
+                }
+                
+                // Update button color based on comparison
+                updateButtonColor(index);
+            });
+
+            showStatus('Calculations updated successfully!', 'success');
+        }
+
+        // Compare calculated values with database values and update button color
+        function updateButtonColor(index) {
+            const student = studentsData[index];
+            const updateBtn = document.getElementById(`editBtn_${index}`);
+
+            if (!updateBtn) return;
+
+            // Helper function to compare values (handles null, undefined, and 0 properly)
+            const valuesMatch = (val1, val2) => {
+                // Treat 0 or null as null for comparison
+                const v1 = (val1 && val1 > 0) ? parseFloat(val1) : null;
+                const v2 = (val2 && val2 > 0) ? parseFloat(val2) : null;
+                
+                // Both null or both same number
+                return v1 === v2;
+            };
+
+            // Compare calculated values with database values
+            const totalMatch = valuesMatch(student.total_mark, student.db_total_mark);
+            const averageMatch = valuesMatch(student.average_mark, student.db_average_mark);
+            const absentMatch = valuesMatch(student.count_absent, student.db_count_absent);
+
+            const allMatch = totalMatch && averageMatch && absentMatch;
+
+            if (allMatch) {
+                // Values match - show outline (accent)
+                updateBtn.className = 'btn btn-outline';
+                // Ensure no inline styles remain
+                updateBtn.style.borderColor = '';
+                updateBtn.style.color = '';
+                updateBtn.style.background = '';
+            } else {
+                // Values don't match - strong orange to indicate update needed
+                updateBtn.className = 'btn btn-orange';
+                // Clear possible inline overrides
+                updateBtn.style.borderColor = '';
+                updateBtn.style.color = '';
+                updateBtn.style.background = '';
+            }
+        }
+
+        // Update database with calculated values
+        async function updateDatabase() {
+            if (studentsData.length === 0) {
+                showError('No data to update');
+                return;
+            }
+
+            if (!isAuthorized) {
+                alert('You do not have permission to update the database');
+                return;
+            }
+
+            const confirmUpdate = confirm('Are you sure you want to update the database with calculated total marks, averages, and count absent?');
+            if (!confirmUpdate) return;
+
+            showStatus('Updating database...', 'loading');
+
+            try {
+                // Prepare update data
+                const updates = studentsData.map(student => ({
+                    iid: student.iid,
+                    total_mark: (student.total_mark && student.total_mark > 0) ? student.total_mark : null,
+                    average_mark: (student.average_mark && student.average_mark > 0) ? parseFloat(student.average_mark) : null,
+                    count_absent: (student.count_absent && student.count_absent > 0) ? student.count_absent : null
+                }));
+
+                console.log('Updating database with:', updates.length, 'records');
+                console.log('Sample update data:', updates[0]);
+                console.log('Note: 0 values are saved as NULL in database');
+
+                // Use upsert with onConflict on 'iid' so existing rows are updated
+                const { data, error } = await supabaseClient
+                    .from('exam_ann25')
+                    .upsert(updates, { onConflict: 'iid' });
+
+                if (error) {
+                    console.error('Database update error:', error);
+                    showError('Failed to update database: ' + (error.message || JSON.stringify(error)));
+                    return;
+                }
+
+                console.log('Upsert result:', data && data.length ? `${data.length} rows` : data);
+
+                // On success, update client-side stored DB values so buttons return to normal
+                studentsData.forEach((student, index) => {
+                    student.db_total_mark = (student.total_mark && student.total_mark > 0) ? student.total_mark : null;
+                    student.db_average_mark = (student.average_mark && student.average_mark > 0) ? student.average_mark : null;
+                    student.db_count_absent = (student.count_absent && student.count_absent > 0) ? student.count_absent : null;
+                    // Refresh per-row button state
+                    updateButtonColor(index);
+                });
+
+                // Provide success feedback
+                const updateBtn = document.getElementById('updateDbBtn');
+                if (updateBtn) {
+                    updateBtn.className = 'btn btn-success';
+                    updateBtn.innerHTML = '✅ Database Updated';
+                }
+
+                showStatus('Database updated successfully!', 'success');
+
+                // Reset global update button after 3 seconds
+                setTimeout(() => {
+                    if (updateBtn) {
+                        updateBtn.className = 'btn btn-outline';
+                        updateBtn.innerHTML = '💾 Update Database';
+                    }
+                }, 3000);
+
+            } catch (error) {
+                console.error('Error updating database:', error);
+                showError('Failed to update database: ' + (error && error.message ? error.message : JSON.stringify(error)));
+            }
+        }
+
+        // Show status message
+        function showStatus(message, type = 'loading') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Load all students data from Pre Test 2025
+        async function loadAllStudents() {
+            console.log('loadAllStudents function called');
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('tableContainer').style.display = 'none';
+            showStatus('Loading all students...', 'loading');
+
+            try {
+                // First detect subjects
+                console.log('Step 1: Detecting subjects...');
+                const subjectsDetected = await detectSubjects();
+                if (!subjectsDetected) {
+                    throw new Error('Failed to detect subjects');
+                }
+
+                // Build dynamic select columns
+                console.log('Step 2: Building select columns...');
+                let selectColumns = `
+                    iid,
+                    class_2025,
+                    section_2025,
+                    roll_2025,
+                    count_absent,
+                    total_mark,
+                    average_mark`;
+                
+                // Add subject total columns dynamically (no GPA columns)
+                detectedSubjects.forEach(subject => {
+                    if (subjectMap[subject].Total) {
+                        selectColumns += `, "${subjectMap[subject].Total}"`;
+                    }
+                });
+
+                console.log('Select columns:', selectColumns);
+
+                // Load students from exam_ann25
+                console.log('Step 3: Loading exam_ann25 data...');
+                const { data: preTestData, error: preTestError } = await supabaseClient
+                    .from('exam_ann25')
+                    .select(selectColumns)
+                    .order('class_2025', { ascending: false })
+                    .order('section_2025', { ascending: false })
+                    .order('roll_2025', { ascending: false });
+
+                if (preTestError) {
+                    console.error('Pre test data error:', preTestError);
+                    throw preTestError;
+                }
+
+                console.log('Pre test data loaded:', preTestData ? preTestData.length : 0, 'records');
+
+                // Then, load all students from student_database
+                console.log('Step 4: Loading student_database data...');
+                const { data: studentData, error: studentError } = await supabaseClient
+                    .from('student_database')
+                    .select('iid, student_name_en, optional_subject, class_2025, section_2025, roll_2025');
+
+                if (studentError) {
+                    console.error('Student database error:', studentError);
+                    throw studentError;
+                }
+
+                console.log('Student data loaded:', studentData ? studentData.length : 0, 'records');
+
+                console.log('Student data loaded:', studentData ? studentData.length : 0, 'records');
+
+                // Create a map of student data for quick lookup
+                console.log('Step 5: Merging data...');
+                const studentMap = {};
+                studentData.forEach(student => {
+                    // Create a unique key using class, section, and roll for matching
+                    const key = `${student.class_2025}_${student.section_2025}_${student.roll_2025}`;
+                    studentMap[key] = student;
+                });
+
+                // Merge the data
+                const mergedData = preTestData.map(preTestStudent => {
+                    const key = `${preTestStudent.class_2025}_${preTestStudent.section_2025}_${preTestStudent.roll_2025}`;
+                    const studentInfo = studentMap[key] || {};
+                    
+                    return {
+                        ...preTestStudent,
+                        student_name_en: studentInfo.student_name_en || 'N/A',
+                        optional_subject: studentInfo.optional_subject || 'N/A'
+                    };
+                });
+
+                console.log('Merged data:', mergedData.length, 'records');
+                studentsData = mergedData || [];
+                
+                // Update table header dynamically
+                console.log('Step 6: Generating table header...');
+                const tableHead = document.querySelector('#gradesTableHead');
+                tableHead.innerHTML = generateTableHeader();
+                
+                console.log('Step 7: Rendering table...');
+                renderStudentsTable();
+                
+                console.log('Step 8: Calculating totals and averages...');
+                updateCalculations();
+                
+                console.log('Step 9: Updating button colors...');
+                // Update all button colors after initial calculation
+                setTimeout(() => {
+                    studentsData.forEach((student, index) => {
+                        updateButtonColor(index);
+                    });
+                }, 100);
+                
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('tableContainer').style.display = 'block';
+                document.getElementById('studentCount').textContent = `${studentsData.length} students`;
+                showStatus(`Loaded ${studentsData.length} students from Pre Test 2025`, 'success');
+
+            } catch (error) {
+                console.error('Error loading students:', error);
+                document.getElementById('loadingDiv').style.display = 'none';
+                showError('Failed to load students: ' + error.message);
+            }
+        }
+
+        // Global Clusterize instance
+        let clusterize = null;
+
+        // Render students table
+        function renderStudentsTable() {
+            const tbody = document.getElementById('gradesTableBody');
+            const htmlRows = [];
+
+            studentsData.forEach((student, index) => {
+                let row = `
+                    <td>${student.iid || ''}</td>
+                    <td style="text-align:center; min-width:120px;">
+                        <button class="btn small btn-outline" id="editBtn_${index}" onclick="toggleEdit(${index})">
+                             Update
+                        </button>
+                        <button class="btn small btn-success" id="saveBtn_${index}" onclick="saveRow(${index})" style="display:none;">
+                            💾 Save
+                        </button>
+                    </td>
+                    <td class="total-cell" id="total_${index}">${(student.total_mark && student.total_mark > 0) ? student.total_mark : ''}</td>
+                    <td class="total-cell" id="average_${index}">${(student.average_mark && student.average_mark > 0) ? student.average_mark : ''}</td>
+                    <td class="total-cell" id="absent_${index}">${(student.count_absent && student.count_absent > 0) ? student.count_absent : ''}</td>`;
+
+                // Add subject columns dynamically - display only
+                detectedSubjects.forEach(subject => {
+                    const totalColumn = subjectMap[subject].Total;
+                    if (totalColumn) {
+                        row += `
+                        <td style="text-align:center; font-weight:500;">
+                            ${student[totalColumn] || ''}
+                        </td>`;
+                    }
+                });
+
+                const rowElement = document.createElement('tr');
+                rowElement.innerHTML = row;
+                htmlRows.push(rowElement.outerHTML);
+            });
+            
+            // Use Clusterize for efficient rendering
+            if(!clusterize){
+                clusterize = new Clusterize({
+                    rows: htmlRows,
+                    scrollId: 'scrollArea',
+                    contentId: 'gradesTableBody',
+                    rows_in_block: 50,
+                    blocks_in_cluster: 4,
+                    tag: 'tr'
+                });
+            } else {
+                clusterize.update(htmlRows);
+            }
+        }
+
+        // Update grade value
+        function updateGrade(index, field, value) {
+            if (!isAuthorized) return;
+            
+            studentsData[index][field] = value ? parseFloat(value) : null;
+            calculateRowTotals(index);
+        }
+
+        // Update absent count
+        function updateAbsent(index, value) {
+            studentsData[index].count_absent = value ? parseInt(value) : 0;
+        }
+
+        // Toggle edit mode for a row
+        function toggleEdit(index) {
+            // Just show confirmation and call save directly
+            const absentDisplay = (studentsData[index].count_absent && studentsData[index].count_absent > 0) ? studentsData[index].count_absent : 'NULL';
+            const totalDisplay = (studentsData[index].total_mark && studentsData[index].total_mark > 0) ? studentsData[index].total_mark : 'NULL';
+            const averageDisplay = (studentsData[index].average_mark && studentsData[index].average_mark > 0) ? studentsData[index].average_mark : 'NULL';
+            const confirmSave = confirm(`Save calculated values for this student?\n\nTotal Marks: ${totalDisplay}\nAverage: ${averageDisplay}\nCount Absent: ${absentDisplay}`);
+            
+            if (confirmSave) {
+                saveRow(index);
+            }
+        }
+
+        // Save individual row
+        async function saveRow(index) {
+            if (!isAuthorized) {
+                alert('You do not have permission to save data');
+                return;
+            }
+
+            const student = studentsData[index];
+            const editBtn = document.getElementById(`editBtn_${index}`);
+            const saveBtn = document.getElementById(`saveBtn_${index}`);
+
+            try {
+                showStatus(`Saving row ${index + 1}...`, 'loading');
+
+                // Prepare update data for this student - Total Marks, Average, Count Absent
+                const updateData = {
+                    iid: student.iid,
+                    total_mark: (student.total_mark && student.total_mark > 0) ? student.total_mark : null,
+                    average_mark: (student.average_mark && student.average_mark > 0) ? parseFloat(student.average_mark) : null,
+                    count_absent: (student.count_absent && student.count_absent > 0) ? student.count_absent : null
+                };
+
+                console.log(`Saving student ${student.iid}:`, updateData);
+                console.log('Note: 0 values are saved as NULL');
+
+                // Update the database
+                const { error } = await supabaseClient
+                    .from('exam_ann25')
+                    .update(updateData)
+                    .eq('iid', student.iid);
+
+                if (error) {
+                    console.error('Row save error:', error);
+                    throw error;
+                }
+
+                // Update stored database values to match calculated values
+                student.db_total_mark = (student.total_mark && student.total_mark > 0) ? student.total_mark : null;
+                student.db_average_mark = (student.average_mark && student.average_mark > 0) ? student.average_mark : null;
+                student.db_count_absent = (student.count_absent && student.count_absent > 0) ? student.count_absent : null;
+
+                // Success - change save button to green temporarily
+                saveBtn.className = 'btn btn-success';
+                saveBtn.innerHTML = '✅ Saved';
+                
+                // Update button color (should be blue now since values match)
+                updateButtonColor(index);
+                
+                showStatus(`Row ${index + 1} saved successfully! (Total: ${student.total_mark}, Average: ${student.average_mark}, Absent: ${student.count_absent})`, 'success');
+
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    saveBtn.className = 'btn btn-outline';
+                    saveBtn.innerHTML = '💾 Save';
+                }, 3000);
+
+            } catch (error) {
+                console.error('Error saving row:', error);
+                showError(`Failed to save row ${index + 1}: ` + error.message);
+            }
+        }
+
+        // Calculate totals for a specific row
+        function calculateRowTotals(index) {
+            const student = studentsData[index];
+            
+            // Calculate total marks from all subjects
+            let totalMarks = 0;
+            let validSubjects = 0;
+            
+            detectedSubjects.forEach(subject => {
+                const totalColumn = subjectMap[subject].Total;
+                if (totalColumn && student[totalColumn]) {
+                    totalMarks += parseFloat(student[totalColumn]) || 0;
+                    validSubjects++;
+                }
+            });
+            
+            student.total_mark = totalMarks;
+            const avgCalcRow = validSubjects > 0 ? (totalMarks / validSubjects) : 0;
+            student.average_mark = Math.round(avgCalcRow);
+
+            // Calculate GPAs (simplified calculation - you may need to adjust based on your grading system)
+            const gradeToGPA = (marks) => {
+                if (marks >= 90) return 5.0;
+                if (marks >= 80) return 4.0;
+                if (marks >= 70) return 3.5;
+                if (marks >= 60) return 3.0;
+                if (marks >= 50) return 2.5;
+                if (marks >= 40) return 2.0;
+                if (marks >= 33) return 1.0;
+                return 0.0;
+            };
+
+            const gpas = [];
+            detectedSubjects.forEach(subject => {
+                const totalColumn = subjectMap[subject].Total;
+                const gpaColumn = subjectMap[subject].GPA;
+                if (totalColumn && gpaColumn) {
+                    const gpa = gradeToGPA(student[totalColumn] || 0);
+                    student[gpaColumn] = gpa;
+                    if (gpa > 0) gpas.push(gpa);
+                }
+            });
+
+            // Calculate final GPA (average of all subject GPAs)
+            student.gpa_final = gpas.length > 0 ? 
+                (gpas.reduce((sum, gpa) => sum + gpa, 0) / gpas.length).toFixed(2) : 0;
+
+            // Update UI
+            document.getElementById(`total_${index}`).textContent = student.total_mark ? student.total_mark : '';
+            document.getElementById(`average_${index}`).textContent = student.average_mark ? student.average_mark : '';
+            
+            // Update GPA displays
+            detectedSubjects.forEach((subject, subIndex) => {
+                const gpaColumn = subjectMap[subject].GPA;
+                if (gpaColumn) {
+                    const gpaElement = document.getElementById(`gpa_${subIndex}_${index}`);
+                    if (gpaElement) {
+                        gpaElement.textContent = student[gpaColumn].toFixed(1);
+                    }
+                }
+            });
+            
+            document.getElementById(`final_gpa_${index}`).textContent = student.gpa_final;
+        }
+
+        // Calculate totals for all students
+        function calculateTotals() {
+            studentsData.forEach((student, index) => {
+                calculateRowTotals(index);
+            });
+            showStatus('Totals calculated successfully', 'success');
+        }
+
+        // Save grades to database
+        async function saveGrades() {
+            if (!isAuthorized) {
+                alert('You do not have permission to save grades');
+                return;
+            }
+
+            if (studentsData.length === 0) {
+                alert('No data to save');
+                return;
+            }
+
+            const confirmSave = confirm('Are you sure you want to save all grades? This will update the database.');
+            if (!confirmSave) return;
+
+            showStatus('Saving grades...', 'loading');
+
+            try {
+                const updates = studentsData.map(student => {
+                    const updateObj = {
+                        iid: student.iid,
+                        total_mark: (student.total_mark === 0 ? null : student.total_mark),
+                        average_mark: (parseFloat(student.average_mark) === 0 ? null : student.average_mark),
+                        gpa_final: student.gpa_final
+                    };
+                    
+                    // Add subject totals and GPAs dynamically
+                    detectedSubjects.forEach(subject => {
+                        const totalColumn = subjectMap[subject].Total;
+                        const gpaColumn = subjectMap[subject].GPA;
+                        
+                        if (totalColumn) {
+                            updateObj[totalColumn] = student[totalColumn];
+                        }
+                        if (gpaColumn) {
+                            updateObj[gpaColumn] = student[gpaColumn];
+                        }
+                    });
+                    
+                    return updateObj;
+                });
+
+                const { error } = await supabaseClient
+                    .from('exam_ann25')
+                    .upsert(updates);
+
+                if (error) throw error;
+
+                showStatus('Grades saved successfully!', 'success');
+                showSuccess('All grades have been saved to the database successfully!');
+
+            } catch (error) {
+                console.error('Error saving grades:', error);
+                showError('Failed to save grades: ' + error.message);
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorDiv');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successDiv');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('Page loaded, starting initialization...');
+            
+            const isAuthenticated = await checkAuth();
+            console.log('Authentication check result:', isAuthenticated);
+            
+            if (isAuthenticated) {
+                console.log('Starting to load students...');
+                await loadAllStudents();
+                showStatus('Ready', 'success');
+            } else {
+                console.log('Authentication failed');
+            }
+        });
+    </script>
+</body>
+</html>

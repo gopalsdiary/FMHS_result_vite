@@ -1,0 +1,612 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subject-Teacher List</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg: #f6f8fa;
+            --card: #ffffff;
+            --border: #d0d7de;
+            --accent: #0366d6;
+            --accent-hover: #024c9e;
+            --danger: #d73a49;
+            --success: #28a745;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --light: #f8f9fa;
+            --dark: #343a40;
+            --surface: #ffffff;
+            --text-primary: #24292f;
+            --text-secondary: #6c757d;
+            --radius: 6px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, sans-serif;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: #0d1117;
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
+        }
+
+        h1 {
+            font-size: 20px;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 0 60px 0;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0;
+            padding: 18px 12px 28px;
+            box-shadow: 0 2px 4px rgba(0,0,0,.04);
+        }
+
+        .selection-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        .section-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .toolbar select {
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        .toolbar button {
+            height: 34px;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1.2;
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .toolbar button:hover {
+            background: var(--accent-hover);
+        }
+
+        .toolbar button.outline {
+            background: #fff;
+            color: var(--accent);
+        }
+
+        .toolbar button.outline:hover {
+            background: #e7f3ff;
+        }
+
+        .selection-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .selection-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .selection-group label {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .table-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13.5px;
+        }
+
+        thead {
+            background: #fafbfc;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            background: #f0f3f6;
+            text-align: center;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #fcfcfd;
+        }
+
+        tbody tr:hover {
+            background: #fffbe6;
+        }
+
+        /* Grouped teacher cells */
+        .teacher-group {
+            background: #f8f9fa;
+            border-left: 3px solid var(--accent);
+        }
+
+        .teacher-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .teacher-email {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .subject-info {
+            text-align: center;
+        }
+
+        .class-info {
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .section-info {
+            text-align: center;
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .error {
+            background: #fff5f5;
+            color: #e53e3e;
+            padding: 16px;
+            border-radius: 6px;
+            border: 1px solid #fed7d7;
+            margin: 16px 0;
+            font-size: 13px;
+        }
+
+        .guest-notice {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .guest-notice a {
+            color: #1976d2;
+            text-decoration: underline;
+        }
+
+        .status {
+            font-size: 13px;
+            min-height: 18px;
+        }
+
+        .status.ok {
+            color: #1a7f37;
+        }
+
+        .status.err {
+            color: var(--danger);
+        }
+
+        .muted {
+            color: #6a737d;
+            font-size: 12px;
+        }
+
+        .col-sl {
+            width: 52px;
+            text-align: center;
+        }
+
+        @media (max-width: 820px) {
+            .container {
+                padding: 14px 14px 24px;
+            }
+            
+            .toolbar {
+                gap: 8px;
+            }
+            
+            th, td {
+                padding: 5px 6px;
+                font-size: 12.5px;
+            }
+            
+            .toolbar button {
+                padding: 5px 8px;
+            }
+            
+            .selection-grid {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .selection-group {
+                flex-direction: row;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .selection-group label {
+                min-width: 80px;
+            }
+            
+            h1 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1 id="pageTitle">📚 Subject-Teacher List</h1>
+        <button class="back-btn" onclick="window.location.href='result_dashboard.html'">
+            <i class="fas fa-arrow-left"></i>
+            ← Dashboard
+        </button>
+    </header>
+
+    <div class="container">
+        <!-- Subject Selection Section -->
+        <div class="toolbar">
+            <div style="display:flex;gap:12px;align-items:center;margin-left:auto">
+                <button id="refreshBtn" onclick="loadSubjectData()">Refresh</button>
+                <span id="status" class="status"></span>
+            </div>
+        </div>
+
+        <div id="guestNotice" class="guest-notice" style="display: none;">
+            📋 You are viewing in read-only mode. <a href="login.html">Login</a> to edit subject configurations.
+        </div>
+
+        <div id="loadingTable" class="loading">
+            <i class="fas fa-spinner fa-spin"></i> Loading subjects...
+        </div>
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        
+        <div class="table-wrap">
+            <table id="subjectTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Teacher</th>
+                        <th>Teacher Email</th>
+                        <th>Class</th>
+                        <th>Section</th>
+                        <th>Subject</th>
+                    </tr>
+                </thead>
+                <tbody id="subjectTableBody">
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="rowCount" class="muted" style="margin-top:8px;"></div>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+        const { createClient } = supabase;
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        // Global variables
+        let currentUser = null;
+        let userCanEdit = false;
+        let allSubjects = [];
+
+        // Check user authentication
+        async function checkUserAuth() {
+            try {
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                
+                if (user && user.email) {
+                    currentUser = user;
+                    const authorizedUsers = [
+                        'fenimodelhighschool@gmail.com',
+                        'gopalsdiary@gmail.com', 
+                        'roy.gopal159@gmail.com'
+                    ];
+                    userCanEdit = authorizedUsers.includes(user.email);
+                    showUserInfo(user.email);
+                    return true;
+                } else {
+                    currentUser = null;
+                    userCanEdit = false;
+                    showGuestMode();
+                    return true; // Allow viewing without auth
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                currentUser = null;
+                userCanEdit = false;
+                showGuestMode();
+                return true; // Allow viewing even on auth error
+            }
+        }
+
+        // Show user information in header
+        function showUserInfo(email) {
+            const pageTitle = document.getElementById('pageTitle');
+            if (pageTitle) {
+                pageTitle.innerHTML = `📚 Subject-Teacher List <span style="font-size: 12px; font-weight: normal; margin-left: 20px; padding: 4px 8px; background: rgba(255,255,255,0.2); border-radius: 4px;">${email}</span> <button onclick="logout()" style="font-size: 11px; margin-left: 8px; padding: 4px 8px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Sign out</button>`;
+            }
+        }
+
+        // Show guest mode in header
+        function showGuestMode() {
+            const pageTitle = document.getElementById('pageTitle');
+            if (pageTitle) {
+                pageTitle.innerHTML = `📚 Subject-Teacher List <span style="font-size: 12px; font-weight: normal; margin-left: 20px; padding: 4px 8px; background: rgba(255,255,255,0.2); border-radius: 4px;">Guest (Read-only)</span> <button onclick="goToLogin()" style="font-size: 11px; margin-left: 8px; padding: 4px 8px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Login</button>`;
+            }
+            
+            const guestNotice = document.getElementById('guestNotice');
+            if (guestNotice) {
+                guestNotice.style.display = 'block';
+            }
+        }
+
+        // Go to login page
+        function goToLogin() {
+            window.location.href = 'login.html';
+        }
+
+        // Logout function
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
+        }
+
+        // Load and display subject data from subject_selection table
+        async function loadSubjectData() {
+            const loadingTable = document.getElementById('loadingTable');
+            const errorMessage = document.getElementById('errorMessage');
+            const subjectTable = document.getElementById('subjectTable');
+            const subjectTableBody = document.getElementById('subjectTableBody');
+
+            try {
+                loadingTable.style.display = 'block';
+                errorMessage.style.display = 'none';
+                subjectTable.style.display = 'none';
+
+                // Load subjects with teacher data
+                const { data: subjects, error: subjectError } = await supabaseClient
+                    .from('subject_selection')
+                    .select(`
+                        subject_code,
+                        subject_name,
+                        class,
+                        section,
+                        teacher_email_id,
+                        teacher_name_en,
+                        comment
+                    `)
+                    .order('class', { ascending: true })
+                    .order('section', { ascending: true })
+                    .order('subject_name', { ascending: true });
+
+                if (subjectError) throw subjectError;
+
+                // Load teacher data for merging
+                const { data: teachers, error: teacherError } = await supabaseClient
+                    .from('teacher_database')
+                    .select('teacher_name_en, teacher_email_id, teacher_mobile');
+
+                if (teacherError) {
+                    console.warn('Could not load teacher data:', teacherError);
+                }
+
+                // Create teacher lookup map
+                const teacherMap = {};
+                if (teachers) {
+                    teachers.forEach(teacher => {
+                        teacherMap[teacher.teacher_name_en] = teacher;
+                    });
+                }
+
+                // Store all subjects for filtering
+                allSubjects = subjects || [];
+
+                // Clear table body
+                subjectTableBody.innerHTML = '';
+
+                if (!subjects || subjects.length === 0) {
+                    subjectTableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #6c757d;">No subject configurations found</td></tr>';
+                } else {
+                    // Group subjects by teacher
+                    const teacherGroups = {};
+                    subjects.forEach(subject => {
+                        const teacherName = subject.teacher_name_en || 'Unknown Teacher';
+                        if (!teacherGroups[teacherName]) {
+                            teacherGroups[teacherName] = [];
+                        }
+                        teacherGroups[teacherName].push(subject);
+                    });
+
+                    // Sort teachers alphabetically
+                    const sortedTeachers = Object.keys(teacherGroups).sort();
+
+                    // Create rows with merged cells for each teacher
+                    sortedTeachers.forEach(teacherName => {
+                        const teacherSubjects = teacherGroups[teacherName];
+                        const teacherInfo = teacherMap[teacherName];
+                        const teacherEmail = teacherInfo?.teacher_email_id || teacherSubjects[0]?.teacher_email_id || 'N/A';
+
+                        teacherSubjects.forEach((subject, index) => {
+                            const row = document.createElement('tr');
+                            row.className = 'teacher-group';
+
+                            if (index === 0) {
+                                // First row for this teacher - add merged cells
+                                row.innerHTML = `
+                                    <td class="teacher-name" rowspan="${teacherSubjects.length}">${teacherName}</td>
+                                    <td class="teacher-email" rowspan="${teacherSubjects.length}">${teacherEmail}</td>
+                                    <td class="class-info">${subject.class || 'N/A'}</td>
+                                    <td class="section-info">${subject.section || 'N/A'}</td>
+                                    <td class="subject-info">${subject.subject_name || 'N/A'}</td>
+                                `;
+                            } else {
+                                // Subsequent rows for same teacher - no teacher name/email cells
+                                row.innerHTML = `
+                                    <td class="class-info">${subject.class || 'N/A'}</td>
+                                    <td class="section-info">${subject.section || 'N/A'}</td>
+                                    <td class="subject-info">${subject.subject_name || 'N/A'}</td>
+                                `;
+                            }
+                            subjectTableBody.appendChild(row);
+                        });
+                    });
+                    
+                    // Update row count
+                    const rowCountEl = document.getElementById('rowCount');
+                    if (rowCountEl) {
+                        const teacherCount = sortedTeachers.length;
+                        rowCountEl.textContent = `Showing ${subjects.length} subject configurations for ${teacherCount} teacher${teacherCount === 1 ? '' : 's'}`;
+                    }
+                }
+
+                loadingTable.style.display = 'none';
+                subjectTable.style.display = 'table';
+
+                // Update status
+                const statusEl = document.getElementById('status');
+                if (statusEl) {
+                    statusEl.textContent = `${subjects?.length || 0} records loaded`;
+                    statusEl.className = 'status ok';
+                }
+
+            } catch (error) {
+                console.error('Error loading subject data:', error);
+                loadingTable.style.display = 'none';
+                errorMessage.textContent = `Error loading data: ${error.message}`;
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            const isAuthenticated = await checkUserAuth();
+            if (isAuthenticated) {
+                await loadSubjectData();
+            }
+        });
+    </script>
+</body>
+</html>

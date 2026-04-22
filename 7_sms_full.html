@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>SMS Generator - Pre Test 2025</title>
+        <style>
+                :root { 
+                        --bg:#f6f8fa; --card:#ffffff; --border:#d0d7de; --accent:#0366d6; --accent-hover:#024c9e; 
+                        --danger:#d73a49; --success:#1a7f37; --warning:#ff8a00; --radius:6px; 
+                        font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; 
+                }
+                body { margin:0; background:var(--bg); color:#24292f; }
+                header { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); color:#fff; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+                h1 { font-size:18px; margin:0; font-weight:600; }
+                .container { width:100%; max-width:100%; margin:12px auto 28px; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:0 2px 4px rgba(0,0,0,.04); }
+                .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+                .toolbar button { cursor:pointer; font-size:12px; padding:6px 10px; border-radius:4px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-weight:500; }
+                .toolbar button.secondary { background:#fff; color:var(--accent); }
+                .toolbar button:hover { background:var(--accent-hover); }
+                .status { font-size:13px; min-height:18px; }
+                .status.err { color: var(--danger); }
+                .table-wrap { overflow:auto; max-height:none; }
+                table { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:8px; background:white; }
+                thead { background:#fafbfc; position:sticky; top:0; z-index:5; }
+                th, td { border:1px solid var(--border); padding:6px 8px; text-align:left; vertical-align:middle; }
+                th { font-weight:600; font-size:12.5px; letter-spacing:.3px; background:#f0f3f6; }
+                tbody tr:nth-child(even){ background:#fcfcfd; }
+                tbody tr:hover { background:#fffbe6; }
+                .export-bar { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+        </style>
+</head>
+<body>
+        <header>
+                <h1>SMS Generator - Pre Test 2025</h1>
+                <span>exam_ann25</span>
+        </header>
+        <div class="container">
+                <div class="toolbar">
+                        <button id="loadBtn">📥 Load Data</button>
+                        <button id="regenBtn" class="secondary">♻️ Regenerate SMS</button>
+                        <span id="status" class="status"></span>
+                </div>
+                <div class="table-wrap">
+                        <table id="smsTable">
+                                <thead>
+                                        <tr>
+                                                <th>IID</th>
+                                                <th>Student Name</th>
+                                                <th>Class</th>
+                                                <th>Section</th>
+                                                <th>Roll</th>
+                                                <th>Class Rank</th>
+                                                <th>Total Mark</th>
+                                                <th>Father Mobile</th>
+                                                <th>SMS Text</th>
+                                        </tr>
+                                </thead>
+                                <tbody id="tbody"></tbody>
+                        </table>
+                </div>
+                <div class="export-bar">
+                        <button id="exportExcelBtn" disabled>Export Excel (father_mobile, sms_text)</button>
+                        <button id="exportCsvBtn" class="secondary" disabled>Export CSV (father_mobile, sms_text)</button>
+                        <span id="count"></span>
+                </div>
+        </div>
+
+        <script type="module">
+                import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+                const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co'
+                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w'
+                const supabase = createClient(supabaseUrl, supabaseKey)
+
+                const tbody = document.getElementById('tbody')
+                const statusEl = document.getElementById('status')
+                const countEl = document.getElementById('count')
+                const loadBtn = document.getElementById('loadBtn')
+                const regenBtn = document.getElementById('regenBtn')
+                const exportExcelBtn = document.getElementById('exportExcelBtn')
+                const exportCsvBtn = document.getElementById('exportCsvBtn')
+
+                let rows = [] // merged rows with phone (father_mobile) and sms_text
+                let phoneMap = new Map() // normalized iid -> phone
+                let subjects = [] // subject configurations from CSV
+
+                const normId = (x)=> (x===null||x===undefined) ? '' : String(x).trim()
+
+                function setStatus(msg, isError=false){
+                        statusEl.textContent = msg || ''
+                        statusEl.className = 'status' + (isError? ' err':'')
+                }
+
+                function makeSmsText(studentData){
+                        const { student_name_en, total_mark, class_rank, remark, gpa_final } = studentData
+                        const tm = Number(total_mark)
+                        if(!student_name_en) return ''
+                        if(isNaN(tm) || tm <= 0) return ''
+                        
+                        // Build subject marks string (e.g., "B1-85, B2-78, E1-92, ...")
+                        let subjectParts = []
+                        for(const subject of subjects){
+                                const fieldName = subject.db_column || subject.subject_name
+                                const shortCode = subject.subject_short_code
+                                const mark = studentData[fieldName]
+                                if(mark !== null && mark !== undefined && mark !== ''){
+                                        subjectParts.push(`${shortCode}-${mark}`)
+                                }
+                        }
+                        const subjectStr = subjectParts.join(', ')
+                        
+                        // Build SMS text
+                        let smsText = `Dear ${student_name_en}, your Annual Exam ${subjectStr}`
+                        if(gpa_final){
+                                smsText += `, GPA-${gpa_final}`
+                        }
+                        if(class_rank){
+                                smsText += `, rank-${class_rank}`
+                        }
+                        if(remark){
+                                smsText += `, ${remark}`
+                        }
+                        smsText += `, total mark is ${tm}. Headmaster, Feni Model High School.`
+                        
+                        return smsText
+                }
+
+                function normalizePhone(p){
+                        if(!p) return ''
+                        let s = String(p).trim()
+                        
+                        // Remove any non-digit characters except + at the beginning
+                        s = s.replace(/[^\d+]/g, '')
+                        
+                        // Remove + if present at the beginning
+                        if(s.startsWith('+')) s = s.substring(1)
+                        
+                        // Handle different Bangladesh number formats
+                        if(s.startsWith('880')) {
+                                // Already has full Bangladesh code, keep as is
+                                return s
+                        } else if(s.startsWith('880')) {
+                                // Has 880 but missing 1, keep as is 
+                                return s
+                        } else if(s.startsWith('01')) {
+                                // Local format starting with 01, add 880
+                                return '880' + s
+                        } else if(s.startsWith('1') && s.length >= 10) {
+                                // Missing leading 0, add 8801
+                                return '880' + s
+                        } else if(s.length >= 10) {
+                                // Other format, add 8801
+                                return '880' + s
+                        }
+                        
+                        return s
+                }
+
+                function regenerateSms(){
+                        rows = rows.map(r=>{
+                                const father_mobile = normalizePhone(
+                                        phoneMap.get(normId(r.iid)) || r.father_mobile || r.father_number || r.father_phone
+                                )
+                                const sms_text = (father_mobile && Number(r.total_mark) > 0) ? makeSmsText(r) : ''
+                                return { ...r, father_mobile, sms_text }
+                        })
+                }
+
+                function render(){
+                        // Show only rows that have SMS text; hide empty SMS entries completely
+                        const visibleRows = rows.filter(r => r.sms_text && String(r.sms_text).trim())
+                        tbody.innerHTML = visibleRows.map(r=> `
+                                <tr>
+                                        <td>${r.iid ?? ''}</td>
+                                        <td>${r.student_name_en ?? ''}</td>
+                                        <td>${r.class_2025 ?? ''}</td>
+                                        <td>${r.section_2025 ?? ''}</td>
+                                        <td>${r.roll_2025 ?? ''}</td>
+                                        <td>${r.class_rank ?? ''}</td>
+                                        <td>${r.total_mark ?? ''}</td>
+                                        <td>${r.father_mobile ?? ''}</td>
+                                        <td>${r.sms_text ?? ''}</td>
+                                </tr>
+                        `).join('')
+                        countEl.textContent = `${visibleRows.length} rows with SMS`
+                        const hasAnySms = visibleRows.some(r=> r.sms_text && r.father_mobile)
+                        exportExcelBtn.disabled = !hasAnySms
+                        exportCsvBtn.disabled = !hasAnySms
+                }
+
+                async function loadSubjects(){
+                        try{
+                                setStatus('Loading subjects from CSV...')
+                                const response = await fetch('./subject_Sms.csv')
+                                if(!response.ok) throw new Error('Failed to load subject_Sms.csv')
+                                const csvText = await response.text()
+                                
+                                // Simple CSV parser that handles quoted fields
+                                function parseCSVLine(line){
+                                        const result = []
+                                        let current = ''
+                                        let inQuotes = false
+                                        for(let i = 0; i < line.length; i++){
+                                                const char = line[i]
+                                                if(char === '"'){
+                                                        inQuotes = !inQuotes
+                                                } else if(char === ',' && !inQuotes){
+                                                        result.push(current.trim())
+                                                        current = ''
+                                                } else {
+                                                        current += char
+                                                }
+                                        }
+                                        result.push(current.trim())
+                                        return result
+                                }
+                                
+                                // Parse CSV (skip empty lines)
+                                const lines = csvText.split('\n').filter(line => line.trim())
+                                if(lines.length < 2) throw new Error('CSV file is empty or invalid')
+                                
+                                // Parse header to find columns
+                                const header = parseCSVLine(lines[0])
+                                const nameIdx = header.findIndex(h => h.toLowerCase().includes('subject_name'))
+                                const codeIdx = header.findIndex(h => h.toLowerCase().includes('short_code'))
+                                const dbColIdx = header.findIndex(h => h.toLowerCase().includes('db_column'))
+                                
+                                if(nameIdx === -1 || codeIdx === -1){
+                                        throw new Error('CSV must have subject_name and subject_short_code columns')
+                                }
+                                
+                                // Parse data rows
+                                subjects = []
+                                for(let i = 1; i < lines.length; i++){
+                                        const parts = parseCSVLine(lines[i])
+                                        if(parts.length > nameIdx && parts.length > codeIdx){
+                                                const name = parts[nameIdx].trim()
+                                                const code = parts[codeIdx].trim()
+                                                const dbCol = dbColIdx >= 0 && parts.length > dbColIdx ? parts[dbColIdx].trim() : ''
+                                                if(name && code){
+                                                        subjects.push({ 
+                                                                subject_name: name, 
+                                                                subject_short_code: code,
+                                                                db_column: dbCol || name // fallback to name if no db_column
+                                                        })
+                                                }
+                                        }
+                                }
+                                
+                                console.log('Loaded subjects:', subjects)
+                                setStatus(`Loaded ${subjects.length} subjects`)
+                        } catch(e){
+                                console.error('Failed to load subjects:', e)
+                                setStatus('Failed to load subjects: ' + e.message, true)
+                                subjects = [] // fallback to empty
+                        }
+                }
+
+                        async function loadPhones(){
+                        phoneMap.clear()
+                        setStatus('Loading phone numbers from student_database...')
+                        
+                        // First, let's check what columns actually exist
+                        try {
+                                const { data: sampleData, error: sampleError } = await supabase.from('student_database').select('*').limit(1)
+                                if(sampleError) throw sampleError
+                                if(sampleData && sampleData.length > 0) {
+                                        console.log('Available columns in student_database:', Object.keys(sampleData[0]))
+                                        const phoneColumns = Object.keys(sampleData[0]).filter(col => 
+                                                col.toLowerCase().includes('phone') || 
+                                                col.toLowerCase().includes('mobile') || 
+                                                col.toLowerCase().includes('father')
+                                        )
+                                        console.log('Phone-related columns found:', phoneColumns)
+                                }
+                        } catch(e) {
+                                console.log('Could not check columns:', e)
+                        }
+                        
+                        // Try multiple possible phone column combinations
+                        const possibleSelects = [
+                                'iid, father_mobile, father_number, father_phone',
+                                'iid, father_mobile, father_number', 
+                                'iid, father_mobile',
+                                'iid, mobile, phone, father_phone',
+                                'iid, father_phone_number, father_mobile_number'
+                        ]
+                        
+                        let phoneData = null
+                        let usedSelect = ''
+                        
+                        for(const selectStr of possibleSelects) {
+                                try {
+                                        const { data, error } = await supabase.from('student_database').select(selectStr).limit(10000)
+                                        if(!error && data) {
+                                                phoneData = data
+                                                usedSelect = selectStr
+                                                console.log(`✓ Successfully loaded with: ${selectStr}`)
+                                                break
+                                        }
+                                } catch(e) {
+                                        console.log(`✗ Failed with: ${selectStr}`, e.message)
+                                }
+                        }
+                        
+                        if(!phoneData) {
+                                setStatus('Could not load phone data with any column combination', true)
+                                return
+                        }
+                        
+                        console.log('Phone data loaded:', phoneData?.length || 0, 'records using:', usedSelect)
+                        console.log('Sample phone data:', phoneData?.slice(0, 3))
+                        
+                        let mappedCount = 0
+                        for(const r of (phoneData||[])){
+                                // Try all possible phone field names
+                                const possiblePhones = [
+                                        r.father_mobile, r.father_number, r.father_phone,
+                                        r.mobile, r.phone, r.father_phone_number, r.father_mobile_number
+                                ]
+                                const p = normalizePhone(possiblePhones.find(ph => ph && String(ph).trim()))
+                                const id = normId(r.iid)
+                                
+                                if(mappedCount < 5) {
+                                        console.log(`Processing: iid=${r.iid} -> normalized="${id}"`)
+                                        console.log(`  Available phone fields:`, Object.keys(r).filter(k => k !== 'iid'))
+                                        console.log(`  Phone values:`, possiblePhones)
+                                        console.log(`  Final phone: "${p}"`)
+                                }
+                                
+                                if(id && p){ 
+                                        phoneMap.set(id, p) 
+                                        mappedCount++
+                                        if(mappedCount <= 5) console.log(`✓ Mapped phone for iid "${id}": ${p}`)
+                                } else {
+                                        if(mappedCount <= 5) console.log(`✗ Skipped iid "${id}": no valid phone`)
+                                }
+                        }
+                        console.log(`Phone map created: ${phoneMap.size} entries from ${phoneData?.length || 0} records`)
+                        setStatus(`Loaded ${phoneMap.size} phone numbers`)
+                }
+
+                async function loadData(){
+                        try{
+                                setStatus('Loading data...')
+                                await loadSubjects()
+                                await loadPhones()
+                                
+                                // Build select string with all subject columns
+                                let selectFields = 'iid, student_name_en, class_2025, section_2025, roll_2025, gpa_final, class_rank, remark, total_mark'
+                                for(const subject of subjects){
+                                        const colName = subject.db_column || subject.subject_name
+                                        // Wrap column names with special characters in double quotes
+                                        if(colName.includes('*') || colName.includes(' ')){
+                                                selectFields += ', "' + colName + '"'
+                                        } else {
+                                                selectFields += ', ' + colName
+                                        }
+                                }
+                                
+                                // Load from exam_ann25
+                                const { data, error } = await supabase
+                                        .from('exam_ann25')
+                                        .select(selectFields)
+                                        .order('class_2025', { ascending:true })
+                                        .order('section_2025', { ascending:true })
+                                        .order('roll_2025', { ascending:true })
+                                        .limit(10000)
+                                if(error) throw error
+
+                                                const merged = (data||[]).map((r, index) =>{
+                                                        const normalizedIid = normId(r.iid)
+                                                        const father_mobile = normalizePhone(phoneMap.get(normalizedIid))
+                                        const sms_text = (father_mobile && Number(r.total_mark) > 0) ? makeSmsText(r) : ''
+                                        
+                                        if(index < 5) {
+                                                console.log(`Student ${index + 1}: raw_iid="${r.iid}" -> normalized="${normalizedIid}"`)
+                                                console.log(`  -> phone lookup result: "${father_mobile}"`)
+                                                console.log(`  -> total_mark: ${r.total_mark}, sms: ${sms_text ? 'YES' : 'NO'}`)
+                                        }
+                                        
+                                        return {
+                                                ...r, // include all fields from database (subjects, etc.)
+                                                father_mobile,
+                                                sms_text
+                                        }
+                                })
+                                rows = merged
+                                setStatus('Loaded.')
+                                regenerateSms() // ensure rules applied
+                                render()
+                        } catch(e){
+                                console.error(e)
+                                setStatus('Failed to load: ' + e.message, true)
+                        }
+                }
+
+                function exportExcel(){
+                        // Only father_mobile, sms_text per instruction, exclude total_mark = 0
+                        const header = '<tr><th>father_mobile</th><th>sms_text</th></tr>'
+                        const body = rows
+                                .filter(r=> r.father_mobile && r.sms_text && Number(r.total_mark) > 0)
+                                .map(r=> `<tr><td>${r.father_mobile}</td><td>${r.sms_text.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</td></tr>`)
+                                .join('')
+                        const html = `<table><thead>${header}</thead><tbody>${body}</tbody></table>`
+                        const blob = new Blob([html], { type:'application/vnd.ms-excel' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = 'sms_exam_ann25.xls'
+                        document.body.appendChild(a)
+                        a.click()
+                        a.remove()
+                        URL.revokeObjectURL(url)
+                }
+
+                function exportCsv(){
+                        const lines = [ 'father_mobile,sms_text' ]
+                        rows.filter(r=> r.father_mobile && r.sms_text && Number(r.total_mark) > 0).forEach(r=>{
+                                const mobile = String(r.father_mobile).replace(/"/g, '""')
+                                const sms = String(r.sms_text).replace(/"/g, '""')
+                                lines.push(`"${mobile}","${sms}"`)
+                        })
+                        const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = 'sms_exam_ann25.csv'
+                        document.body.appendChild(a)
+                        a.click()
+                        a.remove()
+                        URL.revokeObjectURL(url)
+                }
+
+                loadBtn.addEventListener('click', loadData)
+                regenBtn.addEventListener('click', ()=>{ regenerateSms(); render() })
+                exportExcelBtn.addEventListener('click', exportExcel)
+                exportCsvBtn.addEventListener('click', exportCsv)
+
+                // Auto-load on open
+                loadData()
+        </script>
+</body>
+</html>

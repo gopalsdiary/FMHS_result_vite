@@ -1,0 +1,15 @@
+subject_name,subject_short_code,db_column
+*Bangla 1st Paper,B1,"*Bangla 1st Paper_Total"
+*Bangla 2nd Paper,B2,"*Bangla 2nd Paper_Total"
+*English 1st Paper,E1,"*English 1st Paper_Total"
+*English 2nd Paper,E2,"*English 2nd Paper_Total"
+*Mathematics,Math,"*Mathematics_Total"
+*Religion,Rel,"*Religion_Total"
+*ICT,ICT,"*ICT_Total"
+*Science,Sci,"*Science_Total"
+*Bangladesh And Global Studies,BGS,"*Bangladesh And Global Studies_Total"
+
+
+
+
+

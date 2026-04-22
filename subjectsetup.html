@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Kalpurush&display=swap" rel="stylesheet">
+    <title>Subject Setup - Class 9-10</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { 
+            --bg:#f6f8fa; 
+            --card:#ffffff; 
+            --border:#d0d7de; 
+            --accent:#0366d6; 
+            --accent-hover:#024c9e; 
+            --danger:#d73a49; 
+            --success:#28a745;
+            --warning:#ffc107;
+            --radius:6px; 
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; 
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body { 
+            margin:0; 
+            background:var(--bg); 
+            color:#24292f;
+            min-height: 100vh;
+        }
+        
+        header { 
+            background:#0d1117; 
+            color:#fff; 
+            padding:12px 20px; 
+            display:flex; 
+            align-items:center; 
+            justify-content:space-between;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 { 
+            font-size:20px; 
+            margin:0; 
+            font-weight:600; 
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background:var(--card); 
+            border:1px solid var(--border); 
+            border-radius:var(--radius); 
+            padding:20px; 
+            box-shadow:0 2px 4px rgba(0,0,0,.04);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+            color: #24292f;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #57606a;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+            background: #fff;
+            transition: all 0.2s ease;
+        }
+
+        select:focus, input:focus {
+            outline: 2px solid #84c5ff;
+            border-color: var(--accent);
+        }
+
+        select:hover, input:hover {
+            border-color: #8c959f;
+        }
+
+        /* Special styling for calculated fields */
+        #totalMarks {
+            background-color: #e8f4fd !important;
+            border-color: #0366d6 !important;
+            font-weight: bold;
+        }
+        
+        #totalMarks:focus {
+            outline: 2px solid #84c5ff !important;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .subjects-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .subject-item {
+            background: #f8f9fa;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .subject-item:hover {
+            background: #e9ecef;
+            border-color: var(--accent);
+        }
+
+        .subject-info {
+            flex: 1;
+        }
+
+        .subject-name {
+            font-weight: 600;
+            color: #24292f;
+            margin-bottom: 4px;
+        }
+
+        .subject-details {
+            font-size: 12px;
+            color: #57606a;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+        }
+
+        .message {
+            padding: 10px 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #57606a;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 10px;
+                gap: 15px;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .subject-details {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📚 Subject Setup - Class 9-10</h1>
+        <div style="font-size: 12px; opacity: 0.8;">
+            Configure subjects and marks distribution
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Left Panel - Add New Subject -->
+        <div class="container">
+            <h2 class="section-title">Add New Subject</h2>
+            <div id="messageContainer"></div>
+            
+            <form id="subjectForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="subjectName">Subject Name</label>
+                        <select id="subjectName" required>
+                            <option value="">Select Subject</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="totalCQ">Total CQ Marks (Default: 70)</label>
+                        <input type="number" id="totalCQ" step="0.01" min="0" value="70" required onchange="calculatePassmarks()">
+                    </div>
+                    <div class="form-group">
+                        <label for="passmarkCQ">Passmark CQ (Total CQ ÷ 3)</label>
+                        <input type="number" id="passmarkCQ" step="1" min="0" value="23" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="totalMCQ">Total MCQ Marks (Default: 30)</label>
+                        <input type="number" id="totalMCQ" step="0.01" min="0" value="30" required onchange="calculatePassmarks()">
+                    </div>
+                    <div class="form-group">
+                        <label for="passmarkMCQ">Passmark MCQ (Total MCQ ÷ 3)</label>
+                        <input type="number" id="passmarkMCQ" step="1" min="0" value="10" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="totalPractical">Total Practical Marks (Default: 0)</label>
+                        <input type="number" id="totalPractical" step="0.01" min="0" value="0" required onchange="calculatePassmarks()">
+                    </div>
+                    <div class="form-group">
+                        <label for="passmarkPractical">Passmark Practical (Total Practical ÷ 3)</label>
+                        <input type="number" id="passmarkPractical" step="1" min="0" value="0" required>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="totalMarks">Total Marks (CQ + MCQ + Practical)</label>
+                        <input type="number" id="totalMarks" step="1" min="0" value="100" style="background: #e8f4fd; font-weight: bold; border: 2px solid #0366d6;">
+                    </div>
+                    <div class="form-group">
+                        <label for="passmarkTotal">Total Passmark (Auto calculated or 33)</label>
+                        <input type="number" id="passmarkTotal" step="1" min="0" value="33" required>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-success">
+                        ➕ Add Subject
+                    </button>
+                    <button type="button" class="btn" onclick="resetForm()">
+                        🔄 Reset Form
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right Panel - Existing Subjects -->
+        <div class="container">
+            <h2 class="section-title">Existing Subjects</h2>
+            <div class="subjects-list" id="subjectsContainer">
+                <div class="empty-state">
+                    <div class="loading"></div>
+                    <h3>Loading subjects...</h3>
+                    <p>Please wait while we fetch the subject list</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+
+        // Initialize Supabase client (same as Teacher_setup.html)
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Message display function
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="message ${type}">${message}</div>`;
+            
+            // Auto-hide success and info messages
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 5000);
+            }
+        }
+
+        // Calculate passmarks automatically
+        function calculatePassmarks() {
+            const totalCQ = parseFloat(document.getElementById('totalCQ').value) || 0;
+            const totalMCQ = parseFloat(document.getElementById('totalMCQ').value) || 0;
+            const totalPractical = parseFloat(document.getElementById('totalPractical').value) || 0;
+            
+            // Calculate individual passmarks (divide by 3 and round to nearest integer)
+            const passmarkCQ = totalCQ > 0 ? Math.round(totalCQ / 3) : 0;
+            const passmarkMCQ = totalMCQ > 0 ? Math.round(totalMCQ / 3) : 0;
+            const passmarkPractical = totalPractical > 0 ? Math.round(totalPractical / 3) : 0;
+            
+            // Set calculated passmarks
+            document.getElementById('passmarkCQ').value = passmarkCQ;
+            document.getElementById('passmarkMCQ').value = passmarkMCQ;
+            document.getElementById('passmarkPractical').value = passmarkPractical;
+            
+            // Calculate total marks
+            const totalMarks = totalCQ + totalMCQ + totalPractical;
+            document.getElementById('totalMarks').value = Math.round(totalMarks);
+            
+            // Calculate total passmark
+            const calculatedTotalPass = passmarkCQ + passmarkMCQ + passmarkPractical;
+            const finalTotalPass = calculatedTotalPass > 0 ? calculatedTotalPass : 33;
+            document.getElementById('passmarkTotal').value = finalTotalPass;
+        }
+
+        // Load subjects - exact same logic as Teacher_setup.html
+        async function loadSubjects() {
+            const subjectSelect = document.getElementById('subjectName');
+            
+            // Clear previous subjects
+            subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('exam_ann25')
+                    .select('*')
+                    .limit(1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const columns = Object.keys(data[0]);
+                    console.log('All columns:', columns); // Debug: see all columns
+                    
+                    // Look for columns that start with asterisk (*) 
+                    const asteriskColumns = columns.filter(col => col.startsWith('*'));
+                    console.log('Asterisk columns:', asteriskColumns); // Debug: see asterisk columns
+                    
+                    // Extract subject names from asterisk columns
+                    const subjects = [];
+                    asteriskColumns.forEach(col => {
+                        let subjectName = null;
+                        
+                        // Pattern for *subjectname_cq/mcq/practical/total/gpa
+                        const match = col.match(/^\*(.+?)(?:_(?:cq|mcq|practical|total|gpa))?$/i);
+                        if (match) {
+                            subjectName = match[1].trim();
+                        }
+                        
+                        if (subjectName && !subjects.includes(subjectName)) {
+                            subjects.push(subjectName);
+                        }
+                    });
+                    
+                    console.log('Extracted subjects:', subjects); // Debug: see extracted subjects
+
+                    if (subjects.length > 0) {
+                        subjects.sort().forEach(subject => {
+                            const option = document.createElement('option');
+                            option.value = subject;
+                            option.textContent = subject;
+                            subjectSelect.appendChild(option);
+                        });
+                        showMessage(`✓ Found ${subjects.length} subjects`, 'success');
+                    } else {
+                        showMessage('⚠️ No subjects found with asterisk (*) prefix in column names', 'error');
+                    }
+                } else {
+                    showMessage('⚠️ No data found in exam_ann25 table', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading subjects:', error);
+                showMessage('❌ Error loading subjects: ' + error.message, 'error');
+            }
+        }
+
+        // Load existing subjects from database
+        async function loadExistingSubjects() {
+            try {
+                const container = document.getElementById('subjectsContainer');
+                container.innerHTML = '<div class="empty-state"><div class="loading"></div><h3>Loading subjects...</h3></div>';
+
+                const { data, error } = await supabaseClient
+                    .from('subject_class_9_10')
+                    .select('*')
+                    .order('subject_name');
+
+                if (error) throw error;
+
+                container.innerHTML = '';
+                
+                if (data && data.length > 0) {
+                    data.forEach(subject => {
+                        const div = document.createElement('div');
+                        div.className = 'subject-item';
+                        // include data attributes to simplify populating the form
+                        div.innerHTML = `
+                            <div class="subject-info">
+                                <div class="subject-name">${subject.subject_name}</div>
+                                <div class="subject-details">
+                                    <span><strong>CQ:</strong> ${subject.total_cq} (Pass: ${subject.passmark_cq})</span>
+                                    <span><strong>MCQ:</strong> ${subject.total_mcq} (Pass: ${subject.passmark_mcq})</span>
+                                    <span><strong>Practical:</strong> ${subject.total_practical} (Pass: ${subject.passmark_practical})</span>
+                                    <span><strong>Total Pass:</strong> ${subject.passmark_total}</span>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:8px">
+                                <button class="btn" onclick="startEdit(${subject.subject_code})">✏️ Edit</button>
+                                <button class="btn btn-danger" onclick="deleteSubject(${subject.subject_code}, '${subject.subject_name}')">🗑️ Delete</button>
+                            </div>
+                        `;
+                        // attach the full subject object to the element for quick lookup
+                        div._subject = subject;
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No subjects found</h3>
+                            <p>Add your first subject using the form on the left</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading existing subjects:', error);
+                document.getElementById('subjectsContainer').innerHTML = `
+                    <div class="empty-state">
+                        <h3>Error loading subjects</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                showMessage('❌ Error loading subjects: ' + error.message, 'error');
+            }
+        }
+
+        // Delete subject function
+        async function deleteSubject(subjectCode, subjectName) {
+            if (!confirm(`Are you sure you want to delete "${subjectName}"?`)) {
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('subject_class_9_10')
+                    .delete()
+                    .eq('subject_code', subjectCode);
+
+                if (error) throw error;
+
+                showMessage(`✓ Subject "${subjectName}" deleted successfully`, 'success');
+                loadExistingSubjects(); // Refresh the list
+            } catch (error) {
+                console.error('Error deleting subject:', error);
+                showMessage('❌ Error deleting subject: ' + error.message, 'error');
+            }
+        }
+
+        // Reset form function
+        function resetForm() {
+            document.getElementById('subjectForm').reset();
+            
+            // Set default values
+            document.getElementById('totalCQ').value = '70';
+            document.getElementById('totalMCQ').value = '30';
+            document.getElementById('totalPractical').value = '0';
+            
+            // Recalculate passmarks with defaults
+            calculatePassmarks();
+            
+            showMessage('🔄 Form reset to default values', 'info');
+        }
+
+        // Edit flow state
+        let editingSubjectCode = null;
+
+        // Start editing a subject - populate form
+        function startEdit(subjectCode) {
+            // find the subject data from rendered items
+            const container = document.getElementById('subjectsContainer');
+            const items = container.querySelectorAll('.subject-item');
+            let subject = null;
+            items.forEach(it => {
+                if (it._subject && String(it._subject.subject_code) === String(subjectCode)) subject = it._subject;
+            });
+
+            if (!subject) {
+                showMessage('Could not find subject data to edit', 'error');
+                return;
+            }
+
+            // populate form fields
+            document.getElementById('subjectName').value = subject.subject_name || '';
+            document.getElementById('totalCQ').value = subject.total_cq ?? 0;
+            document.getElementById('totalMCQ').value = subject.total_mcq ?? 0;
+            document.getElementById('totalPractical').value = subject.total_practical ?? 0;
+            document.getElementById('passmarkCQ').value = subject.passmark_cq ?? 0;
+            document.getElementById('passmarkMCQ').value = subject.passmark_mcq ?? 0;
+            document.getElementById('passmarkPractical').value = subject.passmark_practical ?? 0;
+            document.getElementById('totalMarks').value = (Number(subject.total_cq || 0) + Number(subject.total_mcq || 0) + Number(subject.total_practical || 0)) || 0;
+            document.getElementById('passmarkTotal').value = subject.passmark_total ?? 0;
+
+            // set editing state
+            editingSubjectCode = subjectCode;
+
+            // Update submit button text and add cancel button
+            const submitBtn = document.querySelector('#subjectForm button[type="submit"]');
+            submitBtn.innerHTML = '💾 Update Subject';
+
+            if (!document.getElementById('cancelEditBtn')) {
+                const cancel = document.createElement('button');
+                cancel.type = 'button';
+                cancel.id = 'cancelEditBtn';
+                cancel.className = 'btn';
+                cancel.style.background = '#6c757d';
+                cancel.style.color = '#fff';
+                cancel.textContent = '✖️ Cancel';
+                cancel.onclick = cancelEdit;
+                document.querySelector('.btn-group').appendChild(cancel);
+            }
+        }
+
+        // Cancel editing
+        function cancelEdit() {
+            editingSubjectCode = null;
+            const cancel = document.getElementById('cancelEditBtn');
+            if (cancel) cancel.remove();
+            const submitBtn = document.querySelector('#subjectForm button[type="submit"]');
+            submitBtn.innerHTML = '➕ Add Subject';
+            resetForm();
+        }
+
+        // Form submit handler
+        document.getElementById('subjectForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            // Show loading state
+            submitButton.innerHTML = '<div class="loading"></div> Adding...';
+            submitButton.disabled = true;
+
+            const subjectData = {
+                subject_name: document.getElementById('subjectName').value,
+                total_cq: parseFloat(document.getElementById('totalCQ').value),
+                total_mcq: parseFloat(document.getElementById('totalMCQ').value),
+                total_practical: parseFloat(document.getElementById('totalPractical').value),
+                passmark_cq: parseFloat(document.getElementById('passmarkCQ').value),
+                passmark_mcq: parseFloat(document.getElementById('passmarkMCQ').value),
+                passmark_practical: parseFloat(document.getElementById('passmarkPractical').value),
+                passmark_total: parseFloat(document.getElementById('passmarkTotal').value)
+            };
+
+            try {
+                if (editingSubjectCode) {
+                    // Update flow - check duplicate name excluding current record
+                    const { data: dup, error: dupErr } = await supabaseClient
+                        .from('subject_class_9_10')
+                        .select('subject_code')
+                        .eq('subject_name', subjectData.subject_name);
+                    if (dupErr) throw dupErr;
+
+                    if (dup && dup.length > 0) {
+                        const conflict = dup.some(d => String(d.subject_code) !== String(editingSubjectCode));
+                        if (conflict) throw new Error(`Another subject with name "${subjectData.subject_name}" already exists`);
+                    }
+
+                    const { error: updateErr } = await supabaseClient
+                        .from('subject_class_9_10')
+                        .update(subjectData)
+                        .eq('subject_code', editingSubjectCode);
+
+                    if (updateErr) throw updateErr;
+
+                    showMessage(`✓ Subject "${subjectData.subject_name}" updated successfully!`, 'success');
+                    // reset editing state and UI
+                    editingSubjectCode = null;
+                    const cancel = document.getElementById('cancelEditBtn');
+                    if (cancel) cancel.remove();
+                    submitButton.innerHTML = originalText;
+                    document.getElementById('subjectForm').reset();
+                    resetForm();
+                    loadExistingSubjects();
+                } else {
+                    // Add new subject
+                    // Check if subject already exists
+                    const { data: existing } = await supabaseClient
+                        .from('subject_class_9_10')
+                        .select('subject_name')
+                        .eq('subject_name', subjectData.subject_name);
+
+                    if (existing && existing.length > 0) {
+                        throw new Error(`Subject "${subjectData.subject_name}" already exists`);
+                    }
+
+                    const { data, error } = await supabaseClient
+                        .from('subject_class_9_10')
+                        .insert([subjectData]);
+
+                    if (error) throw error;
+
+                    showMessage(`✓ Subject "${subjectData.subject_name}" added successfully!`, 'success');
+                    document.getElementById('subjectForm').reset();
+                    resetForm();
+                    loadExistingSubjects(); // Refresh the list
+                }
+            } catch (error) {
+                console.error('Error adding/updating subject:', error);
+                showMessage('❌ Error: ' + error.message, 'error');
+            } finally {
+                // Restore button state
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+            }
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('Page loaded, initializing...');
+            
+            // Calculate initial passmarks with default values
+            calculatePassmarks();
+            
+            loadSubjects();
+            loadExistingSubjects();
+        });
+    </script>
+</body>
+</html>

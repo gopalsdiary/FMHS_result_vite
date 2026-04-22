@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Process Results</title>
+  <style>
+    :root { --bg:#f6f8fa; --card:#ffffff; --border:#d0d7de; --accent:#0366d6; --accent-hover:#024c9e; --danger:#d73a49; --success:#1a7f37; --warning:#ff8a00; --radius:6px; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; }
+    body { margin:0; background:var(--bg); color:#24292f; }
+    .wrap { width:100%; max-width:100%; margin:0 0 60px 0; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:18px 12px 28px; box-shadow:0 2px 4px rgba(0,0,0,.04); }
+    h2 { font-size:20px; margin:0 0 16px 0; font-weight:600; color:#24292f; }
+    p { font-size:14px; color:#6a737d; margin:0 0 16px 0; }
+    .row{display:flex;gap:12px;align-items:center}
+    input[type=file]{padding:6px}
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:12px; }
+    thead { background:#fafbfc; position:sticky; top:0; z-index:5; }
+    th, td { border:1px solid var(--border); padding:6px 8px; text-align:center; vertical-align:middle; }
+    th { font-weight:600; font-size:12.5px; letter-spacing:.5px; background:#f0f3f6; text-align:center; }
+    tbody tr:nth-child(even){ background:#fcfcfd; }
+    tbody tr:hover { background:#fffbe6; }
+    /* Allow header text wrapping for specific columns */
+    th:nth-child(1), th:nth-child(2), th:nth-child(3), th:nth-child(n+4):nth-last-child(n+2) { white-space: normal; word-wrap: break-word; line-height: 1.3; vertical-align: top; text-align: center; }
+    /* Keep data cells centered */
+    td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+    td:nth-child(2) { white-space: normal; word-wrap: break-word; word-break: break-word; line-height: 1.2; max-width: 120px; text-align: center; }
+    /* When IID is hidden, name becomes first column */
+    table.hide-iid td:nth-child(1) { white-space: normal; word-wrap: break-word; word-break: break-word; line-height: 1.2; max-width: 120px; text-align: center; }
+    table.hide-iid td:nth-child(2):not(:first-child) { white-space: nowrap; text-align: center; }
+    .actions{margin-top:12px;display:flex;gap:8px}
+    /* Modern button styling */
+    button { cursor:pointer; font-size:12px; line-height:1.2; padding:6px 10px; border-radius:4px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-weight:500; }
+    button:hover { background:var(--accent-hover); }
+    button.outline { background:#fff; color:var(--accent); }
+    button.outline:hover { background:#e7f3ff; }
+    /* Special button colors */
+    button.warning { background:var(--warning); border-color:var(--warning); }
+    button.warning:hover { background:#e07000; }
+    button.success { background:var(--success); border-color:var(--success); }
+    button.success:hover { background:#0f5132; }
+    /* Input styling */
+    select, input[type=text], input[type=number] { padding:8px 10px; border:1px solid var(--border); border-radius:4px; font-size:14px; background:#fff; }
+    /* Hide number input spinner arrows */
+    input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+    .error-border { border: 2px solid var(--danger) !important; background-color: #ffebee !important; }
+    .error-message { color: var(--danger); font-size: 11px; margin-top: 2px; }
+    /* Status messages */
+    .status { font-size:13px; min-height:18px; }
+    .status.ok { color:var(--success); }
+    .status.err { color:var(--danger); }
+    /* Toolbar styling */
+    .toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:14px; }
+    /* Card sections */
+    .card-section { margin:16px 0; padding:12px; border:1px solid var(--border); background:var(--card); border-radius:var(--radius); }
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .wrap { margin: 8px; padding: 12px; border-radius: 6px; }
+      h2 { font-size: 18px; margin: 0 0 8px 0; }
+      p { font-size: 13px; margin: 0 0 12px 0; }
+      .card-section { margin: 12px 0; padding: 10px; }
+      .row { flex-direction: column; gap: 8px; align-items: stretch; }
+      .row[style*="flex-wrap"] { flex-direction: row; flex-wrap: wrap; gap: 8px 12px; }
+      select, button { min-width: auto !important; width: 100%; padding: 12px 10px; font-size: 14px; }
+      .row[style*="flex-wrap"] div { flex: 1; min-width: 120px; }
+      .row[style*="flex-wrap"] div:last-child { flex: none; min-width: 80px; }
+      .row[style*="gap:8px"]:not([style*="flex-wrap"]) { flex-direction: row; flex-wrap: wrap; }
+      .row[style*="gap:8px"]:not([style*="flex-wrap"]) button { width: auto; flex: 1; min-width: 120px; }
+      /* Mobile table styles - horizontal scroll with fixed layout */
+      table { font-size: 12px; white-space: nowrap; display: block; overflow-x: auto; border: 1px solid #ddd; }
+      table thead, table tbody { display: table; width: 100%; table-layout: fixed; }
+      th, td { padding: 6px 4px; min-width: 60px; word-break: keep-all; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+      /* Allow wrapping for specific header columns only */
+      th:nth-child(1), th:nth-child(2), th:nth-child(3), th:contains("_"), th[id*="subject"] { white-space: normal !important; word-wrap: break-word; line-height: 1.2; vertical-align: top; }
+      /* For subject header columns specifically */
+      th:nth-child(n+4):nth-last-child(n+2) { white-space: normal !important; word-wrap: break-word; text-align: center; }
+      /* Specific column widths for mobile */
+      th:nth-child(1), td:nth-child(1) { width: 50px; min-height: 40px; } /* IID */
+      th:nth-child(2), td:nth-child(2) { width: 100px; min-height: 40px; } /* Name */
+      th:nth-child(3), td:nth-child(3) { width: 50px; min-height: 40px; } /* Roll */
+      th:nth-child(4), td:nth-child(4) { width: 60px; min-height: 40px; } /* CQ */
+      th:nth-child(5), td:nth-child(5) { width: 60px; min-height: 40px; } /* MCQ */
+      th:nth-child(6), td:nth-child(6) { width: 60px; min-height: 40px; } /* Practical */
+      th:nth-child(7), td:nth-child(7) { width: 50px; min-height: 40px; } /* Total */
+      th:nth-child(8), td:nth-child(8) { width: 50px; min-height: 40px; } /* GPA */
+      th:nth-child(9), td:nth-child(9) { width: 70px; min-height: 40px; } /* Actions */
+      /* Allow name wrapping on mobile - centered */
+      td:nth-child(2) { white-space: normal !important; word-wrap: break-word; word-break: break-word; line-height: 1.1; padding: 4px 2px; text-align: center !important; }
+      /* When IID/Name hidden, adjust column positions */
+      table.hide-iid th:nth-child(1), table.hide-iid td:nth-child(1) { width: 50px; min-height: 40px; } /* Roll */
+      table.hide-iid th:nth-child(2), table.hide-iid td:nth-child(2) { width: 60px; min-height: 40px; } /* CQ */
+      table.hide-iid th:nth-child(3), table.hide-iid td:nth-child(3) { width: 60px; min-height: 40px; } /* MCQ */
+      table.hide-iid th:nth-child(4), table.hide-iid td:nth-child(4) { width: 60px; min-height: 40px; } /* Practical */
+      table.hide-iid th:nth-child(5), table.hide-iid td:nth-child(5) { width: 50px; min-height: 40px; } /* Total */
+      table.hide-iid th:nth-child(6), table.hide-iid td:nth-child(6) { width: 50px; min-height: 40px; } /* GPA */
+      table.hide-iid th:nth-child(7), table.hide-iid td:nth-child(7) { width: 70px; min-height: 40px; } /* Actions */
+      /* When only IID is hidden but Name is shown, name becomes first column */
+      table:not(.hide-iid) td:nth-child(1):not([data-col="iid"]) { white-space: normal !important; word-wrap: break-word; word-break: break-word; line-height: 1.1; }
+      input[type=number] { width: 50px !important; padding: 4px 2px !important; font-size: 12px; text-align: center; }
+      button.btn { padding: 4px 8px !important; font-size: 11px !important; min-width: 60px; }
+      /* Update All buttons on mobile */
+      div[style*="justify-content:flex-end"] button { padding: 10px 16px !important; font-size: 13px !important; width: auto !important; }
+      /* Error messages on mobile */
+      .error-message { font-size: 10px; }
+      /* Checkbox labels on mobile */
+      label[style*="font-size:12px"] { font-size: 13px !important; }
+      /* Show mobile scroll hint */
+      .mobile-hint { display: block !important; }
+    }
+    @media (max-width: 480px) {
+      .wrap { margin: 4px; padding: 8px; }
+      table { font-size: 11px; }
+      th, td { padding: 4px 2px; min-width: 45px; text-align: center; }
+      input[type=number] { width: 45px !important; padding: 2px !important; font-size: 11px; text-align: center; }
+      button.btn { padding: 3px 6px !important; font-size: 10px !important; min-width: 50px; }
+      select, button { padding: 10px 8px !important; font-size: 13px !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>Result Entry Page</h2>
+    <p>রেজাল্টি এন্টি করার সময় সাবধাণতা অবলম্বণ করুণ </p>
+
+    <div class="card-section" style="background:#f8fbff;">
+      <div class="row" style="flex-wrap:wrap;gap:10px 16px">
+        <div>
+          <label for="classSelect" style="display:block;font-size:12px;color:#555;margin-bottom:4px">Class</label>
+          <select id="classSelect" style="min-width:140px"></select>
+        </div>
+        <div>
+          <label for="sectionSelect" style="display:block;font-size:12px;color:#555;margin-bottom:4px">Section</label>
+          <select id="sectionSelect" style="min-width:140px"></select>
+        </div>
+        <div>
+          <label for="subjectSelect" style="display:block;font-size:12px;color:#555;margin-bottom:4px">Subject</label>
+          <select id="subjectSelect" style="min-width:220px"></select>
+        </div>
+      </div>
+      
+      <div class="row" style="flex-wrap:wrap;gap:10px 16px;margin-top:8px">
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="showIID" style="margin-right:6px"> Show IID
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="showName" style="margin-right:6px"> Show Name
+          </label>
+        </div>
+      </div>
+      
+      <div id="sbMsg" style="margin-top:8px;font-size:12px;color:#1976d2"></div>
+      <div id="sbResults" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="card-section" style="background:#f8fff8;">
+      <h4 style="margin:0 0 8px 0;color:#2e7d32"> Export Current Data</h4>
+      
+      <div class="row" style="flex-wrap:wrap;gap:10px 16px;margin-bottom:12px">
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportIID" checked style="margin-right:6px"> IID
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportName" checked style="margin-right:6px"> Name
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportRoll" checked style="margin-right:6px"> Roll
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportCQ" checked style="margin-right:6px"> CQ
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportMCQ" checked style="margin-right:6px"> MCQ
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportPractical" checked style="margin-right:6px"> Practical
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportTotal" checked style="margin-right:6px"> Total
+          </label>
+        </div>
+        <div>
+          <label style="display:flex;align-items:center;font-size:12px;color:#555;cursor:pointer">
+            <input type="checkbox" id="exportGPA" checked style="margin-right:6px"> GPA
+          </label>
+        </div>
+      </div>
+      
+      <div class="row" style="gap:8px">
+        <button id="downloadExcelBtn" disabled class="success"> Download Excel</button>
+        <button id="downloadCSVBtn" disabled class="success"> Download CSV</button>
+        <button id="downloadPDFBtn" disabled style="background:var(--danger);border-color:var(--danger);color:#fff">📄 Download PDF</button>
+      </div>
+    </div>
+
+    <div id="preview"></div>
+  </div>
+
+  <script type="module">
+  //from exam_test_2025 table show drop down by class, section, subject 
+    //where subject are defined in column names with format *subject name_CQ
+    //after subject dropdown completed show iid, name, roll and the subject component columns
+
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+    // simple CSV parser fallback if PapaParse isn't available
+    // 
+
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // DOM elements - declare early for use in functions
+    const fileInput = document.getElementById('fileInput')
+    const parseBtn = document.getElementById('parseBtn')
+    const preview = document.getElementById('preview')
+    const downloadBtn = document.getElementById('downloadBtn')
+    
+    // Export elements
+    const downloadExcelBtn = document.getElementById('downloadExcelBtn')
+    const downloadCSVBtn = document.getElementById('downloadCSVBtn')
+    const downloadPDFBtn = document.getElementById('downloadPDFBtn')
+    
+    // Supabase UI elements
+    const classSelect = document.getElementById('classSelect')
+    const sectionSelect = document.getElementById('sectionSelect')
+    const subjectSelect = document.getElementById('subjectSelect')
+    const sbResults = document.getElementById('sbResults')
+
+    // Global variable to store current user
+    let currentUserEmail = null
+
+    // client-side protection: require signed-in user and then init
+    async function ensureAuthAndInit(){
+      // Optional auth check - proceed even if not authenticated
+      const { data: { user } } = await supabase.auth.getUser()
+      if(user){
+        currentUserEmail = user.email
+      }
+      
+      // Restore full table data if present
+      restoreCurrentData()
+      
+      await detectPreMeta()
+      await detectActiveMeta()
+      // Load all classes from exam_test_2025 table
+      await loadClassesFromSubjectSelection()
+      
+      // Restore form selections after dropdowns are populated
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await restoreFormSelectionsAsync()
+    }
+    
+    // Helper function to save current selections
+    function saveFormSelections() {
+      const selections = {
+        class: classSelect.value,
+        section: sectionSelect.value,
+        subject: subjectSelect.value
+      }
+      localStorage.setItem('resultEntrySelections', JSON.stringify(selections))
+    }
+    
+    // Helper function to restore selections (async version)
+    async function restoreFormSelectionsAsync() {
+      const saved = localStorage.getItem('resultEntrySelections')
+      if (saved) {
+        try {
+          const selections = JSON.parse(saved)
+          
+          // Restore class
+          if(selections.class) {
+            classSelect.value = selections.class
+            // Load sections for this class
+            await loadSectionsFromSubjectSelection(selections.class)
+            // Wait for sections to populate
+            await new Promise(resolve => setTimeout(resolve, 300))
+          }
+          
+          // Restore section
+          if(selections.section) {
+            sectionSelect.value = selections.section
+            // Load subjects for this class/section
+            await loadSubjectsFromSubjectSelection()
+            // Wait for subjects to populate
+            await new Promise(resolve => setTimeout(resolve, 300))
+          }
+          
+          // Restore subject
+          if(selections.subject) {
+            subjectSelect.value = selections.subject
+          }
+          
+          // Auto-load if all selections are present
+          if(selections.class && selections.section && selections.subject) {
+            await new Promise(resolve => setTimeout(resolve, 300))
+            loadRows()
+          }
+        } catch (e) {
+          console.log('Could not restore selections:', e)
+        }
+      }
+    }
+
+    // Additional Supabase UI element
+    const sbMsg = document.getElementById('sbMsg')
+
+  const TABLE_PRE = 'exam_ann25'
+  const TABLE_ACTIVE_CLASS = 'class_2025'
+  const TABLE_ACTIVE_SECTION = 'section_2025'
+
+
+    // metadata about columns (detected dynamically)
+    const meta = {
+  // exam_test_2025
+      classCol: null,
+      sectionCol: null,
+      nameCol: null,
+      rollCol: null,
+      iidCol: null,
+      // subjects
+      subjectBases: [], // e.g., ['Bangla','English']
+      subjectMap: {}    // base -> { CQ: 'Bangla_CQ', MCQ: 'Bangla_MCQ', Total: 'Bangla_Total', GPA: 'Bangla_GPA' } (present only if exists)
+    }
+
+    // metadata for active tables
+    const metaActive = {
+      classCol: null,   // in class_2025
+      sectionCol: null, // in section_2025
+      sectionClassCol: null // optional class column inside section_2025 to filter by class
+    }
+
+    function pickKey(keys, candidates){
+      // return first matching candidate (case-insensitive regex or string)
+      const lower = keys.reduce((m,k)=> (m[k.toLowerCase()] = k, m), {})
+      for(const c of candidates){
+        if(typeof c === 'string'){
+          if(lower[c.toLowerCase()]) return lower[c.toLowerCase()]
+        } else if(c instanceof RegExp){
+          const found = keys.find(k=> c.test(k))
+          if(found) return found
+        }
+      }
+      return null
+    }
+
+    async function detectPreMeta(){
+      try{
+        const { data, error } = await supabase.from(TABLE_PRE).select('*').limit(1)
+        if(error) throw error
+        if(!data || !data.length){
+          sbMsg.textContent = 'No data found in exam_ann25.'
+          return
+        }
+        const sample = data[0]
+        const keys = Object.keys(sample)
+
+        // Prefer explicit 2025 columns if present
+        meta.classCol   = pickKey(keys, ['class_2025','class','Class','class_name','cls'])
+        meta.sectionCol = pickKey(keys, ['section_2025','section','Section','sec'])
+        meta.nameCol    = pickKey(keys, ['name','Name','student_name', /student.?name/i])
+        meta.rollCol    = pickKey(keys, ['roll','Roll','student_roll', /roll/i])
+        meta.iidCol     = pickKey(keys, ['iid','IID','student_id','sid','id'])
+        // derive subject bases by looking for suffixes (now supports Practical)
+        const compRe = /(.+?)(?:_|\s)(CQ|MCQ|Practical|Total|GPA)$/i
+        const subjectMap = {}
+        keys.forEach(k=>{
+          const m = k.match(compRe)
+          if(m){
+            const base = m[1].trim()
+            const comp = m[2].toUpperCase()
+            const normComp = comp === 'TOTAL' ? 'Total' : 
+                           (comp === 'GPA' ? 'GPA' : 
+                           (comp === 'PRACTICAL' ? 'Practical' : 
+                           (comp === 'CQ' ? 'CQ' : 
+                           (comp === 'MCQ' ? 'MCQ' : comp))))
+            subjectMap[base] = subjectMap[base] || {}
+            subjectMap[base][normComp] = k
+          }
+        })
+        meta.subjectMap = subjectMap
+        meta.subjectBases = Object.keys(subjectMap).sort((a, b) => {
+          // Sort by display name (without leading asterisks)
+          const displayA = a.replace(/^\*+\s*/, '').toLowerCase()
+          const displayB = b.replace(/^\*+\s*/, '').toLowerCase()
+          return displayA.localeCompare(displayB)
+        })
+
+        // Debug: Log detected subjects and components
+        console.log('Detected subjects and components:', meta.subjectMap)
+        
+      }catch(e){
+        sbMsg.textContent = 'Error (meta): ' + e.message
+        sbMsg.className = 'status err'
+      }
+    }
+    
+    // Load all subjects from meta (not filtered by teacher assignment)
+    async function loadSubjectsFromSubjectSelection() {
+      const classVal = classSelect.value
+      const sectionVal = sectionSelect.value
+      
+      // If class and section are not selected yet, wait
+      if(!classVal || !sectionVal) {
+        subjectSelect.innerHTML = '<option value="">Select Class & Section first</option>'
+        return
+      }
+      
+      try {
+        // Show all detected subjects - no filtering
+        if (meta.subjectBases.length > 0) {
+          subjectSelect.innerHTML = '<option value="">Select Subject</option>'
+          meta.subjectBases.forEach(base => {
+            const opt = document.createElement('option')
+            opt.value = base
+            opt.textContent = base.replace(/^\*+\s*/, '')
+            subjectSelect.appendChild(opt)
+          })
+        } else {
+          subjectSelect.innerHTML = '<option value="">No subjects detected</option>'
+        }
+      } catch(e) {
+        console.error('Error loading subjects:', e)
+        populateAllSubjects()
+      }
+    }
+    
+    // Helper function to populate all subjects (fallback)
+    function populateAllSubjects() {
+      subjectSelect.innerHTML = '<option value="">Select Subject</option>'
+      if(meta.subjectBases.length){
+        meta.subjectBases.forEach(base => {
+          const opt = document.createElement('option')
+          opt.value = base
+          opt.textContent = base.replace(/^\*+\s*/, '')
+          subjectSelect.appendChild(opt)
+        })
+      } else {
+        const opt = document.createElement('option')
+        opt.value = ''
+        opt.textContent = 'No subjects detected'
+        subjectSelect.appendChild(opt)
+      }
+    }
+
+    async function detectActiveMeta(){
+      // Detect columns in class_2025 and section_2025 tables
+      try{
+        const { data: cdata } = await supabase.from(TABLE_ACTIVE_CLASS).select('*').limit(1)
+        if(cdata && cdata.length){
+          const keys = Object.keys(cdata[0])
+          metaActive.classCol = pickKey(keys, ['class','Class','class_name','cls']) || keys[0]
+        }
+      } catch {}
+      try{
+        const { data: sdata } = await supabase.from(TABLE_ACTIVE_SECTION).select('*').limit(1)
+        if(sdata && sdata.length){
+          const keys = Object.keys(sdata[0])
+          metaActive.sectionCol = pickKey(keys, ['section','Section','sec']) || keys[0]
+          // optional class link inside section_2025
+          metaActive.sectionClassCol = pickKey(keys, ['class','Class','class_name','cls'])
+        }
+      } catch {}
+    }
+
+    // Load all classes from exam_test_2025 table (not from subject_selection)
+    async function loadClassesFromSubjectSelection(){
+      sbMsg.textContent = 'Loading classes...'
+      try{
+        const { data, error } = await supabase
+          .from(TABLE_PRE)
+          .select(`${meta.classCol}`)
+          .not(meta.classCol, 'is', null)
+          .limit(5000)
+        if(error) throw error
+        
+        const values = Array.from(new Set((data||[]).map(r=> r[meta.classCol]).filter(Boolean)))
+        values.sort((a, b) => Number(a) - Number(b))
+        
+        if(values.length === 0) {
+          classSelect.innerHTML = '<option value="">No classes found</option>'
+          sbMsg.textContent = 'No classes found in the system'
+          sbMsg.className = 'status err'
+        } else {
+          classSelect.innerHTML = '<option value="">Select Class</option>' + values.map(v=>`<option value="${String(v)}">${String(v)}</option>`).join('')
+          sbMsg.textContent = ''
+        }
+      }catch(e){
+        sbMsg.textContent = 'Error loading classes: ' + e.message
+        sbMsg.className = 'status err'
+      }
+    }
+
+    // Load sections from exam_test_2025 based on selected class
+    async function loadSectionsFromSubjectSelection(classVal){
+      if(!classVal){ return }
+      sbMsg.textContent = 'Loading sections...'
+      try{
+        const { data, error } = await supabase
+          .from(TABLE_PRE)
+          .select(`${meta.sectionCol}`)
+          .eq(meta.classCol, classVal)
+          .not(meta.sectionCol, 'is', null)
+          .limit(5000)
+        if(error) throw error
+        
+        const values = Array.from(new Set((data||[]).map(r=> r[meta.sectionCol]).filter(Boolean)))
+        values.sort()
+        
+        if(values.length === 0) {
+          sectionSelect.innerHTML = '<option value="">No sections found</option>'
+        } else {
+          sectionSelect.innerHTML = '<option value="">Select Section</option>' + values.map(v=>`<option value="${String(v)}">${String(v)}</option>`).join('')
+        }
+        sbMsg.textContent = ''
+      }catch(e){
+        sbMsg.textContent = 'Error loading sections: ' + e.message
+        sbMsg.className = 'status err'
+      }
+    }
+
+    async function loadClasses(){
+      if(!meta.classCol){ return }
+      sbMsg.textContent = 'Loading classes...'
+      try{
+        const { data, error } = await supabase
+          .from(TABLE_PRE)
+          .select(`${meta.classCol}`)
+          .not(meta.classCol, 'is', null)
+          .limit(5000)
+        if(error) throw error
+        const values = Array.from(new Set((data||[]).map(r=> r[meta.classCol]).filter(Boolean)))
+        values.sort()
+        classSelect.innerHTML = '<option value="">Select Class</option>' + values.map(v=>`<option value="${String(v)}">${String(v)}</option>`).join('')
+        sbMsg.textContent = ''
+      }catch(e){
+        sbMsg.textContent = 'Error (classes): ' + e.message
+        sbMsg.className = 'status err'
+      }
+    }
+
+    async function loadSections(classVal){
+      if(!meta.sectionCol || !meta.classCol){ return }
+      sbMsg.textContent = 'Loading sections...'
+      try{
+        const { data, error } = await supabase
+          .from(TABLE_PRE)
+          .select(`${meta.sectionCol}`)
+          .eq(meta.classCol, classVal)
+          .not(meta.sectionCol, 'is', null)
+          .limit(5000)
+        if(error) throw error
+        const values = Array.from(new Set((data||[]).map(r=> r[meta.sectionCol]).filter(Boolean)))
+        values.sort()
+        sectionSelect.innerHTML = '<option value="">Select Section</option>' + values.map(v=>`<option value="${String(v)}">${String(v)}</option>`).join('')
+        sbMsg.textContent = ''
+      }catch(e){
+        sbMsg.textContent = 'Error (sections): ' + e.message
+        sbMsg.className = 'status err'
+      }
+    }
+
+    async function loadRows(){
+      const cls = classSelect.value
+      const sec = sectionSelect.value
+      const subjectBase = subjectSelect.value
+      sbResults.innerHTML = ''
+      if(!cls || !sec || !subjectBase){
+        sbMsg.textContent = 'Please select Class, Section and Subject.'
+        sbMsg.className = 'status'
+        return
+      }
+      sbMsg.textContent = 'Loading rows...'
+      try{
+        // Figure out which component columns exist for this subject
+  const comps = meta.subjectMap[subjectBase] || {}
+  const compOrder = ['CQ','MCQ','Practical','Total','GPA']
+        const compCols = compOrder.map(c => comps[c]).filter(Boolean)
+
+        // Debug: Log detected components for this subject
+        console.log(`Components for ${subjectBase}:`, comps)
+        console.log('Component columns:', compCols)
+
+        // Select only necessary columns if safe; else select *
+        let selectList = '*'
+        const safeCols = [meta.iidCol, meta.nameCol, meta.rollCol, ...compCols]
+        if(safeCols.every(c => c && !/[\s"'*]/.test(c))){
+          selectList = safeCols.join(',')
+        }
+        const { data, error } = await supabase
+          .from(TABLE_PRE)
+          .select(selectList)
+          .eq(meta.classCol, cls)
+          .eq(meta.sectionCol, sec)
+          .limit(1000)
+        if(error) throw error
+        const rows = (data||[]).map(r=>({
+          iid: meta.iidCol? r[meta.iidCol] : (r.iid||r.id||''),
+          name: meta.nameCol? r[meta.nameCol] : (r.name||r.student_name||''),
+          roll: meta.rollCol? r[meta.rollCol] : (r.roll||''),
+          // subject components
+          ...(() => {
+            const out = {}
+            compOrder.forEach(c => { 
+              const ck = comps[c]; 
+              if(ck) {
+                const val = parseFloat(r[ck])
+                // Keep CQ/MCQ/Practical blank if 0 or null, show actual values for Total/GPA
+                if(c === 'CQ' || c === 'MCQ' || c === 'Practical') {
+                  out[c] = (val && val > 0) ? val : ''
+                } else if(c === 'Total' || c === 'GPA') {
+                  // Keep Total and GPA blank by default too
+                  out[c] = (val && val > 0) ? val : ''
+                } else {
+                  out[c] = val || 0
+                }
+              }
+            })
+            return out
+          })()
+        }))
+        
+        // Sort by roll number
+        rows.sort((a, b) => {
+          const rollA = parseInt(a.roll) || 0
+          const rollB = parseInt(b.roll) || 0
+          return rollA - rollB
+        })
+        
+        // Store data for updates
+        currentData = rows
+        currentSubjectBase = subjectBase
+        
+        // Calculate Total and GPA for all rows with existing data (CQ + MCQ + Practical if present)
+        currentData.forEach((row, idx) => {
+          const cq = parseFloat(row.CQ) || 0
+          const mcq = parseFloat(row.MCQ) || 0
+          const practical = parseFloat(row.Practical) || 0
+          const total = cq + mcq + practical
+          const gpa = total > 0 ? calculateGPA(total) : 0
+          currentData[idx].Total = total
+          currentData[idx].GPA = gpa
+          // persist
+          saveCurrentData()
+        })
+        
+        // Store original data for comparison (after calculations)
+        originalData = JSON.parse(JSON.stringify(currentData))
+        // Render editable table
+        const showIID = document.getElementById('showIID').checked
+        const showName = document.getElementById('showName').checked
+        const showTotal = true // Total checkbox hidden - always true
+        const showGPA = false // GPA checkbox hidden - always false
+        const showAction = true // Action checkbox hidden - always true
+        
+        let head = ''
+        if (showIID) head += '<th>IID</th>'
+        if (showName) head += '<th>Name</th>'
+        head += '<th>Roll</th>'
+        const presentComps = compOrder.filter(c => (meta.subjectMap[subjectBase]||{})[c])
+        const displayBase = subjectBase.replace(/^\*+\s*/, '')
+        
+        // Debug: Log present components for table generation
+        console.log('Present components for table:', presentComps)
+        console.log('Subject map for', subjectBase, ':', meta.subjectMap[subjectBase])
+        
+        // Show a message about detected components
+        if (presentComps.length > 0) {
+          sbMsg.textContent = `Detected components: ${presentComps.join(', ')}`
+          sbMsg.className = 'status ok'
+          setTimeout(() => sbMsg.textContent = '', 3000)
+        }
+        
+        head += presentComps.map(c => {
+          if (c === 'Total' && !showTotal) return ''
+          if (c === 'GPA' && !showGPA) return ''
+          if (c === 'GPA') return `<th>বিষয়_GPA</th>`
+          return `<th>${displayBase}_${c}</th>`
+        }).filter(h => h !== '').join('')
+        
+        if (showAction) head += '<th>Actions</th>'
+        
+        let html = `
+          <div style="margin-bottom:12px;display:flex;justify-content:flex-end">
+            <button id="bulkUpdateBtn" class="warning" onclick="bulkUpdate()">🔄 Update All</button>
+          </div>
+          <div class="table-wrap">
+          <table class="${!showIID && !showName ? 'hide-iid' : ''}"><thead><tr>${head}</tr></thead><tbody>`
+        
+        html += rows.map((r, idx) => {
+          let tds = ''
+          if (showIID) tds += `<td>${r.iid??''}</td>`
+          if (showName) tds += `<td>${r.name??''}</td>`
+          tds += `<td>${r.roll??''}</td>`
+          
+          presentComps.forEach(c => {
+            let val = r[c] ?? ''
+            // Ensure current data has numeric value for editable components
+            if (c === 'CQ' || c === 'MCQ' || c === 'Practical') {
+              currentData[idx][c] = val === '' ? 0 : (parseFloat(val) || 0)
+              // persist on change
+              saveCurrentData()
+            }
+            
+            if(c === 'CQ' || c === 'MCQ' || c === 'Practical') {
+              // Editable number input for CQ, MCQ and Practical
+              tds += `<td><input type="number" min="0" max="100" value="${val}" onchange="updateCalculations(${idx})" oninput="updateCalculations(${idx})" data-row="${idx}" data-comp="${c}" style="width:60px;"></td>`
+            } else if(c === 'Total') {
+              // Read-only calculated total - use calculated value from currentData
+              if (showTotal) {
+                const displayVal = currentData[idx].Total || 0
+                const showVal = displayVal === 0 ? '' : displayVal
+                tds += `<td><span id="total_${idx}" style="font-weight:600">${showVal}</span></td>`
+              }
+            } else if(c === 'GPA') {
+              // Read-only calculated GPA - use calculated value from currentData
+              if (showGPA) {
+                const displayVal = currentData[idx].GPA || 0
+                const showVal = displayVal === 0 ? '' : displayVal.toFixed(2)
+                tds += `<td><span id="gpa_${idx}" style="font-weight:600;color:#1976d2">${showVal}</span></td>`
+              }
+            } else {
+              tds += `<td>${val}</td>`
+            }
+          })
+          
+          if (showAction) {
+            tds += `<td><button onclick="updateRow(${idx})">Update</button></td>`
+          }
+          return `<tr data-row="${idx}">${tds}</tr>`
+        }).join('')
+        
+        html += '</tbody></table></div>'
+        html += `
+          <div style="display:none;margin-top:4px;font-size:11px;color:#666;text-align:center" class="mobile-hint">
+            📱 Swipe left/right to see all columns
+          </div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end">
+            <button class="warning" onclick="bulkUpdate()">🔄 Update All</button>
+          </div>`
+        sbResults.innerHTML = html
+        
+        // Initialize button colors (no local storage persistence anymore)
+        setTimeout(() => {
+          for (let i = 0; i < rows.length; i++) {
+            updateButtonColor(i)
+          }
+        }, 100)
+        
+        // Enable export buttons
+        downloadExcelBtn.disabled = false
+        downloadCSVBtn.disabled = false
+        downloadPDFBtn.disabled = false
+        
+        sbMsg.textContent = ''
+      }catch(e){
+        sbMsg.textContent = 'Error (rows): ' + e.message
+        sbMsg.style.color = '#c62828'
+      }
+    }
+
+    // Event wiring
+    classSelect.addEventListener('change', async ()=>{
+      sectionSelect.innerHTML = '<option value="">Select Section</option>'
+      subjectSelect.innerHTML = '<option value="">Select Section first</option>'
+      // Load sections based on teacher assignment
+      if(classSelect.value) {
+        await loadSectionsFromSubjectSelection(classSelect.value)
+      }
+      // Save selections
+      saveFormSelections()
+    })
+    
+    sectionSelect.addEventListener('change', async ()=>{
+      // Load subjects based on teacher assignment when section is selected
+      if (sectionSelect.value) {
+        subjectSelect.innerHTML = '<option value="">Loading subjects...</option>'
+        await loadSubjectsFromSubjectSelection()
+      } else {
+        subjectSelect.innerHTML = '<option value="">Select Section first</option>'
+      }
+      // Auto-load when section is selected and subject is already selected
+      if (sectionSelect.value && subjectSelect.value) {
+        loadRows()
+      }
+      // Save selections
+      saveFormSelections()
+    })
+    
+    subjectSelect.addEventListener('change', ()=>{
+      // Auto-load when subject is selected and section is already selected
+      if (sectionSelect.value && subjectSelect.value) {
+        loadRows()
+      }
+      // Save selections
+      saveFormSelections()
+    })
+    
+    // Add event listeners for checkboxes to refresh table when toggled
+    document.getElementById('showIID').addEventListener('change', () => {
+      if (currentData.length > 0) loadRows()
+    })
+    document.getElementById('showName').addEventListener('change', () => {
+      if (currentData.length > 0) loadRows()
+    })
+
+    // Calculation and update functions
+    let currentData = [] // Store current table data
+    let currentSubjectBase = ''
+    let originalData = [] // Store original data to compare changes
+
+    // Persist currentData to localStorage so unsaved entries survive logout/login
+    function saveCurrentData() {
+      try {
+        const key = 'resultEntry_currentData'
+        localStorage.setItem(key, JSON.stringify({
+          selections: {
+            class: classSelect.value,
+            section: sectionSelect.value,
+            subject: subjectSelect.value,
+            subjectBase: currentSubjectBase
+          },
+          data: currentData
+        }))
+      } catch (e) {
+        console.error('Error saving currentData:', e)
+      }
+    }
+
+    function restoreCurrentData() {
+      try {
+        const key = 'resultEntry_currentData'
+        const raw = localStorage.getItem(key)
+        if (!raw) return false
+        const parsed = JSON.parse(raw)
+        if (parsed && parsed.selections) {
+          // set selections but do not trigger loadRows immediately; wait for UI population
+          if (parsed.selections.class) classSelect.value = parsed.selections.class
+          if (parsed.selections.section) sectionSelect.value = parsed.selections.section
+          if (parsed.selections.subject) subjectSelect.value = parsed.selections.subject
+          if (parsed.selections.subjectBase) currentSubjectBase = parsed.selections.subjectBase
+        }
+        if (Array.isArray(parsed.data)) {
+          currentData = parsed.data
+          originalData = JSON.parse(JSON.stringify(currentData))
+        }
+        return true
+      } catch (e) {
+        console.error('Error restoring currentData:', e)
+        return false
+      }
+    }
+    
+    function hasLocalChanges(rowIdx) {
+      const rowData = currentData[rowIdx]
+      const originalRow = originalData[rowIdx]
+      if (!rowData || !originalRow) return false
+      
+  // Compare CQ, MCQ, Practical values for determining if update is needed
+  const currentCQ = parseFloat(rowData.CQ) || 0
+  const currentMCQ = parseFloat(rowData.MCQ) || 0
+  const currentPr = parseFloat(rowData.Practical) || 0
+  const originalCQ = parseFloat(originalRow.CQ) || 0
+  const originalMCQ = parseFloat(originalRow.MCQ) || 0
+  const originalPr = parseFloat(originalRow.Practical) || 0
+      
+  return currentCQ !== originalCQ || currentMCQ !== originalMCQ || currentPr !== originalPr
+    }
+    
+    function updateButtonColor(rowIdx) {
+      const button = document.querySelector(`button[onclick="updateRow(${rowIdx})"]`)
+      if (button) {
+        if (hasLocalChanges(rowIdx)) {
+          button.className = 'warning'
+          button.textContent = 'Update*'
+        } else {
+          button.className = ''
+          button.textContent = 'Update'
+        }
+      }
+    }
+    
+    function calculateGPA(total) {
+      // Bangladesh SSC GPA calculation
+      if (total >= 80) return 5.00
+      if (total >= 70) return 4.00
+      if (total >= 60) return 3.50
+      if (total >= 50) return 3.00
+      if (total >= 40) return 2.00
+      if (total >= 33) return 1.00
+      return 0.00
+    }
+    
+    function updateCalculations(rowIdx) {
+      const row = document.querySelector(`tr[data-row="${rowIdx}"]`)
+      if (!row) return
+      
+  const cqInput = row.querySelector('input[data-comp="CQ"]')
+  const mcqInput = row.querySelector('input[data-comp="MCQ"]')
+  const prInput = row.querySelector('input[data-comp="Practical"]')
+      const totalSpan = document.getElementById(`total_${rowIdx}`)
+      const gpaSpan = document.getElementById(`gpa_${rowIdx}`)
+      
+      // Remove any existing error messages
+      const existingError = row.querySelector('.error-message')
+      if (existingError) existingError.remove()
+      
+      // Continue calculation even if totalSpan or gpaSpan don't exist
+      {
+        const cq = cqInput ? (parseFloat(cqInput.value) || 0) : 0
+        const mcq = mcqInput ? (parseFloat(mcqInput.value) || 0) : 0
+        const pr  = prInput ? (parseFloat(prInput.value) || 0) : 0
+        const total = cq + mcq + pr
+        
+        // Remove error styling
+  if (cqInput) cqInput.classList.remove('error-border')
+  if (mcqInput) mcqInput.classList.remove('error-border')
+  if (prInput) prInput.classList.remove('error-border')
+        
+        // Check if total exceeds 100
+        if (total > 100) {
+          // Add error styling
+          if (cqInput) cqInput.classList.add('error-border')
+          if (mcqInput) mcqInput.classList.add('error-border')
+          if (prInput) prInput.classList.add('error-border')
+          
+          // Add error message
+          const errorDiv = document.createElement('div')
+          errorDiv.className = 'error-message'
+          errorDiv.textContent = `Total অবশ্যই ১০০ এর কম হতে হবে! বর্তমানে: ${total}`
+          if (totalSpan) {
+            totalSpan.parentNode.appendChild(errorDiv)
+          }
+          
+          // Update display if elements exist
+          if (totalSpan) {
+            totalSpan.textContent = total.toFixed(0)
+            totalSpan.style.color = '#c62828'
+          }
+          if (gpaSpan) {
+            gpaSpan.textContent = '0.00'
+            gpaSpan.style.color = '#c62828'
+          }
+          
+          // Update stored data with error state
+          if (currentData[rowIdx]) {
+            currentData[rowIdx].CQ = cq
+            currentData[rowIdx].MCQ = mcq
+            currentData[rowIdx].Practical = pr
+            currentData[rowIdx].Total = total
+            currentData[rowIdx].GPA = 0
+            currentData[rowIdx].hasError = true
+          }
+        } else {
+          // Normal calculation - show total and GPA when values exist, clear when both are 0
+          const gpa = (total > 0) ? calculateGPA(total) : 0
+          
+          // Update display if elements exist
+          if (totalSpan) {
+            totalSpan.textContent = total > 0 ? total.toFixed(0) : ''
+            totalSpan.style.color = '#333'
+          }
+          if (gpaSpan) {
+            gpaSpan.textContent = total > 0 ? gpa.toFixed(2) : ''
+            gpaSpan.style.color = '#1976d2'
+          }
+          
+          // Update stored data
+          if (currentData[rowIdx]) {
+            currentData[rowIdx].CQ = cq
+            currentData[rowIdx].MCQ = mcq
+            currentData[rowIdx].Practical = pr
+            currentData[rowIdx].Total = total
+            currentData[rowIdx].GPA = gpa
+            currentData[rowIdx].hasError = false
+          }
+        }
+        
+        // Update button color based on changes
+        updateButtonColor(rowIdx)
+      }
+    }
+    
+    async function updateRow(rowIdx) {
+      if (!currentData[rowIdx]) {
+        alert('Row data not found')
+        return
+      }
+      
+      const rowData = currentData[rowIdx]
+      
+      // Check for validation errors
+      if (rowData.hasError) {
+        alert('এই সারিতে ভুল আছে! Total ১০০ এর বেশি হতে পারে না।')
+        return
+      }
+      
+      const comps = meta.subjectMap[currentSubjectBase] || {}
+      
+      try {
+        sbMsg.textContent = 'Updating row...'
+        sbMsg.style.color = '#1976d2'
+        
+        const updateData = {}
+  if (comps.CQ) updateData[comps.CQ] = rowData.CQ || 0
+  if (comps.MCQ) updateData[comps.MCQ] = rowData.MCQ || 0
+  if (comps.Practical) updateData[comps.Practical] = rowData.Practical || 0
+        if (comps.Total) updateData[comps.Total] = rowData.Total || 0
+        // GPA update disabled - GPA will not be updated in database
+        
+        const { error } = await supabase
+          .from(TABLE_PRE)
+          .update(updateData)
+          .eq(meta.iidCol, rowData.iid)
+          .eq(meta.classCol, classSelect.value)
+          .eq(meta.sectionCol, sectionSelect.value)
+          
+        if (error) throw error
+        
+        sbMsg.textContent = 'Row updated successfully!'
+        sbMsg.className = 'status ok'
+        
+        // Update original data to reflect saved state
+        originalData[rowIdx] = JSON.parse(JSON.stringify(rowData))
+        
+        // Reset button color
+        updateButtonColor(rowIdx)
+        
+        setTimeout(() => sbMsg.textContent = '', 3000)
+      } catch (e) {
+        sbMsg.textContent = 'Error updating row: ' + e.message
+        sbMsg.className = 'status err'
+      }
+    }
+    
+    async function bulkUpdate() {
+      if (!currentData.length) {
+        alert('No data to update')
+        return
+      }
+      
+      // Check for any validation errors
+      const errorRows = currentData.filter(row => row.hasError)
+      if (errorRows.length > 0) {
+        alert(`${errorRows.length}টি সারিতে ভুল আছে! সব ভুল ঠিক করে তারপর Update করুন।`)
+        return
+      }
+      
+      if (!confirm(`Update all ${currentData.length} rows?`)) return
+      
+      const comps = meta.subjectMap[currentSubjectBase] || {}
+      let successCount = 0
+      
+      try {
+        sbMsg.textContent = 'Bulk updating...'
+        sbMsg.style.color = '#1976d2'
+        
+        for (const rowData of currentData) {
+          const updateData = {}
+          if (comps.CQ) updateData[comps.CQ] = rowData.CQ || 0
+          if (comps.MCQ) updateData[comps.MCQ] = rowData.MCQ || 0
+          if (comps.Practical) updateData[comps.Practical] = rowData.Practical || 0
+          if (comps.Total) updateData[comps.Total] = rowData.Total || 0
+          // GPA update disabled - GPA will not be updated in database
+          
+          const { error } = await supabase
+            .from(TABLE_PRE)
+            .update(updateData)
+            .eq(meta.iidCol, rowData.iid)
+            .eq(meta.classCol, classSelect.value)
+            .eq(meta.sectionCol, sectionSelect.value)
+            
+          if (!error) successCount++
+        }
+        
+        // Update original data to reflect saved state
+        originalData = JSON.parse(JSON.stringify(currentData))
+        
+        // Reset all button colors
+        for (let i = 0; i < currentData.length; i++) {
+          updateButtonColor(i)
+        }
+        
+        sbMsg.textContent = ` update completed! ${successCount}/${currentData.length} rows updated.`
+        sbMsg.style.color = '#2e7d32'
+        setTimeout(() => sbMsg.textContent = '', 5000)
+      } catch (e) {
+        sbMsg.textContent = 'Error in  update: ' + e.message
+        sbMsg.style.color = '#c62828'
+      }
+    }
+    
+    window.updateCalculations = updateCalculations
+    window.updateRow = updateRow
+    window.bulkUpdate = bulkUpdate
+
+    // Export functions
+    function getSelectedColumns() {
+      const columns = []
+      const comps = meta.subjectMap[currentSubjectBase] || {}
+  const compOrder = ['CQ','MCQ','Practical','Total','GPA']
+      const presentComps = compOrder.filter(c => comps[c])
+      const displayBase = currentSubjectBase.replace(/^\*+\s*/, '')
+      
+      if (document.getElementById('exportIID').checked) columns.push({ key: 'iid', name: 'IID' })
+      if (document.getElementById('exportName').checked) columns.push({ key: 'name', name: 'Name' })
+      if (document.getElementById('exportRoll').checked) columns.push({ key: 'roll', name: 'Roll' })
+      
+      presentComps.forEach(c => {
+        const checkboxId = `export${c}`
+        if (document.getElementById(checkboxId)?.checked) {
+          columns.push({ key: c, name: `${displayBase}_${c}` })
+        }
+      })
+      
+      return columns
+    }
+    
+    function exportToCSV() {
+      if (!currentData.length) {
+        alert('No data to export')
+        return
+      }
+      
+      const columns = getSelectedColumns()
+      if (!columns.length) {
+        alert('Please select at least one column to export')
+        return
+      }
+      
+      const headers = columns.map(col => col.name)
+      const rows = currentData.map(row => 
+        columns.map(col => {
+          const value = row[col.key] ?? ''
+          return `"${String(value).replace(/"/g, '""')}"`
+        })
+      )
+      
+      const csv = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${currentSubjectBase}_${classSelect.value}_${sectionSelect.value}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+    
+    function exportToExcel() {
+      if (!currentData.length) {
+        alert('No data to export')
+        return
+      }
+      
+      const columns = getSelectedColumns()
+      if (!columns.length) {
+        alert('Please select at least one column to export')
+        return
+      }
+      
+      // Create Excel-compatible HTML table
+      const headers = columns.map(col => `<th>${col.name}</th>`).join('')
+      const rows = currentData.map(row => 
+        `<tr>${columns.map(col => `<td>${row[col.key] ?? ''}</td>`).join('')}</tr>`
+      ).join('')
+      
+      const html = `
+        <table>
+          <thead><tr>${headers}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `
+      
+      const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${currentSubjectBase}_${classSelect.value}_${sectionSelect.value}.xls`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+    
+    // Event listeners for export buttons
+    downloadCSVBtn.addEventListener('click', exportToCSV)
+    downloadExcelBtn.addEventListener('click', exportToExcel)
+
+    // Initialize after auth
+    ensureAuthAndInit()
+
+    function csvToArray(text){
+      const lines = text.split(/\r?\n/).filter(Boolean)
+      const headers = lines.shift().split(/,/) // naive split
+      return lines.map(l=>{
+        const cols = l.split(/,/) // naive
+        const obj = {}
+        headers.forEach((h,i)=> obj[h.trim()] = (cols[i]||'').trim())
+        return obj
+      })
+    }
+
+    function compute(result){
+      // result is an object with numeric mark fields; compute total and grade
+      let total = 0
+      let count = 0
+      for(const k in result){
+        const v = parseFloat(result[k])
+        if(!isNaN(v)){
+          total += v; count++
+        }
+      }
+      const avg = count? (total/count):0
+      let grade = 'F'
+      if(avg>=80) grade='A+'; else if(avg>=70) grade='A'; else if(avg>=60) grade='A-'; else if(avg>=50) grade='B'; else if(avg>=40) grade='C'; else grade='F'
+      return { total, avg: avg.toFixed(2), grade }
+    }
+
+    parseBtn.addEventListener('click', function(){
+      const file = fileInput.files && fileInput.files[0]
+      if(!file){ alert('Choose a CSV file first'); return }
+      const reader = new FileReader()
+      reader.onload = function(e){
+        const text = e.target.result
+        const arr = csvToArray(text)
+        if(!arr.length){ preview.innerHTML = '<div>No rows found</div>'; return }
+        // compute for each row
+        const processed = arr.map(row=>{
+          // clone row fields that are numeric
+          const numericFields = {}
+          for(const k in row) if(/\d/.test(row[k])) numericFields[k]=row[k]
+          const stats = compute(numericFields)
+          return Object.assign({}, row, { total: stats.total, avg: stats.avg, grade: stats.grade })
+        })
+
+        // render table
+        const cols = Object.keys(processed[0])
+        let html = '<table><thead><tr>' + cols.map(c=>'<th>'+c+'</th>').join('') + '</tr></thead><tbody>'
+        html += processed.map(r=>'<tr>'+ cols.map(c=>'<td>'+ (r[c]||'') +'</td>').join('') +'</tr>').join('')
+        html += '</tbody></table>'
+        preview.innerHTML = html
+        downloadBtn.disabled = false
+        downloadBtn.onclick = function(){
+          const csv = [cols.join(',')].concat(processed.map(r=>cols.map(c=> '"'+String(r[c]||'').replace(/"/g,'""')+'"').join(','))).join('\n')
+          const blob = new Blob([csv], { type: 'text/csv' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url; a.download = 'processed.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
+        }
+      }
+      reader.readAsText(file)
+    })
+
+  </script>
+</body>
+</html>

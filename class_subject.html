@@ -1,0 +1,1295 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link href="https://fonts.googleapis.com/css2?family=Kalpurush&display=swap" rel="stylesheet">
+    <title>Session Subject Setup - Result Processing</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { 
+            --bg:#f6f8fa; 
+            --card:#ffffff; 
+            --border:#d0d7de; 
+            --accent:#0366d6; 
+            --accent-hover:#024c9e; 
+            --danger:#d73a49; 
+            --radius:6px; 
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; 
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body { 
+            margin:0; 
+            background:var(--bg); 
+            color:#24292f; 
+        }
+        
+        header { 
+            background:#0d1117; 
+            color:#fff; 
+            padding:8px 15px; 
+            display:flex; 
+            align-items:center; 
+            justify-content:space-between; 
+        }
+        
+        h1 { 
+            font-size:18px; 
+            margin:0; 
+            font-weight:600; 
+        }
+
+        .container {
+            width:100%; 
+            max-width:100%; 
+            margin:0 0 30px 0; 
+            background:var(--card); 
+            border:1px solid var(--border); 
+            border-radius:0; 
+            padding:12px 10px 18px; 
+            box-shadow:0 2px 4px rgba(0,0,0,.04);
+        }
+
+        .form-section {
+            background: var(--card);
+            padding: 12px;
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,.03);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #57606a;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+        }
+
+        select, input, textarea {
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            font-size: 13px;
+            background: #fff;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        select:focus, input:focus, textarea:focus {
+            outline: 2px solid #84c5ff;
+            border-color: var(--accent);
+        }
+
+        .marks-section {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: var(--radius);
+            margin-top: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .marks-table-container {
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        .marks-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .marks-table th {
+            background: #f0f3f6;
+            color: #24292f;
+            font-weight: 600;
+            font-size: 11px;
+            padding: 6px 8px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .marks-table td {
+            padding: 6px 8px;
+            text-align: center;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+
+        .marks-table tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .marks-table .total-row {
+            background: #e7f3ff !important;
+            font-weight: 600;
+        }
+
+        .marks-table .total-row td {
+            border-top: 2px solid var(--accent);
+        }
+
+        .marks-input {
+            width: 60px;
+            padding: 4px 6px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            text-align: center;
+            font-size: 12px;
+            background: white;
+        }
+
+        .marks-input:focus {
+            outline: 1px solid #84c5ff;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1.1;
+            padding: 6px 10px;
+            border-radius: 3px;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: #fff;
+            font-weight: 500;
+            margin: 3px 2px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            border-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .message {
+            padding: 8px;
+            border-radius: 3px;
+            margin: 8px 0;
+            font-weight: 500;
+            font-size: 11px;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .table-section {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 12px;
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px rgba(0,0,0,.03);
+            display: block !important;
+            visibility: visible !important;
+        }
+
+        #subjectTable {
+            display: table !important;
+            visibility: visible !important;
+        }
+
+        .table-wrap { 
+            overflow-x: auto; 
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        thead { 
+            background: #fafbfc; 
+            position: sticky; 
+            top: 0; 
+            z-index: 5; 
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 4px 6px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: .3px;
+            background: #f0f3f6;
+        }
+
+        tbody tr:nth-child(even) { 
+            background: #fcfcfd; 
+        }
+
+        tbody tr:hover {
+            background: #fffbe6;
+        }
+
+        /* Styles for merged section cells */
+        tbody td[rowspan] {
+            background-color: #f0f3f6 !important;
+            font-weight: 600;
+            border-right: 2px solid var(--accent);
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        /* Enhanced styling for merged table cells */
+        #subjectTable th {
+            background: #f8f9fa;
+            font-weight: 600;
+            text-align: center;
+            padding: 8px 6px;
+            border: 1px solid var(--border);
+            font-size: 11px;
+        }
+
+        #subjectTable td {
+            padding: 6px 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+            vertical-align: middle;
+            font-size: 11px;
+        }
+
+        #subjectTable tbody tr:hover {
+            background: #f0f8ff;
+        }
+
+        /* Special styling for merged cells */
+        #subjectTable td[rowspan] {
+            background-color: #f8f9fa !important;
+            font-weight: 600;
+            border-right: 2px solid var(--accent);
+        }
+
+        /* Action buttons styling in table */
+        #subjectTable .btn {
+            padding: 3px 6px;
+            font-size: 9px;
+            margin: 1px;
+        }
+
+        #subjectTable .delete-btn {
+            padding: 3px 6px;
+            font-size: 9px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: var(--card);
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            width: 90%;
+            max-width: 800px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .modal-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: var(--radius) var(--radius) 0 0;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 16px;
+            color: #24292f;
+        }
+
+        .close {
+            color: #aaa;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            text-align: right;
+            border-radius: 0 0 var(--radius) var(--radius);
+        }
+
+        .modal-footer .btn {
+            margin-left: 10px;
+        }
+
+        .delete-btn {
+            background: var(--danger);
+            color: white;
+            padding: 3px 6px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        .delete-btn:hover {
+            background: #b02a37;
+        }
+
+        .loading {
+            text-align: center;
+            color: #6a737d;
+            font-style: italic;
+            font-size: 11px;
+        }
+
+        .section-header {
+            margin-bottom: 8px !important;
+            color: #24292f !important;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .marks-header {
+            text-align: center !important;
+            color: #24292f !important;
+            margin-bottom: 8px !important;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .form-actions {
+            text-align: center !important;
+            margin-top: 12px !important;
+        }
+
+
+
+        #cancelBtn {
+            display: none !important;
+        }
+
+
+
+        @media (max-width: 820px) {
+            .container { 
+                padding: 8px 8px 15px; 
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+            
+            .marks-table th, 
+            .marks-table td {
+                padding: 4px 3px;
+                font-size: 10px;
+            }
+            
+            .marks-input {
+                width: 45px;
+                font-size: 10px;
+                padding: 3px 4px;
+            }
+            
+            th, td {
+                padding: 3px 4px;
+                font-size: 10px;
+            }
+            
+            .btn {
+                padding: 4px 6px;
+                font-size: 10px;
+            }
+            
+            .form-section {
+                padding: 8px;
+                margin-bottom: 8px;
+            }
+            
+            label {
+                font-size: 10px;
+            }
+            
+            select, input {
+                padding: 4px 6px;
+                font-size: 11px;
+            }
+        }
+        
+        /* Message Styles */
+        .message {
+            padding: 12px 16px;
+            margin: 12px 0;
+            border-radius: var(--radius);
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+        
+        .message.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <button onclick="window.location.href='result_dashboard.html'" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                ← Dashboard
+            </button>
+            <h1>📚 Subject Setup</h1>
+        </div>
+    </header>
+    <div class="container">
+        
+        <div class="form-section">
+            <h2 class="section-header">Add New Session Subject</h2>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="sectionSelect">Section (from pre_test_2025)</label>
+                    <select id="sectionSelect">
+                        <option value="">Select Section</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subjectSelect">Subject (extracted from column names)</label>
+                    <select id="subjectSelect">
+                        <option value="">Select Subject</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subjectTypeSelect">Subject Type</label>
+                    <select id="subjectTypeSelect">
+                        <option value="">Select Type</option>
+                        <option value="CQ">CQ</option>
+                        <option value="CQ+MCQ">CQ+MCQ</option>
+                        <option value="MCQ+Practical">MCQ+Practical</option>
+                        <option value="CQ+MCQ+Practical">CQ+MCQ+Practical</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn" onclick="saveSubject()" id="saveBtn">💾 Save Subject</button>
+                <button class="btn btn-secondary" onclick="resetForm()">🔄 Reset Form</button>
+                <button class="btn btn-secondary" onclick="cancelEdit()" id="cancelBtn">❌ Cancel Edit</button>
+            </div>
+
+            <div id="message"></div>
+        </div>
+
+        <div class="table-section">
+            <h2 class="section-header">Existing Session Subjects</h2>
+            <div id="loadingTable" class="loading">Loading subjects...</div>
+            <div class="table-wrap">
+                <table id="subjectTable">
+                <thead>
+                    <tr>
+                        <th>Section</th>
+                        <th>ID</th>
+                        <th>Subject</th>
+                        <th>Subject Type</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="subjectTableBody">
+                </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Session Subject</h2>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="editSectionSelect">Section</label>
+                        <select id="editSectionSelect">
+                            <option value="">Select Section</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editSubjectSelect">Subject</label>
+                        <select id="editSubjectSelect">
+                            <option value="">Select Subject</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editSubjectTypeSelect">Subject Type</label>
+                        <select id="editSubjectTypeSelect">
+                            <option value="">Select Type</option>
+                            <option value="CQ">CQ</option>
+                            <option value="CQ+MCQ">CQ+MCQ</option>
+                            <option value="MCQ+Practical">MCQ+Practical</option>
+                            <option value="CQ+MCQ+Practical">CQ+MCQ+Practical</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn" onclick="saveEditedSubject()">💾 Save Changes</button>
+            </div>
+            <div id="editMessage"></div>
+        </div>
+    </div>
+
+    <script>
+    // Supabase configuration (centralized)
+    // Use the same project URL/key used elsewhere in this repo
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Authorized users for editing
+        const authorizedUsers = [
+            'fenimodelhighschool@gmail.com',
+            'gopalsdiary@gmail.com', 
+            'roy.gopal159@gmail.com'
+        ];
+
+        // Global variables for edit mode and user session
+        let editMode = false;
+        let editingSubjectId = null;
+        let currentUser = null;
+        let userCanEdit = false;
+
+
+
+        // Generate action buttons based on user permissions
+        function generateActionButtons(subjectId) {
+            if (userCanEdit) {
+                return `
+                    <button class="btn" style="background: #ffc107; color: #000; padding: 4px 8px; margin-right: 3px; font-size: 10px;" onclick="editSubject(${subjectId})">
+                        ✏️ Edit
+                    </button>
+                    <button class="delete-btn" onclick="deleteSubject(${subjectId})">
+                        🗑️ Delete
+                    </button>
+                `;
+            } else {
+                return '<span style="color: #6c757d; font-style: italic; font-size: 11px;">Read-only</span>';
+            }
+        }
+
+        // Check user authentication and authorization
+        async function checkUserAuth() {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (user && user.email) {
+                    currentUser = user;
+                    userCanEdit = authorizedUsers.includes(user.email);
+                    
+                    // Show user info in header
+                    showUserInfo(user.email);
+                    
+                    // Enable/disable editing based on authorization
+                    toggleEditingInterface(userCanEdit);
+                    
+                    return true;
+                } else {
+                    // Redirect to login if no user session
+                    window.location.href = 'login.html';
+                    return false;
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                window.location.href = 'login.html';
+                return false;
+            }
+        }
+
+        // Show user information in header
+        function showUserInfo(email) {
+            const headerTitle = document.querySelector('h1');
+            if (headerTitle) {
+                headerTitle.innerHTML = `📚 Subject Setup <span style="font-size: 12px; font-weight: normal; margin-left: 20px; padding: 4px 8px; background: rgba(255,255,255,0.2); border-radius: 4px;">${email}</span> <button onclick="logout()" style="font-size: 11px; margin-left: 8px; padding: 4px 8px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Sign out</button>`;
+            }
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                // Store current page URL for redirect after login
+                const currentPage = window.location.pathname.split('/').pop() || 'class_subject.html'
+                sessionStorage.setItem('redirectUrl', currentPage)
+                
+                await supabase.auth.signOut();
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = 'login.html';
+            }
+        }
+
+        // Toggle editing interface based on user permissions
+        function toggleEditingInterface(canEdit) {
+            const saveButton = document.getElementById('saveBtn');
+            const resetButton = document.getElementById('resetBtn');
+            const formInputs = document.querySelectorAll('#subjectForm input, #subjectForm select');
+            
+            if (canEdit) {
+                // Enable editing for authorized users
+                if (saveButton) saveButton.style.display = 'inline-block';
+                if (resetButton) resetButton.style.display = 'inline-block';
+                formInputs.forEach(input => input.disabled = false);
+                
+                // Show edit permission message
+                showMessage('✓ You have editing permissions for this system.', 'success');
+            } else {
+                // Disable editing for unauthorized users
+                if (saveButton) saveButton.style.display = 'none';
+                if (resetButton) resetButton.style.display = 'none';
+                formInputs.forEach(input => input.disabled = true);
+                
+                // Show read-only message
+                showMessage('ℹ️ You have read-only access. Contact admin for editing permissions.', 'info');
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            // First check user authentication
+            const isAuthenticated = await checkUserAuth();
+            
+            if (isAuthenticated) {
+                loadSections();
+                loadSubjects();
+                loadExistingSubjects();
+                
+                // Ensure table is visible
+                setTimeout(() => {
+                    const table = document.getElementById('subjectTable');
+                    const loading = document.getElementById('loadingTable');
+                    if (table) {
+                        table.style.display = 'table';
+                        table.style.visibility = 'visible';
+                    }
+                    if (loading) {
+                        loading.style.display = 'none';
+                    }
+                }, 2000);
+            }
+        });
+
+        // Load sections from pre_test_2025 table (section_2025 column)
+        async function loadSections() {
+            try {
+                const { data, error } = await supabase
+                    .from('pre_test_2025')
+                    .select('section_2025')
+                    .not('section_2025', 'is', null);
+
+                if (error) throw error;
+
+                const sections = [...new Set(data.map(item => item.section_2025))].sort();
+                const sectionSelect = document.getElementById('sectionSelect');
+                sectionSelect.innerHTML = '<option value="">Select Section</option>';
+                
+                sections.forEach(sectionName => {
+                    const option = document.createElement('option');
+                    option.value = sectionName;
+                    option.textContent = sectionName;
+                    sectionSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading sections:', error);
+                showMessage('Error loading sections: ' + error.message, 'error');
+            }
+        }
+
+        // Load subjects from pre_test_2025 column names (extract from *SubjectName_CQ pattern)
+        async function loadSubjects() {
+            const subjectSelect = document.getElementById('subjectSelect');
+            subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+
+            try {
+                const { data, error } = await supabase
+                    .from('pre_test_2025')
+                    .select('*')
+                    .limit(1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const columns = Object.keys(data[0]);
+                    console.log('All columns:', columns);
+                    
+                    // Look for columns that start with asterisk (*)
+                    const asteriskColumns = columns.filter(col => col.startsWith('*'));
+                    console.log('Asterisk columns:', asteriskColumns);
+                    
+                    // Extract subject names from column patterns like *Bangla_CQ
+                    const subjects = [];
+                    asteriskColumns.forEach(col => {
+                        let subjectName = null;
+                        
+                        // Pattern: *SubjectName_CQ, *SubjectName_MCQ, etc.
+                        // Extract subject name before underscore
+                        const match = col.match(/^\*(.+?)(?:_(?:cq|mcq|practical|total|gpa))?$/i);
+                        if (match) {
+                            subjectName = match[1].trim();
+                        }
+                        
+                        if (subjectName && !subjects.includes(subjectName)) {
+                            subjects.push(subjectName);
+                        }
+                    });
+                    
+                    console.log('Extracted subjects:', subjects);
+
+                    if (subjects.length > 0) {
+                        subjects.sort().forEach(subject => {
+                            const option = document.createElement('option');
+                            option.value = subject;
+                            option.textContent = subject;
+                            subjectSelect.appendChild(option);
+                        });
+                        showMessage(`Found ${subjects.length} subjects from column names`, 'info');
+                    } else {
+                        showMessage('No subjects found with asterisk (*) prefix in column names', 'error');
+                    }
+                } else {
+                    showMessage('No data found in pre_test_2025 table', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading subjects:', error);
+                showMessage('Error loading subjects: ' + error.message, 'error');
+            }
+        }
+
+
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                closeEditModal();
+            }
+        });
+
+        // Check for duplicate subject entry in same section
+        async function checkDuplicateSubject(section, subject, excludeId = null) {
+            try {
+                let query = supabase
+                    .from('exam_class_subject')
+                    .select('id')
+                    .eq('access_section_2025', section)
+                    .eq('access_subject', subject);
+                
+                const { data, error } = await query;
+
+                if (error) throw error;
+
+                // If excludeId is provided (during edit), filter out that record
+                const filteredData = excludeId 
+                    ? data.filter(item => item.id !== excludeId)
+                    : data;
+
+                return filteredData.length > 0; // Returns true if duplicate exists
+            } catch (error) {
+                console.error('Error checking duplicate:', error);
+                return false;
+            }
+        }
+
+        // Save subject (handles both create and update)
+        async function saveSubject() {
+            // Check if user has editing permissions
+            if (!userCanEdit) {
+                showMessage('❌ You do not have permission to save subjects. Contact administrator for editing access.', 'error');
+                return;
+            }
+
+            const section = document.getElementById('sectionSelect').value;
+            const subject = document.getElementById('subjectSelect').value;
+            const subjectType = document.getElementById('subjectTypeSelect').value;
+
+            // Validation
+            if (!section || !subject || !subjectType) {
+                showMessage('Please fill in all required fields: Section, Subject and Subject Type', 'error');
+                return;
+            }
+
+            // Check for duplicate only when creating new subject (not during edit)
+            if (!editMode || !editingSubjectId) {
+                const isDuplicate = await checkDuplicateSubject(section, subject);
+                if (isDuplicate) {
+                    showMessage(`❌ Error: Subject "${subject}" already exists in section "${section}". Same subject cannot be added twice in the same section.`, 'error');
+                    return;
+                }
+            }
+
+            const subjectData = {
+                access_section_2025: section,
+                access_subject: subject,
+                subject_type: subjectType
+            };
+
+            console.log('Subject data to save:', subjectData);
+
+            try {
+                if (editMode && editingSubjectId) {
+                    // Update existing subject
+                    const { error } = await supabase
+                        .from('exam_class_subject')
+                        .update(subjectData)
+                        .eq('id', editingSubjectId);
+
+                    if (error) throw error;
+                    showMessage('Subject updated successfully!', 'success');
+                } else {
+                    // Create new subject
+                    const { error } = await supabase
+                        .from('exam_class_subject')
+                        .insert([subjectData]);
+
+                    if (error) throw error;
+                    showMessage('Subject saved successfully!', 'success');
+                }
+
+                resetForm();
+                loadExistingSubjects();
+            } catch (error) {
+                console.error('Error saving subject:', error);
+                console.error('Full error details:', JSON.stringify(error, null, 2));
+                showMessage('Error saving subject: ' + (error.message || error.error_description || 'Unknown error'), 'error');
+            }
+        }
+
+        // Reset form
+        function resetForm() {
+            // Keep section selected, only reset subject and type
+            document.getElementById('subjectSelect').value = '';
+            document.getElementById('subjectTypeSelect').value = '';
+            
+            // Enable save button
+            document.getElementById('saveBtn').disabled = false;
+            document.getElementById('saveBtn').style.opacity = '1';
+            
+            // Reset edit mode
+            editMode = false;
+            editingSubjectId = null;
+            document.getElementById('saveBtn').textContent = '💾 Save Subject';
+            document.getElementById('cancelBtn').style.display = 'none';
+        }
+
+        // Edit subject
+        async function editSubject(subjectId) {
+            // Check if user has editing permissions
+            if (!userCanEdit) {
+                showMessage('❌ You do not have permission to edit subjects. Contact administrator for editing access.', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('exam_class_subject')
+                    .select('*')
+                    .eq('id', subjectId)
+                    .single();
+
+                if (error) throw error;
+
+                // Set editing subject id
+                editingSubjectId = subjectId;
+                
+                // Show modal first
+                document.getElementById('editModal').style.display = 'block';
+                
+                // Load dropdown options
+                await loadEditDropdowns();
+                
+                // Add a small delay to ensure dropdowns are populated
+                setTimeout(() => {
+                    // Fill modal with existing data
+                    document.getElementById('editSectionSelect').value = data.access_section_2025 || '';
+                    document.getElementById('editSubjectSelect').value = data.access_subject || '';
+                    document.getElementById('editSubjectTypeSelect').value = data.subject_type || '';
+                }, 200);
+                
+            } catch (error) {
+                console.error('Error loading subject for edit:', error);
+                showMessage('Error loading subject: ' + error.message, 'error');
+            }
+        }
+
+        // Cancel edit
+        function cancelEdit() {
+            resetForm();
+            showMessage('Edit cancelled', 'info');
+        }
+
+        // Close edit modal
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            editingSubjectId = null;
+            document.getElementById('editMessage').innerHTML = '';
+            
+            // Reset edit form fields
+            document.getElementById('editSectionSelect').value = '';
+            document.getElementById('editSubjectSelect').value = '';
+            document.getElementById('editSubjectTypeSelect').value = '';
+        }
+
+        // Delete subject
+        async function deleteSubject(subjectId) {
+            // Check if user has editing permissions
+            if (!userCanEdit) {
+                showMessage('❌ You do not have permission to delete subjects. Contact administrator for editing access.', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to delete this subject? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('exam_class_subject')
+                    .delete()
+                    .eq('id', subjectId);
+
+                if (error) throw error;
+
+                showMessage('Subject deleted successfully!', 'success');
+                loadExistingSubjects();
+            } catch (error) {
+                console.error('Error deleting subject:', error);
+                showMessage('Error deleting subject: ' + error.message, 'error');
+            }
+        }
+
+
+
+        // Load dropdown options for edit modal
+        async function loadEditDropdowns() {
+            console.log('Loading edit dropdowns...');
+            // Load sections
+            await loadEditSections();
+            // Load subjects
+            await loadEditSubjects();
+            console.log('Edit dropdowns loaded');
+        }
+
+        // Load sections for edit modal
+        async function loadEditSections() {
+            try {
+                const { data, error } = await supabase
+                    .from('pre_test_2025')
+                    .select('section_2025')
+                    .not('section_2025', 'is', null);
+
+                if (error) throw error;
+
+                const sections = [...new Set(data.map(item => item.section_2025))].sort();
+                const editSectionSelect = document.getElementById('editSectionSelect');
+                editSectionSelect.innerHTML = '<option value="">Select Section</option>';
+                
+                sections.forEach(sectionName => {
+                    const option = document.createElement('option');
+                    option.value = sectionName;
+                    option.textContent = sectionName;
+                    editSectionSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading sections for edit:', error);
+            }
+        }
+
+        // Load subjects for edit modal (dynamic from database columns)
+        async function loadEditSubjects() {
+            const subjectSelect = document.getElementById('editSubjectSelect');
+            subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+
+            try {
+                const { data, error } = await supabase
+                    .from('pre_test_2025')
+                    .select('*')
+                    .limit(1);
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const columns = Object.keys(data[0]);
+                    
+                    // Look for columns that start with asterisk (*) 
+                    const asteriskColumns = columns.filter(col => col.startsWith('*'));
+                    
+                    // Extract subject names from asterisk columns
+                    const subjects = [];
+                    asteriskColumns.forEach(col => {
+                        let subjectName = null;
+                        
+                        // Pattern for *subjectname_cq/mcq/practical/total/gpa
+                        const match = col.match(/^\*(.+?)(?:_(?:cq|mcq|practical|total|gpa))?$/i);
+                        if (match) {
+                            subjectName = match[1].trim();
+                        }
+                        
+                        if (subjectName && !subjects.includes(subjectName)) {
+                            subjects.push(subjectName);
+                        }
+                    });
+
+                    if (subjects.length > 0) {
+                        subjects.sort().forEach(subject => {
+                            const option = document.createElement('option');
+                            option.value = subject;
+                            option.textContent = subject;
+                            subjectSelect.appendChild(option);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading subjects for edit:', error);
+            }
+        }
+
+        // Save edited subject
+        async function saveEditedSubject() {
+            // Check if user has editing permissions
+            if (!userCanEdit) {
+                showMessage('❌ You do not have permission to save changes. Contact administrator for editing access.', 'error');
+                return;
+            }
+
+            if (!editingSubjectId) return;
+            
+            const newSection = document.getElementById('editSectionSelect').value;
+            const newSubject = document.getElementById('editSubjectSelect').value;
+            const newSubjectType = document.getElementById('editSubjectTypeSelect').value;
+
+            // Validation
+            if (!newSection || !newSubject || !newSubjectType) {
+                document.getElementById('editMessage').innerHTML = 
+                    '<div class="message error">Please fill in all required fields</div>';
+                return;
+            }
+
+            try {
+                // Check for duplicate (excluding current record)
+                const isDuplicate = await checkDuplicateSubject(newSection, newSubject, editingSubjectId);
+                if (isDuplicate) {
+                    document.getElementById('editMessage').innerHTML = 
+                        `<div class="message error">❌ Error: Subject "${newSubject}" already exists in section "${newSection}". Same subject cannot be added twice in the same section.</div>`;
+                    return;
+                }
+
+                const updateData = {
+                    access_section_2025: newSection,
+                    access_subject: newSubject,
+                    subject_type: newSubjectType
+                };
+
+                console.log('Edit data to update:', updateData);
+
+                const { error } = await supabase
+                    .from('exam_class_subject')
+                    .update(updateData)
+                    .eq('id', editingSubjectId);
+
+                if (error) throw error;
+
+                closeEditModal();
+                loadExistingSubjects();
+                showMessage('Subject updated successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error updating subject:', error);
+                document.getElementById('editMessage').innerHTML = 
+                    '<div class="message error">Error updating subject: ' + error.message + '</div>';
+            }
+        }
+
+        // Load existing subjects from exam_class_subject table
+        async function loadExistingSubjects() {
+            const loadingDiv = document.getElementById('loadingTable');
+            const table = document.getElementById('subjectTable');
+            const tbody = document.getElementById('subjectTableBody');
+
+            if (loadingDiv) loadingDiv.style.display = 'block';
+            if (table) table.style.display = 'none';
+
+            try {
+                const { data, error } = await supabase
+                    .from('exam_class_subject')
+                    .select('*')
+                    .order('access_section_2025', { ascending: true })
+                    .order('id', { ascending: true });
+
+                if (error) throw error;
+
+                // Debug log to check data from database
+                console.log('Data loaded from exam_class_subject:', data);
+
+                tbody.innerHTML = '';
+
+                if (data && data.length > 0) {
+                    // Group data by section
+                    const groupedBySection = {};
+                    data.forEach(subject => {
+                        const section = subject.access_section_2025 || 'N/A';
+                        if (!groupedBySection[section]) {
+                            groupedBySection[section] = [];
+                        }
+                        groupedBySection[section].push(subject);
+                    });
+
+                    // Render rows with merged section cells
+                    let rowIndex = 0;
+                    Object.keys(groupedBySection).forEach(section => {
+                        const subjects = groupedBySection[section];
+                        
+                        subjects.forEach((subject, index) => {
+                            const row = document.createElement('tr');
+                            let rowHTML = '';
+                            
+                            // Add rowspan for first row of each section
+                            if (index === 0) {
+                                rowHTML += `<td rowspan="${subjects.length}" style="font-weight: 600; background: #f0f3f6; border-right: 2px solid var(--accent);">${section}</td>`;
+                                rowHTML += `<td>${subject.id || 'N/A'}</td>`;
+                            } else {
+                                rowHTML += `<td>${subject.id || 'N/A'}</td>`;
+                            }
+                            
+                            rowHTML += `
+                                <td>${subject.access_subject || 'N/A'}</td>
+                                <td>${subject.subject_type || 'N/A'}</td>
+                                <td>
+                                    ${generateActionButtons(subject.id)}
+                                </td>
+                            `;
+                            
+                            row.innerHTML = rowHTML;
+                            tbody.appendChild(row);
+                        });
+                    });
+
+                    if (loadingDiv) loadingDiv.style.display = 'none';
+                    if (table) table.style.display = 'table';
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#6a737d;">No subjects found. Add your first subject above.</td></tr>';
+                    if (loadingDiv) loadingDiv.style.display = 'none';
+                    if (table) table.style.display = 'table';
+                }
+            } catch (error) {
+                console.error('Error loading subjects:', error);
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#d73a49;">Error loading subjects: ' + error.message + '</td></tr>';
+                if (loadingDiv) loadingDiv.style.display = 'none';
+                if (table) table.style.display = 'table';
+            }
+        }
+
+        // Show message to user
+        function showMessage(text, type = 'info') {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = `<div class="message ${type}">${text}</div>`;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

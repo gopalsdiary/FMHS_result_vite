@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detailed Result - Feni Model High School</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Add security headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    
+    <!-- QR Code Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    
+    <style>
+        .qr-code-bottom {
+            display: block;
+        }
+        
+        .qr-code-bottom img {
+            width: 150px;
+            height: 150px;
+            border: 1px solid #333;
+            padding: 3px;
+            background: white;
+        }
+        
+        @media print {
+            .back-btn, .print-btn {
+                display: none !important;
+            }
+            
+            /* Hide the old print QR code */
+            #marksheet .qr-code-print {
+                display: none !important;
+            }
+            
+            /* Show the bottom QR code in print with increased size */
+            .qr-code-bottom {
+                display: block !important;
+            }
+            
+            .qr-code-bottom img {
+                width: 180px;
+                height: 180px;
+            }
+            
+            /* Center align pad.png when printing */
+            #marksheet::before {
+                text-align: center;
+                display: block;
+                margin: 0 auto;
+            }
+        }
+        
+        .loading, .error {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2em;
+        }
+        
+        .error {
+            color: #d32f2f;
+        }
+        
+        .print-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .print-btn:hover {
+            background-color: #0b7dda;
+        }
+        
+        /* Report title styling */
+        .report-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #d32f2f;
+            text-align: center;
+            margin: 15px 0;
+            text-decoration: underline;
+        }
+        
+        /* Colorful table styling */
+        table {
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border: 2px solid #000000;
+            border-collapse: collapse;
+            table-layout: fixed;
+            width: 100%;
+        }
+        
+        /* Equal column widths */
+        table th:nth-child(1), table td:nth-child(1) {
+            width: 25%;
+        }
+        
+        table th:nth-child(2), table td:nth-child(2),
+        table th:nth-child(3), table td:nth-child(3),
+        table th:nth-child(4), table td:nth-child(4),
+        table th:nth-child(5), table td:nth-child(5),
+        table th:nth-child(6), table td:nth-child(6) {
+            width: 15%;
+        }
+        
+        table th {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            border: none;
+            padding: 12px 8px;
+        }
+        
+        table th:first-child {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+        
+        table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px 8px;
+            background: #ffffff;
+            transition: all 0.3s ease;
+        }
+        
+        table td:first-child {
+            background: linear-gradient(135deg, #e3f2fd, #f8f9fa);
+            font-weight: bold;
+            color: #1976D2;
+            border-left: 4px solid #2196F3;
+            /* Allow wrapping of long subject names */
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        
+        /* Row-specific styling */
+        table tr:nth-child(odd) td {
+            background: #ffffff;
+        }
+        
+        table tr:nth-child(odd) td:first-child {
+            background: linear-gradient(135deg, #e3f2fd, #f8f9fa);
+        }
+        
+        table tr:nth-child(even) td {
+            background: rgba(255, 255, 0, 0.1);
+        }
+        
+        table tr:nth-child(even) td:first-child {
+            background: linear-gradient(135deg, #fffde7, #fff9c4);
+        }
+        
+        table tr:hover td {
+            background: linear-gradient(135deg, #fff3e0, #ffeaa7);
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+        }
+        
+        table tr:hover td:first-child {
+            background: linear-gradient(135deg, #e1f5fe, #b3e5fc);
+            border-left-color: #0277BD;
+        }
+
+        /* Center align score columns (WRITTEN, CA, Practical, Total, GPA) */
+        thead th:nth-child(n+2):nth-child(-n+6),
+        tbody td:nth-child(n+2):nth-child(-n+6){
+            text-align:center;
+        }
+        tbody td:first-child, thead th:first-child { text-align:left; }
+        
+        /* Subject-specific colors */
+        table tr:nth-child(1) td { border-left-color: #f44336; }
+        table tr:nth-child(2) td { border-left-color: #e91e63; }
+        table tr:nth-child(3) td { border-left-color: #9c27b0; }
+        table tr:nth-child(4) td { border-left-color: #673ab7; }
+        table tr:nth-child(5) td { border-left-color: #3f51b5; }
+        table tr:nth-child(6) td { border-left-color: #2196f3; }
+        table tr:nth-child(7) td { border-left-color: #03a9f4; }
+        table tr:nth-child(8) td { border-left-color: #00bcd4; }
+        table tr:nth-child(9) td { border-left-color: #009688; }
+        table tr:nth-child(10) td { border-left-color: #4caf50; }
+        table tr:nth-child(11) td { border-left-color: #8bc34a; }
+        table tr:nth-child(12) td { border-left-color: #cddc39; }
+        table tr:nth-child(13) td { border-left-color: #ffeb3b; }
+        table tr:nth-child(14) td { border-left-color: #ffc107; }
+        table tr:nth-child(15) td { border-left-color: #ff9800; }
+        
+        /* Mobile responsive table - horizontal scroll only */
+        @media (max-width: 768px) {
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 10px 0;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            }
+            
+            table {
+                min-width: 600px;
+                border-collapse: collapse;
+                border-radius: 10px;
+            }
+            
+            table th,
+            table td {
+                min-width: 80px;
+                padding: 8px;
+                text-align: center;
+                white-space: nowrap;
+            }
+            
+            table th:first-child,
+            table td:first-child {
+                min-width: 120px;
+                position: sticky;
+                left: 0;
+                z-index: 2;
+                /* Override nowrap for subject column */
+                white-space: normal;
+                word-break: break-word;
+                overflow-wrap: anywhere;
+                text-align: left;
+            }
+            
+            table th {
+                position: sticky;
+                top: 0;
+                z-index: 3;
+            }
+            
+            table th:first-child {
+                z-index: 4;
+            }
+            
+            /* Maintain hover effects on mobile */
+            table tr:hover td {
+                transform: none;
+                box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+            }
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;" onselectstart="return false;" oncopy="return false;">
+    <!-- Header image (pad.png) and dynamic title will be injected within content -->
+
+    <div class="container">
+        <div id="marksheet" class="marksheet">
+            <!-- QR code for print view only -->
+            <div class="qr-code-print" id="qrCodePrint" style="display: none;"></div>
+            
+            <div id="marksheetContent">
+                <!-- Content will be dynamically loaded here -->
+                <div class="loading">Loading student details...</div>
+            </div>
+           
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.75rem;justify-content:center;">
+                <button class="print-btn" onclick="printResult()">🖨️ Print Result</button>
+                <button id="downloadPdfBtn" class="print-btn" style="background:#4caf50;" onclick="downloadPdf()">⬇️ Download PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Disable developer tools
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'F12' || 
+                (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+                (e.ctrlKey && e.shiftKey && e.key === 'C') || 
+                (e.ctrlKey && e.key === 'U')) {
+                e.preventDefault();
+            }
+        });
+
+        // Data loading variables
+        const csvFiles = ['result1.csv', 'result2.csv', 'result3.csv', 'result4.csv'];
+
+        let students = [];
+        let headers = [];
+        let SUBJECT_MAP = {};
+
+        // Build subject map from headers (match "*_CQ|_WRITTEN|_MCQ|_CA|_Practical|_Total|_GPA")
+        function generateSubjectMapFromHeaders(hdrs){
+            const map = {};
+            if(!Array.isArray(hdrs)) return map;
+            const norm = s => String(s||'').replace(/\*/g,'').trim();
+
+            // Collect unique subject bases
+            const subjects = new Set();
+            hdrs.forEach(hRaw => {
+                const h = norm(hRaw);
+                const m = h.match(/^(.*?)(_CQ|_WRITTEN|_MCQ|_CA|_Practical|_Total|_GPA)$/i);
+                if(m) subjects.add(m[1]);
+            });
+
+            // Build map preferring _WRITTEN when present, else _CQ
+            subjects.forEach(subject => {
+                const find = (suffixes) => hdrs.find(h => {
+                    const hh = norm(h);
+                    return suffixes.some(s => hh.endsWith(s) && hh.startsWith(subject));
+                }) || '';
+                map[subject] = {
+                    CQ: find(['_CQ','_WRITTEN']),
+                    MCQ: find(['_MCQ']),
+                    CA: find(['_CA']),
+                    Practical: find(['_Practical']),
+                    Total: find(['_Total']),
+                    GPA: find(['_GPA'])
+                };
+            });
+
+            return map;
+        }
+
+        function cleanHeaderKey(h){
+            if(!h) return '';
+                return String(h)
+                    .replace(/\*/g,'')
+                    .replace(/"/g,'')
+                    .toLowerCase()
+                    .trim()
+                    .replace(/\s+/g,'_')
+                    .replace(/[^\w_]/g,'_')
+                    .replace(/_+/g,'_')
+                    .replace(/^_|_$/g,'');
+        }
+
+        // Try multiple sanitized variants of a header to fetch a student's value
+        function getStudentValueByHeader(student, hdr){
+            if(!hdr) return '';
+            const variants = [];
+            const original = String(hdr);
+            // raw -> cleaned
+            variants.push(cleanHeaderKey(original));
+            // remove extra spaces around underscores
+            variants.push(cleanHeaderKey(original.replace(/\s*_\s*/g,'_')));
+            // collapse multiple spaces inside
+            variants.push(cleanHeaderKey(original.replace(/\s{2,}/g,' ')));
+            // hyphen as underscore
+            variants.push(cleanHeaderKey(original.replace(/\s*-\s*/g,'_')));
+            // explicit practical short alias
+            const ck = variants[0];
+            if(/_practical$/.test(ck)) variants.push(ck.replace(/_practical$/,'_prac'));
+            // unique
+            const used = new Set();
+            for(const k of variants){
+                if(!k || used.has(k)) continue; used.add(k);
+                const v = student[k];
+                if(v!=null && String(v).trim()!=='') return v;
+            }
+            return '';
+        }
+
+        // Get IID from URL parameter
+        function getIIDFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const raw = urlParams.get('iid') || urlParams.get('IID') || '';
+            return raw.trim();
+        }
+
+        async function loadData() {
+            let targetIID = getIIDFromURL();
+            if(!targetIID){
+                try {
+                    const sess = sessionStorage.getItem('studentInfo');
+                    if(sess){ const o = JSON.parse(sess); targetIID = o.iid || o.IID || ''; }
+                } catch {}
+            }
+
+            // Access control: require login & only own IID (unless admin access)
+            var info = sessionStorage.getItem('studentInfo');
+            if (!targetIID || targetIID === 'unknown') {
+                document.getElementById('marksheetContent').innerHTML = `
+                    <div class="error">
+                        <p>No student ID specified or invalid ID.</p>
+                        <p><a href="../index.html">Return to student list</a></p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Check if this is admin access from grade_entry_system
+            let isAdminAccess = false;
+            if(info){
+                try {
+                    const sessObj = JSON.parse(info);
+                    isAdminAccess = sessObj.isAdminAccess === true;
+                    console.log('Admin access check:', isAdminAccess, 'Session object:', sessObj);
+                } catch(e){
+                    console.log('Error parsing session info:', e);
+                }
+            }
+            
+            if(!info && !isAdminAccess){
+                document.getElementById('marksheetContent').innerHTML = `
+                    <div class="error">
+                        <p>Login required. Please login first.</p>
+                        <p><a href="../index.html">Go to login</a></p>
+                    </div>`;
+                return;
+            }
+            
+            // Skip IID validation for admin access or if session data contains target IID
+            if(!isAdminAccess && info){
+                try {
+                    const sessObj = JSON.parse(info);
+                    const ownIID = sessObj.iid || sessObj.IID || '';
+                    
+                    // If session has data for the requested IID, allow it (admin access)
+                    const sessionIID = String(sessObj.iid || sessObj.IID || '');
+                    const targetIIDStr = String(targetIID);
+                    const hasTargetData = (sessionIID === targetIIDStr);
+                    
+                    if(!hasTargetData && ownIID && targetIID && ownIID !== targetIID){
+                        console.warn('Different IID requested; redirecting to own');
+                        const base = window.location.pathname.split('/').slice(0,-1).join('/') + '/detailsresult.html';
+                        window.location.replace(base + '?iid=' + encodeURIComponent(ownIID));
+                        return;
+                    }
+                } catch{}
+            }
+
+            try {
+                console.log('Loading data for IID:', targetIID);
+                
+                // First try to get student data from sessionStorage (from grade_entry_system)
+                let studentFromSession = null;
+                try {
+                    const sessionData = sessionStorage.getItem('studentInfo');
+                    if (sessionData) {
+                        studentFromSession = JSON.parse(sessionData);
+                        console.log('Found student data in sessionStorage:', studentFromSession);
+                        
+                        // If we have the student data from session and it matches our target IID
+                        console.log('Comparing IIDs - Session:', studentFromSession.iid, 'Target:', targetIID);
+                        
+                        // Convert both to strings for comparison
+                        const sessionIID = String(studentFromSession.iid || studentFromSession.IID || '');
+                        const targetIIDStr = String(targetIID);
+                        
+                        if (studentFromSession && (sessionIID === targetIIDStr)) {
+                            console.log('Using student data from sessionStorage');
+                            displayStudentDetailsFromSession(studentFromSession);
+                            generateQRCode(targetIID);
+                            return;
+                        } else {
+                            console.log('Session data IID does not match target IID or session data is empty');
+                        }
+                    }
+                } catch (sessionError) {
+                    console.warn('Error reading from sessionStorage:', sessionError);
+                }
+                
+                // Fallback to CSV loading if sessionStorage doesn't have the data
+                console.log('Falling back to CSV file loading...');
+                
+                // Load data from all CSV files
+                const allStudents = [];
+                let allHeaders = []; 
+                
+                for (const csvFile of csvFiles) {
+                    try {
+                        const response = await fetch(csvFile);
+                        if (!response.ok) {
+                            console.warn(`Could not load ${csvFile}: ${response.status}`);
+                            continue;
+                        }
+                        
+                        const csvData = await response.text();
+                        const rows = csvData.split('\n').filter(row => row.trim() !== '');
+                        
+                        if (rows.length === 0) continue;
+                        
+                        // Adaptive header detection (handles optional second header line)
+                        const firstHeaderRow = rows[0].split(',');
+                        let secondHeaderIsHeader = false;
+                        if(rows.length>1){
+                            const possible = rows[1].split(',');
+                            const norm = a => a.map(x=>x.trim().replace(/\*/g,'').toLowerCase());
+                            const h1 = norm(firstHeaderRow);
+                            const h2 = norm(possible);
+                            let overlap=0; h2.forEach(c=>{ if(h1.includes(c)) overlap++; });
+                            if(overlap >= Math.min(3, Math.floor(h1.length/2))) secondHeaderIsHeader = true;
+                        }
+                        const currentHeaders = firstHeaderRow.map(h => h.trim().replace(/"/g, ''));
+                        if (allHeaders.length === 0) { allHeaders = currentHeaders.slice(); }
+
+                        const dataStartIndex = secondHeaderIsHeader ? 2 : 1;
+                        const fileStudents = rows.slice(dataStartIndex).map(row => {
+                            const values = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                            const student = {};
+                            currentHeaders.forEach((header, index) => {
+                const cleanHeader = cleanHeaderKey(header);
+                student[cleanHeader] = values[index] ? values[index].replace(/(^"|"$)/g, '').trim() : '';
+                            });
+                            // Keep this student's source headers for subject mapping later
+                            Object.defineProperty(student, '__headers', { value: currentHeaders.slice(), enumerable: false });
+                            return student;
+                        });
+                        
+                        allStudents.push(...fileStudents);
+                        console.log(`Loaded ${fileStudents.length} students from ${csvFile}`);
+                        
+                    } catch (fileError) {
+                        console.warn(`Error loading ${csvFile}:`, fileError);
+                    }
+                }
+                
+                // Set global variables
+                headers = allHeaders;
+                students = allStudents;
+
+                // Keep legacy map to avoid breaking references (not used for rendering rows)
+                generateSubjectMap(headers);
+
+                console.log('Total students loaded:', students.length);
+                console.log('Looking for IID:', targetIID);
+
+                // Find student by IID
+                const student = students.find(s => s.iid === targetIID);
+                
+                if (student) {
+                    console.log('Student found:', student.name);
+                    displayStudentDetails(student);
+                    // Generate QR code for this specific student
+                    generateQRCode(student.iid);
+                } else {
+                    console.log('Student not found with IID:', targetIID);
+                    document.getElementById('marksheetContent').innerHTML = `
+                        <div class="error">
+                            <p>Student with IID "${targetIID}" not found.</p>
+                            <p>Available students: ${students.length}</p>
+                            <p><a href="index.html">Return to student list</a></p>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('marksheetContent').innerHTML = `
+                    <div class="error">
+                        <p>Error loading student data. Please try again.</p>
+                        <p>Error details: ${error.message}</p>
+                        <p><a href="index.html">Return to student list</a></p>
+                    </div>
+                `;
+            }
+        }
+
+    function generateSubjectMap(headers) { 
+            // First collect all subjects and their column indices
+            const subjectColumns = {};
+            
+            // List of non-subject columns to exclude
+        const excludeColumns = ['fail+gpa', 'rank', 'remark', 'mobile', 'password', 'class', 'shift', 'sms', 'absent', 'fail count', 'gpa/remark'];
+            
+            headers.forEach((header, index) => {
+                const cleanHeader = header.replace(/\*/g, '').trim();
+                
+                const match = cleanHeader.match(/^(.*?)(_CQ|_WRITTEN|_MCQ|_CA|_Practical|_Total|_GPA)$/i);
+                if (match) {
+                    const subject = match[1];
+                    const component = match[2];
+                    
+            // Skip if subject base name is too generic or in exclude list
+            if (excludeColumns.some(exclude => subject.toLowerCase().includes(exclude.toLowerCase()))) {
+                        return;
+                    }
+                    
+                    if (!subjectColumns[subject]) {
+                        subjectColumns[subject] = {};
+                    }
+                    subjectColumns[subject][component] = index;
+                }
+            });
+
+            // Check if subject has any valid data (not empty, not "-", and not just whitespace)
+            function hasValidData(subject) {
+                const indices = Object.values(subjectColumns[subject] || {});
+                if (indices.length === 0) return false;
+                
+                // Check data in all rows for this subject's columns
+                for (let student of students) {
+                    for (let index of indices) {
+                        const value = (Object.values(student)[index] || '').toString().trim();
+                        // If we find any non-empty value that's not "-", consider it valid
+                        if (value && value !== '-' && value !== '0' && value.toLowerCase() !== 'fail') {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            // Only include subjects that have valid data
+            const validSubjects = Object.keys(subjectColumns).filter(hasValidData);
+            
+            validSubjects.forEach(subject => {
+                SUBJECT_MAP[subject] = {
+                    CQ: headers.find(h => /_(CQ|WRITTEN)\b/i.test(h) && h.startsWith(subject)) || '',
+                    MCQ: headers.find(h => h.includes(`${subject}_MCQ`)) || '',
+                    Practical: headers.find(h => h.includes(`${subject}_Practical`)) || '',
+                    Total: headers.find(h => h.includes(`${subject}_Total`)) || '',
+                    GPA: headers.find(h => h.includes(`${subject}_GPA`)) || ''
+                };
+            });
+        }
+
+    function displayStudentDetails(student) { 
+            const container = document.getElementById('marksheetContent');
+            container.innerHTML = `
+                <div id="padHeader" class="pad-header" style="text-align:center;display:none;">
+                    <img src="pad.png" alt="Letterhead" style="max-width:100%;height:auto;display:block;margin:0 auto 6px;" />
+                </div>
+                <p class="report-title">Half Yearly Examination Report Card-2025</p>
+                <h2>${student.name}</h2>
+                <p>Father's Name: ${student.fathers_name || 'N/A'}</p>
+                <p>Roll: ${student.roll} | Class: ${student.class || 'N/A'} | Shift: ${student.shift || 'N/A'}</p>
+                <p>Mobile Number: ${student.mobile || 'N/A'} | IID: ${student.iid || 'N/A'}${(() => {
+                    const cls = String(student.class || '').toLowerCase();
+                    // detect class 9/10, including possible roman numerals or words
+                    const is9 = /\b(9|ix|nine)\b/i.test(cls);
+                    const is10 = /\b(10|x|ten)\b/i.test(cls);
+                    const show = is9 || is10;
+                    const group = (student.group || student.stream || student.group_name || student.grp || '').toString().trim();
+                    return show && group ? ' | Group: ' + group : '';
+                })()}</p>
+                
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>CQ</th>
+                                <th>MCQ</th>
+                                <th>Practical</th>
+                                <th>Total</th>
+                                <th>GPA</th>
+                            </tr>
+                        </thead>
+                            <tbody>
+                                ${(() => {
+                                    const subjMap = generateSubjectMapFromHeaders(student.__headers || headers, student);
+                                    return Object.entries(subjMap).map(([subject, cols]) => {
+                                        const safe = (x)=> (x==null||String(x).trim()==='') ? '' : String(x).trim();
+                                        const get = (label)=>{
+                                            const hdr = cols[label];
+                                            const v = getStudentValueByHeader(student, hdr);
+                                            return safe(v);
+                                        };
+                                        const cq = get('CQ');
+                                        const mcq = get('MCQ');
+                                        const ca = get('CA');
+                                        let practical = get('Practical');
+                                        const total = get('Total');
+                                        const gpa = get('GPA');
+                                        // If practical header is missing or empty, try derive from total - (cq+mcq+ca)
+                                        if((!practical || practical==='-') && total){
+                                            const n = (s)=> isNaN(parseFloat(s))?0:parseFloat(s);
+                                            const derived = n(total) - (n(cq)+n(mcq)+n(ca));
+                                            if(derived>0) practical = String(derived);
+                                        }
+                                        return `
+                                        <tr>
+                                            <td>${subject.replace(/\*/g, '')}</td>
+                                            <td>${cq||'-'}</td>
+                                            <td>${mcq||'-'}</td>
+                                            <td>${practical||'-'}</td>
+                                            <td>${total||'-'}</td>
+                                            <td>${gpa||'-'}</td>
+                                        </tr>`;
+                                    }).join('');
+                                })()}
+                            </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary highlight like terminal25 sheet -->
+                ${(() => {
+                    const getFirst = (obj, keys) => {
+                        for(const k of keys){
+                            const v = obj[k];
+                            if(v!=null && String(v).trim()!=='') return String(v).trim();
+                        }
+                        return '';
+                    };
+                    const gpa  = getFirst(student, ['gpa']);
+                    const remark = getFirst(student, ['remark','gpa_remark']);
+                    const total = getFirst(student, ['total_mark','total']);
+                    const avg = getFirst(student, ['average','avg']);
+                    if(!gpa && !remark && !total && !avg) return '';
+                    return `
+                        <div class="highlight-box" style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center;margin:12px 0 4px;">
+                            ${gpa ? `<div class="highlight-item" style="min-width:120px;padding:10px 14px;border-radius:8px;background:#e8f5e9;border:1px solid #c8e6c9;text-align:center;"><div style="font-size:12px;color:#2e7d32;font-weight:600;">GPA</div><div style="font-size:18px;color:#1b5e20;font-weight:700;">${gpa}</div></div>` : ''}
+                            ${remark ? `<div class="highlight-item" style="min-width:160px;padding:10px 14px;border-radius:8px;background:#e3f2fd;border:1px solid #bbdefb;text-align:center;"><div style="font-size:12px;color:#1565c0;font-weight:600;">Remark</div><div style="font-size:16px;color:#0d47a1;font-weight:700;">${remark}</div></div>` : ''}
+                            ${total ? `<div class="highlight-item" style="min-width:150px;padding:10px 14px;border-radius:8px;background:#fff8e1;border:1px solid #ffe082;text-align:center;"><div style="font-size:12px;color:#ef6c00;font-weight:600;">Total Marks</div><div style="font-size:18px;color:#e65100;font-weight:700;">${total}</div></div>` : ''}
+                            ${avg ? `<div class="highlight-item" style="min-width:160px;padding:10px 14px;border-radius:8px;background:#f3e5f5;border:1px solid #e1bee7;text-align:center;"><div style="font-size:12px;color:#6a1b9a;font-weight:600;">Average Mark</div><div style="font-size:18px;color:#4a148c;font-weight:700;">${avg}</div></div>` : ''}
+                        </div>
+                    `;
+                })()}
+
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px;">
+                    <div style="flex: 1; padding-right: 20px;">
+                        <p style="margin-top: 20px; font-weight: bold;">
+                    ${student.total_mark ? `Total Marks: ${student.total_mark} | ` : ''}
+                    ${student.average ? `Average Mark: ${student.average} | ` : ''}
+                    ${student.absent ? `Absent subject: ${student.absent}` : ''}
+                </p>
+                        <p style="margin-top: 5px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            নির্দেশনা :
+                        </p>
+                        <p style="margin-top: 0px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            নতুন শিক্ষাবর্ষে জানুয়ারির ১ম সপ্তাহে নতুন শ্রেণিতে ভর্তি হয়ে নতুন বই সংগ্রহ করতে হবে।
+                            ভর্তির সময় মার্কশীটের ফটোকপি অবশ্যই আনতে হবে।  
+                        </p>
+                        <p style="margin-top: 0px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            গ্রহনযোগ্য কারন উল্লেখ করে প্রয়োজনীয় ক্ষেত্রে অগ্রিম ছুটি নিতে হবে। পূর্বানুমতি ছাড়া এক 
+                            টানা ১০ দিন ক্লাসে অনুপস্থিত থাকলে হাজিরা বহিতে নাম কাটা যাবে।
+                        </p>
+                        <p style="margin-top: 10px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            Verify this result by scanning the QR code.
+                        </p>
+                    </div>
+                    <div class="qr-code-bottom" id="qrCodeBottom" style="flex-shrink: 0; text-align: center;">
+                        <!-- QR code will be placed here -->
+                    </div>
+                </div>
+            `;
+        }
+
+        // Display student details from session data (from grade_entry_system)
+        function displayStudentDetailsFromSession(studentData) {
+            console.log('Displaying student details from session:', studentData);
+            const container = document.getElementById('marksheetContent');
+            
+            // Extract basic student information
+            const name = studentData.name_2025 || studentData.name || studentData.name_en || 'N/A';
+            const fatherName = studentData.fathers_name || studentData.father_name || 'N/A';
+            const roll = studentData.roll_2025 || studentData.roll || studentData.roll_no || 'N/A';
+            const className = studentData.class_2025 || studentData.class || 'N/A';
+            const section = studentData.section_2025 || studentData.section || 'N/A';
+            const shift = studentData.shift || 'N/A';
+            const mobile = studentData.mobile || 'N/A';
+            const iid = studentData.iid || studentData.IID || 'N/A';
+            const group = studentData.group || studentData.stream || studentData.group_name || studentData.grp || '';
+
+            // Generate subject rows from session data
+            const subjectRows = generateSubjectRowsFromSessionData(studentData);
+
+            container.innerHTML = `
+                <div id="padHeader" class="pad-header" style="text-align:center;display:none;">
+                    <img src="pad.png" alt="Letterhead" style="max-width:100%;height:auto;display:block;margin:0 auto 6px;" />
+                </div>
+                <p class="report-title">Pre Test Examination Report Card-2025</p>
+                <h2>${name}</h2>
+                <p>Father's Name: ${fatherName}</p>
+                <p>Roll: ${roll} | Class: ${className} | Section: ${section} | Shift: ${shift}</p>
+                <p>Mobile Number: ${mobile} | IID: ${iid}${group ? ` | Group: ${group}` : ''}</p>
+                
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>CQ</th>
+                                <th>MCQ</th>
+                                <th>Practical</th>
+                                <th>Total</th>
+                                <th>GPA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${subjectRows}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary highlight -->
+                ${(() => {
+                    const gpa = studentData.gpa_final || studentData.gpa || '';
+                    const remark = studentData.remark || studentData.gpa_remark || '';
+                    const total = studentData.total_mark || studentData.total || '';
+                    const avg = studentData.average_mark || studentData.average || studentData.avg || '';
+                    
+                    if(!gpa && !remark && !total && !avg) return '';
+                    
+                    return `
+                        <div class="highlight-box" style="display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center;margin:12px 0 4px;">
+                            ${gpa ? `<div class="highlight-item" style="min-width:120px;padding:10px 14px;border-radius:8px;background:#e8f5e9;border:1px solid #c8e6c9;text-align:center;"><div style="font-size:12px;color:#2e7d32;font-weight:600;">GPA</div><div style="font-size:18px;color:#1b5e20;font-weight:700;">${gpa}</div></div>` : ''}
+                            ${remark ? `<div class="highlight-item" style="min-width:160px;padding:10px 14px;border-radius:8px;background:#e3f2fd;border:1px solid #bbdefb;text-align:center;"><div style="font-size:12px;color:#1565c0;font-weight:600;">Remark</div><div style="font-size:16px;color:#0d47a1;font-weight:700;">${remark}</div></div>` : ''}
+                            ${total ? `<div class="highlight-item" style="min-width:150px;padding:10px 14px;border-radius:8px;background:#fff8e1;border:1px solid #ffe082;text-align:center;"><div style="font-size:12px;color:#ef6c00;font-weight:600;">Total Marks</div><div style="font-size:18px;color:#e65100;font-weight:700;">${total}</div></div>` : ''}
+                            ${avg ? `<div class="highlight-item" style="min-width:160px;padding:10px 14px;border-radius:8px;background:#f3e5f5;border:1px solid #e1bee7;text-align:center;"><div style="font-size:12px;color:#6a1b9a;font-weight:600;">Average Mark</div><div style="font-size:18px;color:#4a148c;font-weight:700;">${avg}</div></div>` : ''}
+                        </div>
+                    `;
+                })()}
+
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px;">
+                    <div style="flex: 1; padding-right: 20px;">
+                        <p style="margin-top: 20px; font-weight: bold;">
+                            ${studentData.total_mark ? `Total Marks: ${studentData.total_mark} | ` : ''}
+                            ${studentData.average_mark ? `Average Mark: ${studentData.average_mark} | ` : ''}
+                            ${studentData.count_absent ? `Absent subject: ${studentData.count_absent}` : ''}
+                        </p>
+                        <p style="margin-top: 5px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            নির্দেশনা :
+                        </p>
+                        <p style="margin-top: 0px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            নতুন শিক্ষাবর্ষে জানুয়ারির ১ম সপ্তাহে নতুন শ্রেণিতে ভর্তি হয়ে নতুন বই সংগ্রহ করতে হবে।
+                            ভর্তির সময় মার্কশীটের ফটোকপি অবশ্যই আনতে হবে।  
+                        </p>
+                        <p style="margin-top: 0px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            গ্রহনযোগ্য কারন উল্লেখ করে প্রয়োজনীয় ক্ষেত্রে অগ্রিম ছুটি নিতে হবে। পূর্বানুমতি ছাড়া এক 
+                            টানা ১০ দিন ক্লাসে অনুপস্থিত থাকলে হাজিরা বহিতে নাম কাটা যাবে।
+                        </p>
+                        <p style="margin-top: 10px; font-weight: regular; text-align: left; font-size: 0.8em;">
+                            Verify this result by scanning the QR code.
+                        </p>
+                    </div>
+                    <div class="qr-code-bottom" id="qrCodeBottom" style="flex-shrink: 0; text-align: center;">
+                        <!-- QR code will be placed here -->
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate subject rows from session data
+        function generateSubjectRowsFromSessionData(studentData) {
+            const subjectRows = [];
+            const processedSubjects = new Set();
+            
+            console.log('Generating subject rows from student data:', studentData);
+            
+            // Find all subject columns (those starting with *)
+            for (const key in studentData) {
+                if (key.startsWith('*') && (key.includes('_CQ') || key.includes('_MCQ') || key.includes('_Practical') || key.includes('_Total') || key.includes('_GPA'))) {
+                    // Extract subject prefix
+                    let subjectPrefix = key;
+                    if (key.includes('_CQ')) subjectPrefix = key.replace('_CQ', '');
+                    else if (key.includes('_MCQ')) subjectPrefix = key.replace('_MCQ', '');
+                    else if (key.includes('_Practical')) subjectPrefix = key.replace('_Practical', '');
+                    else if (key.includes('_Total')) subjectPrefix = key.replace('_Total', '');
+                    else if (key.includes('_GPA')) subjectPrefix = key.replace('_GPA', '');
+                    
+                    // Skip if already processed this subject
+                    if (processedSubjects.has(subjectPrefix)) continue;
+                    processedSubjects.add(subjectPrefix);
+                    
+                    const subjectName = subjectPrefix.substring(1); // Remove the * prefix
+                    
+                    const cq = studentData[`${subjectPrefix}_CQ`] || '-';
+                    const mcq = studentData[`${subjectPrefix}_MCQ`] || '-';
+                    const practical = studentData[`${subjectPrefix}_Practical`] || '-';
+                    const total = studentData[`${subjectPrefix}_Total`] || '-';
+                    const gpa = studentData[`${subjectPrefix}_GPA`] || '-';
+                    
+                    console.log(`Subject: ${subjectName}, CQ: ${cq}, MCQ: ${mcq}, Practical: ${practical}, Total: ${total}, GPA: ${gpa}`);
+                    
+                    subjectRows.push(`
+                        <tr>
+                            <td>${subjectName}</td>
+                            <td>${cq}</td>
+                            <td>${mcq}</td>
+                            <td>${practical}</td>
+                            <td>${total}</td>
+                            <td>${gpa}</td>
+                        </tr>
+                    `);
+                }
+            }
+            
+            console.log(`Generated ${subjectRows.length} subject rows`);
+            return subjectRows.join('');
+        }
+
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+        
+        function printResult() {
+            // Temporarily show pad header then print; keep buttons hidden after as previous behavior
+            const pad = document.getElementById('padHeader');
+            if(pad) pad.style.display='block';
+            const actionBtns = document.querySelectorAll('.print-btn, .back-btn');
+            actionBtns.forEach(b=>{ b.style.display='none'; });
+            window.print();
+            // After print dialog (cannot detect close reliably) leave pad visible in print output only; hide again on screen
+            setTimeout(()=>{ if(pad) pad.style.display='none'; },800);
+        }
+
+        // Generate QR Code
+        function generateQRCode(studentIID = null) {
+            try {
+                // Get the current IID if not provided
+                const currentIID = studentIID || getIIDFromURL();
+                
+                // Create QR code for the current student's result page
+                const qr = qrcode(0, 'M');
+                const currentURL = window.location.origin + window.location.pathname;
+                const qrURL = `${currentURL}?IID=${currentIID}`;
+                qr.addData(qrURL);
+                qr.make();
+                
+                // Create image element from QR code
+                const qrImage = qr.createImgTag(4);
+                
+                // Add QR code to bottom container (for both screen and print view)
+                const bottomQRContainer = document.getElementById('qrCodeBottom');
+                if (bottomQRContainer) {
+                    bottomQRContainer.innerHTML = qrImage;
+                    
+                    // Add a small caption below the QR code for bottom
+                    const bottomCaption = document.createElement('div');
+                    bottomCaption.style.fontSize = '8pt';
+                    bottomCaption.style.textAlign = 'center';
+                    bottomCaption.style.marginTop = '3px';
+                    bottomCaption.innerText = 'Scan for verify';
+                    bottomQRContainer.appendChild(bottomCaption);
+                }
+            } catch (error) {
+                console.error('QR Code generation failed:', error);
+            }
+        }
+        
+        // Initialize
+        loadData();
+
+        // PDF libs (lazy injected if not already)
+        function ensurePdfLibs(){
+            return new Promise((resolve,reject)=>{
+                if(window.jspdf && window.html2canvas){ resolve(); return; }
+                let need=0,done=0,failed=false;
+                function ok(){ if(failed) return; done++; if(done===need) resolve(); }
+                function add(src){ need++; const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>{failed=true; reject(new Error('Failed to load '+src));}; document.head.appendChild(s); }
+                add('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+                add('https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js');
+                add('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+                add('https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js');
+            });
+        }
+
+        async function downloadPdf(){
+            const btn=document.getElementById('downloadPdfBtn');
+            // Hide buttons (so they won't appear in PDF) and keep hidden after
+            const actionBtns = document.querySelectorAll('.print-btn, .back-btn');
+            actionBtns.forEach(b=>{ b.style.display='none'; });
+            // Show pad temporarily for capture
+            const pad = document.getElementById('padHeader');
+            const prevDisplay = pad ? pad.style.display : null;
+            if(pad) pad.style.display='block';
+            if(btn){ btn.disabled=true; }
+            try{
+                await ensurePdfLibs();
+                const target=document.getElementById('marksheet');
+                const prevScroll=window.scrollY;
+                window.scrollTo(0,0);
+                await new Promise(r=>setTimeout(r,40));
+                // Capture high-res snapshot
+                const canvas=await html2canvas(target,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+                const { jsPDF } = window.jspdf;
+                const pdf=new jsPDF('p','mm','a4');
+                const pageWidth=210, pageHeight=297, margin=10; // mm
+                const availW = pageWidth - margin*2;
+                const availH = pageHeight - margin*2;
+                // Original image size in px
+                const imgWpx = canvas.width;
+                const imgHpx = canvas.height;
+                // Convert px ratio to mm using width fit then scale
+                let scaledW = availW;
+                let scaledH = imgHpx * (scaledW / imgWpx);
+                if(scaledH > availH){
+                    const scale = availH / scaledH; // shrink further to fit height
+                    scaledH = availH;
+                    scaledW = scaledW * scale;
+                }
+                // Top align (no vertical centering) per requirement: pad.png stays at very top
+                const posX = margin + (availW - scaledW)/2; // still horizontally center
+                const posY = margin; // start right below top margin
+                // Load and place pad.png as background (full page)
+                // (Removed full-page background; pad.png now inline at top)
+                const imgData = canvas.toDataURL('image/jpeg',0.92);
+                pdf.addImage(imgData,'JPEG',posX,posY,scaledW,scaledH,'','FAST');
+                const fileName = 'Result_'+ (document.querySelector('#marksheetContent h2')?.textContent||'student') + '.pdf';
+                pdf.save(fileName.replace(/\s+/g,'_'));
+                window.scrollTo(0,prevScroll);
+            }catch(err){
+                alert('PDF তৈরি ব্যর্থ: '+err.message);
+                console.error(err);
+            }finally{
+                if(btn){ btn.disabled=false; }
+                // Hide pad again after capture
+                if(pad) pad.style.display= prevDisplay || 'none';
+            }
+        }
+    </script>
+</body>
+</html>

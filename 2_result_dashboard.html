@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Result Processing Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root { 
+      --bg:#f6f8fa; 
+      --card:#ffffff; 
+      --border:#d0d7de; 
+      --accent:#0366d6; 
+      --accent-hover:#024c9e; 
+      --danger:#d73a49; 
+      --success:#1a7f37; 
+      --warning:#ff8a00; 
+      --radius:6px; 
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; 
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body { 
+      margin:0; 
+      background:var(--bg); 
+      color:#24292f; 
+      min-height: 100vh;
+    }
+    
+    /* Header Styles */
+    header { 
+      background:#0d1117; 
+      color:#fff; 
+      padding:16px 20px; 
+      display:flex; 
+      align-items:center; 
+      justify-content:space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    header h1 { 
+      font-size:22px; 
+      margin:0; 
+      font-weight:600; 
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+    }
+
+    .user-email {
+      font-size: 14px;
+      color: #fff;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .welcome-section {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px;
+      border-radius: var(--radius);
+      margin-bottom: 30px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .welcome-section h2 {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    .welcome-section p {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .card-icon.primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .card-icon.success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+
+    .card-icon.warning {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .card-icon.info {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #24292f;
+      margin-bottom: 8px;
+    }
+
+    .card-description {
+      font-size: 14px;
+      color: #6a737d;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Button Styles */
+    button, .btn {
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1.2;
+      padding: 10px 16px;
+      border-radius: 6px;
+      border: none;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+      border: 1px solid var(--success);
+    }
+
+    .btn-success:hover {
+      background: #0f5132;
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: #fff;
+      border: 1px solid var(--warning);
+    }
+
+    .btn-warning:hover {
+      background: #e07000;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+      border: 1px solid var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: #b02a37;
+    }
+
+    .btn-outline {
+      background: #fff;
+      color: var(--accent);
+      border: 1px solid var(--border);
+    }
+
+    .btn-outline:hover {
+      background: #f6f8fa;
+      border-color: var(--accent);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Auth Section */
+    .auth-section {
+      display: none;
+      max-width: 400px;
+      margin: 60px auto;
+      padding: 32px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .auth-section.active {
+      display: block;
+    }
+
+    .auth-section h2 {
+      font-size: 24px;
+      margin-bottom: 24px;
+      text-align: center;
+      color: #24292f;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #24292f;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .message.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    .btn-full-width {
+      width: 100%;
+    }
+
+    /* Dashboard Content */
+    .dashboard-content {
+      display: none;
+    }
+
+    .dashboard-content.active {
+      display: block;
+    }
+
+    /* Assigned Subjects Table */
+    .subjects-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+
+    .subjects-table th,
+    .subjects-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .subjects-table th {
+      background: #f6f8fa;
+      font-weight: 600;
+      color: #24292f;
+      font-size: 14px;
+    }
+
+    .subjects-table td {
+      font-size: 14px;
+      color: #24292f;
+    }
+
+    .subjects-table tr:hover {
+      background: #f6f8fa;
+    }
+
+    .no-subjects {
+      padding: 20px;
+      text-align: center;
+      color: #6a737d;
+      font-size: 14px;
+    }
+
+    /* Loading Spinner */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 300px;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        margin: 20px auto;
+        padding: 0 16px;
+      }
+
+      header {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+
+      .header-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .welcome-section {
+        padding: 24px;
+      }
+
+      .welcome-section h2 {
+        font-size: 22px;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .card {
+        padding: 20px;
+      }
+
+      .card-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <h1>📊 Result Processing System</h1>
+    <div class="header-right" id="headerRight">
+      <!-- Will be populated dynamically -->
+    </div>
+  </header>
+
+  <!-- Auth Section (Login) -->
+  <div class="auth-section" id="authSection">
+    <h2>🔐 Teacher Login</h2>
+    <div id="authMessage"></div>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" required placeholder="your.email@example.com">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" required placeholder="Enter your password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full-width">
+        🔓 Sign In
+      </button>
+    </form>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content" id="dashboardContent">
+    <div class="container">
+      <!-- Welcome Section -->
+      <div class="welcome-section">
+        <h2>Hello Teacher : Result Entry time : 25 October to 21 December </h2>
+        <p id="welcomeText">Manage your result processing tasks efficiently</p>
+      </div>
+
+
+ <!-- Dashboard Grid -->
+      <div class="dashboard-grid">
+        <!-- Result Entry Card -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon primary">📝</div>
+            <div>
+              <div class="card-title">Result Entry</div>
+            </div>
+          </div>
+          <div class="card-description">
+            Enter and manage student exam results. Add marks for CQ, MCQ, and Practical components.
+          </div>
+          <div class="card-actions">
+            <a href="result_entry.html" class="btn btn-primary">
+              ✏️ Enter Results
+            </a>
+          </div>
+        </div>
+
+      <!-- Assigned Subjects Section -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header">
+          <div class="card-icon primary">📚</div>
+          <div>
+            <div class="card-title">Your Assigned Subjects</div>
+          </div>
+        </div>
+        <div class="card-description">
+          Subjects assigned to you for result entry
+        </div>
+        <div id="assignedSubjectsContainer">
+          <div class="loading">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+
+     
+
+      
+  <!-- Loading Section -->
+  <div class="loading" id="loadingSection">
+    <div class="spinner"></div>
+  </div>
+
+  <script>
+    // Supabase configuration
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    // DOM Elements
+    const authSection = document.getElementById('authSection');
+    const dashboardContent = document.getElementById('dashboardContent');
+    const loadingSection = document.getElementById('loadingSection');
+    const headerRight = document.getElementById('headerRight');
+    const authMessage = document.getElementById('authMessage');
+    const welcomeText = document.getElementById('welcomeText');
+
+    // Check authentication status on page load
+    async function checkAuth() {
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        
+        if (user) {
+          // User is logged in
+          showDashboard(user);
+        } else {
+          // User is not logged in
+          showLogin();
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        showLogin();
+      }
+    }
+
+    // Show login section
+    function showLogin() {
+      loadingSection.style.display = 'none';
+      authSection.classList.add('active');
+      dashboardContent.classList.remove('active');
+      headerRight.innerHTML = '';
+    }
+
+    // Show dashboard
+    function showDashboard(user) {
+      loadingSection.style.display = 'none';
+      authSection.classList.remove('active');
+      dashboardContent.classList.add('active');
+      
+      // Update header with user info
+      headerRight.innerHTML = `
+        <div class="user-info">
+          <span class="user-email">👤 ${user.email}</span>
+        </div>
+        <button onclick="handleLogout()" class="btn btn-danger">
+          🚪 Logout
+        </button>
+      `;
+      
+      // Update welcome text
+      welcomeText.textContent = `Welcome back, ${user.email}! Manage your result processing tasks efficiently.`;
+      
+      // Load assigned subjects
+      loadAssignedSubjects(user.email);
+    }
+
+    // Load teacher's assigned subjects
+    async function loadAssignedSubjects(email) {
+      const container = document.getElementById('assignedSubjectsContainer');
+      
+      try {
+        const { data, error } = await supabaseClient
+          .from('subject_selection')
+          .select('class, section, subject_name, teacher_name_en')
+          .eq('teacher_email_id', email)
+          .order('class', { ascending: true })
+          .order('section', { ascending: true })
+          .order('subject_name', { ascending: true });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          // Create table
+          let html = `
+            <table class="subjects-table">
+              <thead>
+                <tr>
+                  <th>Class</th>
+                  <th>Section</th>
+                  <th>Subject</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          data.forEach(item => {
+            html += `
+              <tr>
+                <td>${item.class}</td>
+                <td>${item.section}</td>
+                <td>${item.subject_name}</td>
+              </tr>
+            `;
+          });
+
+          html += `
+              </tbody>
+            </table>
+          `;
+
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = '<div class="no-subjects">No subjects assigned yet. Please contact administrator.</div>';
+        }
+
+      } catch (error) {
+        console.error('Error loading subjects:', error);
+        container.innerHTML = '<div class="no-subjects">Error loading assigned subjects.</div>';
+      }
+    }
+
+    // Handle login
+    async function handleLogin(event) {
+      event.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      
+      // Clear previous messages
+      authMessage.innerHTML = '';
+      
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+        
+        if (error) throw error;
+        
+        // Success
+        authMessage.innerHTML = '<div class="message success">✓ Login successful! Redirecting...</div>';
+        
+        // Wait a moment then check if redirect is needed
+        setTimeout(() => {
+          const redirectUrl = sessionStorage.getItem('redirectUrl');
+          if (redirectUrl) {
+            sessionStorage.removeItem('redirectUrl');
+            window.location.href = redirectUrl;
+          } else {
+            showDashboard(data.user);
+          }
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Login error:', error);
+        authMessage.innerHTML = `<div class="message error">❌ Login failed: ${error.message}</div>`;
+      }
+    }
+
+    // Handle logout
+    async function handleLogout() {
+      try {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) throw error;
+        
+        // Clear any stored data
+        sessionStorage.clear();
+        localStorage.removeItem('resultEntrySelections');
+        localStorage.removeItem('resultEntry_currentData');
+        
+        showLogin();
+        authMessage.innerHTML = '<div class="message success">✓ Logged out successfully</div>';
+        
+      } catch (error) {
+        console.error('Logout error:', error);
+        alert('Error logging out: ' + error.message);
+      }
+    }
+
+    // Initialize
+    checkAuth();
+  </script>
+</body>
+</html>

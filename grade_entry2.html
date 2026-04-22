@@ -1,0 +1,59 @@
+
+const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+        
+নির্দেশনা পড়ে, রেজাল্ট প্রসেসিং এর জন্য কোড লিখতে হবে।
+*এইচটিএমএল, সিএসএস, জাভাস্ক্র 
+
+superbase table 
+student database are in: "exam_ann25" table
+subject are in "subject_selection" table (where cq, mcq, pratical, total pass mark are dynamic colm) 
+if cq pass mark = 0 then pass cq mark 0, if mcq pass mark = 0 then pass mcq mark 0, if pratical pass mark = 0 then pass pratical mark 0; then total pass mark = cq+mcq+pratical = passmark_total
+*আমি চাই কলাম নেম (হেডার) সবসময় ডাটাবেস  এ যেভাবে আছে সেভাবে দেখাবে। 
+
+where *subject name _ subject colm name (like "*Bangla 1st Paper_CQ, *Bangla 1st Paper_MCQ")* are dynamic 
+
+বাংলা 1st ও 2nd paper এর মার্ক যোগ করে, ২ দিয়ে ভাগ করে তার জিপিএ, ১ম পত্রের জিপিএ এর ঘরে বসাবে। ২য় পত্রের জিপিএ এর ঘর ০ দেখাবে। 
+একই রকম ইংরেজির ক্ষেত্রে। 
+
+
+
+
+
+
+
+-----------------------------------------------------
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+
+superbase table 
+student database are in: "exam_ann25" table
+
+resultprocessing\result_entry.html এর ক্লাস, সেকশন, বিষয়  অনুযায়ী ডাটা দেখাবে।
+cq, mcq, pratical, total, gpa  মার্ক্স ডাটাবেস থেকে নিয়ে আসবে। 
+এরপর gpa ক্যালকুলেশন করবে "subject_class_9_10" table এর উপর ভিত্তি করে।
+*  optional_subject matched with iid from student_database table (student name এর পর দেখাবে)
+
+if cq pass mark = 0 then pass cq mark 0, 
+if mcq pass mark = 0 then pass mcq mark 0, 
+if pratical pass mark = 0 then pass pratical mark 0; 
+if total pass mark 0 = passmark_total
+
+*আমি চাই কলাম নেম (হেডার) সবসময় ডাটাবেস  এ যেভাবে আছে সেভাবে দেখাবে। all text are English. 
+gpa গুলো আপডেট হবে। 
+where *subject name _ subject colm name (like "*Bangla 1st Paper_CQ, *Bangla 1st Paper_MCQ")* are dynamic
+
+Bangla 1st Paper ও Bangla 2nd paper এর মার্ক যোগ করে, ২ দিয়ে ভাগ করে তার জিপিএ, ১ম পত্রের জিপিএ এর ঘরে বসাবে। ২য় পত্রের জিপিএ এর ঘর ০ দেখাবে। 
+একই রকম ইংরেজির ক্ষেত্রে। 
+
+table structure:
+create table public.exam_ann25 (
+  iid bigint not null,
+  class_2025 text null,
+  section_2025 text null,
+  optional_subject matched with iid from student_database table 
+  cq, mcq, pratical, total এর উপর ভিত্তি করে _GPA ঘরে ক্যালকুলেশন করে বসাবে।
+  optinal subject যদি gpa>2.0 হয় তাহলে gpa তে অন্তর্ভুক্ত হবে না, ০ দেখাবে।
+  Action  (Update normally blue, if needed update then red button) "Update" button",

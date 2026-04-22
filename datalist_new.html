@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Kalpurush&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../Clusterize_js/clusterize.css">
+  <script src="../Clusterize_js/clusterize.min.js"></script>
+  <title>Entry - Show & Edit</title>
+  <style>
+    :root { --bg:#f6f8fa; --card:#ffffff; --border:#d0d7de; --accent:#0366d6; --accent-hover:#024c9e; --danger:#d73a49; --radius:6px; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif; }
+    body { margin:0; background:var(--bg); color:#24292f; }
+    header { background:#0d1117; color:#fff; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+    h1 { font-size:20px; margin:0; font-weight:600; }
+  .btn-allfields { background:#ff8a00; color:#fff; padding:8px 12px; border-radius:6px; text-decoration:none; font-size:13px; border:1px solid #ff8a00; }
+  .btn-allfields:hover { background:#e07000; border-color:#e07000; }
+  /* Full-width container so table fits left-right */
+  .container { width:100%; max-width:100%; margin:0 0 60px 0; background:var(--card); border:1px solid var(--border); border-radius:0; padding:18px 12px 28px; box-shadow:0 2px 4px rgba(0,0,0,.04); }
+  /* Ensure table can scroll horizontally on very small screens */
+  .table-wrap { overflow-x:auto; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:14px; }
+    .toolbar select, .toolbar input[type=text]{ padding:8px 10px; border:1px solid var(--border); border-radius:4px; font-size:14px; background:#fff; }
+    .toolbar button{ height:34px; }
+    .status { font-size:13px; min-height:18px; }
+    .status.ok { color:#1a7f37; }
+    .status.err { color:var(--danger); }
+    table { width:100%; border-collapse:collapse; font-size:13.5px; }
+    thead { background:#fafbfc; position:sticky; top:0; z-index:5; }
+    th, td { border:1px solid var(--border); padding:6px 8px; text-align:left; vertical-align:middle; }
+    th { font-weight:600; font-size:12.5px; letter-spacing:.5px; background:#f0f3f6; }
+    tbody tr:nth-child(even){ background:#fcfcfd; }
+    tbody tr:hover { background:#fffbe6; }
+    .col-sl { width:52px; text-align:center; }
+    /* Clusterize styles */
+    .clusterize-scroll { max-height: 70vh; overflow: auto; }
+    .clusterize-content { /* Clusterize content container */ }
+    @media (max-width:768px){ .clusterize-scroll { max-height: 50vh; } }
+    .photo-col img { width:100px; height:80px; object-fit:cover; border-radius:4px; border:1px solid var(--border); background:#fff; }
+    .actions-col { white-space:nowrap; }
+    button { cursor:pointer; font-size:12px; line-height:1.2; padding:6px 10px; border-radius:4px; border:1px solid var(--accent); background:var(--accent); color:#fff; font-weight:500; }
+    button:hover { background:var(--accent-hover); }
+    button.outline { background:#fff; color:var(--accent); }
+    button.outline:hover { background:#e7f3ff; }
+    .muted { color:#6a737d; font-size:12px; }
+  /* Space between action buttons (View / Edit) */
+  .action-cell button + button { margin-left:8px; }
+  .action-cell .btn { padding:6px 8px; }
+  /* Make Edit button orange */
+  .btn.edit { background:#ff8a00; border-color:#ff8a00; }
+  .btn.edit:hover { background:#e07000; }
+    .row-thumb { width:40px; height:50px; object-fit:cover; border-radius:4px; border:1px solid var(--border); background:#fff; }
+    /* Row highlight colors retained */
+    #dataTable tbody tr.status-tc, #dataTable tbody tr.status-tc td{ background:#ff4d4f !important; color:#fff !important; }
+    #dataTable tbody tr.row-fulldata-ok, #dataTable tbody tr.row-fulldata-ok td{ background:#10b981 !important; color:#fff !important; }
+    /* Modal reuse existing structure */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:60px 20px 40px;z-index:200}
+  /* Make modal panel scroll internally and prevent background scroll when open */
+  .modal .panel{background:#fff;width:880px;max-width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px 24px;box-shadow:0 4px 18px rgba(0,0,0,.18);max-height:80vh;overflow:auto}
+    .modal h3{margin:0 0 14px;font-size:18px;font-weight:600;}
+    .field-row{display:flex;gap:10px;margin-bottom:10px;align-items:center;}
+    .field-row label{min-width:120px;font-size:12px;font-weight:600;color:#57606a;text-transform:uppercase;letter-spacing:.5px;}
+    .field-row input,.field-row textarea{flex:1;padding:7px 8px;font-size:13px;border:1px solid var(--border);border-radius:4px;background:#fff;}
+    .field-row input:focus,.field-row textarea:focus{outline:2px solid #84c5ff;}
+    .notice{margin-top:8px;font-size:12px;color:var(--danger);}
+    #status{font-weight:600;}
+    @media (max-width:820px){
+      .container { padding:14px 14px 24px; }
+      .toolbar { gap:8px; }
+      th,td{padding:5px 6px;font-size:12.5px;}
+      button{padding:5px 8px;}
+      .field-row{flex-direction:column;align-items:stretch;}
+      .field-row label{min-width:0;}
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Student List</h1>
+    <a href="/login/all_data_field.html" target="_blank" class="btn-allfields">All data fields ↗</a>
+  </header>
+  <div class="container">
+  <div class="toolbar">
+    <div class="filters left" style="align-items:center">
+      <label for="sessionFilter" class="filter-label">Session</label>
+      <select id="sessionFilter" class="filter-select"></select>
+      <label for="classFilter" class="filter-label">Class</label>
+      <select id="classFilter" class="filter-select"></select>
+      <label for="sectionFilter" class="filter-label">Section</label>
+      <select id="sectionFilter" class="filter-select"></select>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;margin-left:auto">
+      <button id="refreshBtn">Refresh</button>
+      <span id="status" class="status"></span>
+      <button id="clearFilters" class="outline">Clear</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+  <table id="dataTable">
+    <thead>
+      <tr>
+  <th class="col-sl">SL</th>
+        <th>IID</th>
+        <th>Class</th>
+        <th>Section</th>
+        <th>Roll</th>
+        <th>Name</th>
+  <th>Father Name</th>
+  <th>Father Mobile</th>
+  <th>Photo</th>
+  <th>Session</th>
+        <th>Status</th>
+        <th>FullData</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+  </table>
+  <div id="scrollArea" class="clusterize-scroll">
+    <table>
+      <tbody id="contentArea" class="clusterize-content">
+        <tr><td colspan="13">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  </div>
+  <div id="rowCount" class="muted" style="margin-top:8px;"></div>
+  </div> <!-- /container -->
+
+  <!-- Edit modal -->
+  <div id="editModal" class="modal">
+    <div class="panel">
+      <h3>Edit Record</h3>
+
+      <!-- Dynamic fields will be rendered here -->
+      <div id="editFields"></div>
+
+      <div style="text-align:right;margin-top:12px">
+        <button id="cancelBtn" class="btn secondary">Cancel</button>
+        <button id="saveBtn" class="btn">Save</button>
+      </div>
+      <div id="modalNotice" class="notice"></div>
+    </div>
+  </div>
+
+  <!-- View modal (read-only) -->
+  <div id="viewModal" class="modal">
+    <div class="panel">
+      <h3>View Record</h3>
+      <button id="viewCloseX" class="view-close-x" aria-label="Close">&times;</button>
+      <div id="viewFields"></div>
+      <div style="text-align:right;margin-top:12px">
+        <button id="closeViewBtn" class="btn secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // Use the same project URL/key used elsewhere in this repo
+    const supabaseUrl = 'https://rtfefxghfbtirfnlbucb.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0ZmVmeGdoZmJ0aXJmbmxidWNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1MDg3OTcsImV4cCI6MjA1NjA4NDc5N30.fb7_myCmFzbV7WPNjFN_NEl4z0sOmRCefnkQbk6c10w';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    const tableName = 'student_database';
+
+  const tbody = document.querySelector('#contentArea');
+    const statusEl = document.getElementById('status');
+    const refreshBtn = document.getElementById('refreshBtn');
+  const classFilter = document.getElementById('classFilter');
+  const sessionFilter = document.getElementById('sessionFilter');
+  const sectionFilter = document.getElementById('sectionFilter');
+  let clusterize = null;
+  const sectionFilter = document.getElementById('sectionFilter');
+  const sessionFilter = document.getElementById('sessionFilter');
+  const clearFilters = document.getElementById('clearFilters');
+
+  // photo preview
+  const photoPreview = document.createElement('div');
+  photoPreview.id = 'photo-preview';
+  const previewImg = document.createElement('img');
+  previewImg.style.width = '100%';
+  previewImg.style.height = '100%';
+  previewImg.style.objectFit = 'cover';
+  photoPreview.appendChild(previewImg);
+  document.body.appendChild(photoPreview);
+
+  tbody.addEventListener('mouseover', (e) => {
+    if(e.target.classList.contains('row-thumb')){
+      previewImg.src = e.target.src;
+      photoPreview.style.display = 'block';
+    }
+  });
+
+  tbody.addEventListener('mouseout', (e) => {
+    if(e.target.classList.contains('row-thumb')){
+      photoPreview.style.display = 'none';
+    }
+  });
+
+  // keep full dataset in memory for client-side filtering
+  let allRowsCache = [];
+  // cache existing session-specific columns discovered at runtime
+  let existingSessionCols = {
+    classes: new Set(), // e.g., 'class_2024'
+    sections: new Set(),
+    rolls: new Set()
+  };
+
+  // Discover which session columns actually exist (run once)
+  async function discoverSessionColumns(){
+    try {
+      const { data, error } = await supabase.from(tableName).select('*').limit(1);
+      if(error) { console.warn('discoverSessionColumns error', error); return; }
+      const sample = data && data[0] ? Object.keys(data[0]) : [];
+      sample.forEach(k=>{
+        if(/^class_\d{4}$/.test(k)) existingSessionCols.classes.add(k);
+        if(/^section_\d{4}$/.test(k)) existingSessionCols.sections.add(k);
+        if(/^roll_\d{4}$/.test(k)) existingSessionCols.rolls.add(k);
+      });
+    } catch(e){ console.warn('discoverSessionColumns failed', e); }
+  }
+
+  function buildSelectCols(){
+    // Base columns always safe
+    const base = ['iid','student_name_en','father_name_en','father_mobile','student_photo_url','status','session','fulldata_ok'];
+    const sessions = ['2024','2025','2026','2027'];
+    sessions.forEach(s=>{
+      if(existingSessionCols.classes.has('class_'+s)) base.push('class_'+s);
+      if(existingSessionCols.sections.has('section_'+s)) base.push('section_'+s);
+      if(existingSessionCols.rolls.has('roll_'+s)) base.push('roll_'+s);
+    });
+    return base.join(', ');
+  }
+
+  // Active key resolver (supports 2024-2027; default 2025)
+  function getActiveKeys(){
+    const ses = (sessionFilter && sessionFilter.value) ? String(sessionFilter.value) : '2025';
+    const classKey = `class_${ses}`;
+    const sectionKey = `section_${ses}`;
+    const rollKey = `roll_${ses}`;
+    return {
+      session: ses,
+      classKey,
+      sectionKey,
+      rollKey,
+      available: existingSessionCols.classes.has(classKey) && existingSessionCols.sections.has(sectionKey) && existingSessionCols.rolls.has(rollKey)
+    };
+  }
+
+    // modal elems
+    const editModal = document.getElementById('editModal');
+    const editFields = document.getElementById('editFields');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const modalNotice = document.getElementById('modalNotice');
+
+    refreshBtn.addEventListener('click', () => {
+      // Require session first; then class optional (loads all with session)
+      if(!sessionFilter || !sessionFilter.value){
+        statusEl.textContent = 'Pick session first';
+        tbody.innerHTML = '<tr><td colspan="13">Select session, then class and section to view data</td></tr>';
+        return;
+      }
+      const cls = classFilter.value;
+      if(cls) { loadDataForClass(cls); }
+      else { loadData(); }
+    });
+
+  classFilter.addEventListener('change', () => {
+    // enforce session-first
+    if(!sessionFilter || !sessionFilter.value){
+      classFilter.value = '';
+      statusEl.textContent = 'Pick session first';
+      tbody.innerHTML = '<tr><td colspan="13">Select session first</td></tr>';
+      return;
+    }
+    onClassChange();
+  });
+  sectionFilter.addEventListener('change', () => {
+    if(!sessionFilter || !sessionFilter.value){
+      sectionFilter.value = '';
+      statusEl.textContent = 'Pick session first';
+      tbody.innerHTML = '<tr><td colspan="13">Select session first</td></tr>';
+      return;
+    }
+    if(classFilter.value){
+      loadDataForClass(classFilter.value);
+      return;
+    }
+    applyFilters();
+  });
+  clearFilters.addEventListener('click', ()=>{
+    // Reset all filters and cache; guide user to session-first
+    if(sessionFilter) sessionFilter.value = '';
+    classFilter.value='';
+    sectionFilter.value='';
+    allRowsCache = [];
+    tbody.innerHTML = '<tr><td colspan="13">Select session, then class and section to view data</td></tr>';
+    statusEl.textContent = 'Pick session → class → section';
+  });
+    cancelBtn.addEventListener('click', closeModal);
+    saveBtn.addEventListener('click', saveEdit);
+
+    // store the currently editing IID
+    let currentIID = null;
+
+  // view modal elems
+  const viewModal = document.getElementById('viewModal');
+  const viewFields = document.getElementById('viewFields');
+  const closeViewBtn = document.getElementById('closeViewBtn');
+  const viewCloseX = document.getElementById('viewCloseX');
+  closeViewBtn.addEventListener('click', () => { viewModal.style.display = 'none'; viewFields.innerHTML = ''; });
+  if(viewCloseX) viewCloseX.addEventListener('click', () => { viewModal.style.display = 'none'; viewFields.innerHTML = ''; });
+
+    // photo links loaded from photo/link.csv (one URL per line).
+    let photoLinks = [];
+
+  // data order loaded from dataorder.csv (defines preview field order and labels)
+  let dataOrder = []; // array of { key, label }
+
+  async function loadPhotoLinks(){
+      try{
+        const res = await fetch('../photo/link.csv');
+        if(!res.ok) return;
+        const txt = await res.text();
+        photoLinks = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+      }catch(e){
+        photoLinks = [];
+      }
+    }
+    // start loading photo links in background
+    loadPhotoLinks();
+
+    // load dataorder.csv to determine preview order and labels
+  async function loadDataOrder(){
+      try{
+        // dataorder.csv is in the same `login/` folder as this page
+        const res = await fetch('dataorder.csv');
+        if(!res.ok) return;
+        const txt = await res.text();
+        const lines = txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+        const parsed = [];
+        for(const line of lines){
+          // expect lines like: key > Label
+          const parts = line.split('>');
+          if(parts.length < 2) continue;
+          const key = parts[0].trim();
+          const label = parts.slice(1).join('>').trim();
+          if(key) parsed.push({ key, label });
+        }
+        dataOrder = parsed;
+      }catch(e){
+        console.warn('loadDataOrder failed', e);
+        dataOrder = [];
+      }
+    }
+    loadDataOrder();
+
+    // Load records for a specific class only
+    async function loadDataForClass(classValue){
+      statusEl.textContent = `Loading class ${classValue}...`;
+      try{
+        const { classKey, sectionKey, rollKey, session, available } = getActiveKeys();
+        if(!available){
+          tbody.innerHTML = `<tr><td colspan="13">Selected session columns not found in table.</td></tr>`;
+          statusEl.textContent = 'Session columns missing';
+          return;
+        }
+        // Select all possible session-specific columns to support display across sessions
+        const selectCols = buildSelectCols();
+        let q = supabase.from(tableName).select(selectCols).eq(classKey, classValue);
+        if(sessionFilter && sessionFilter.value){
+          // Filter by session column if present
+          q = q.eq('session', sessionFilter.value);
+        }
+        if(sectionFilter && sectionFilter.value) q = q.eq(sectionKey, sectionFilter.value);
+        q = q.order(rollKey, { ascending: true }).limit(10000);
+        const { data, error } = await q;
+        if(error){
+          const details = JSON.stringify(error, Object.getOwnPropertyNames(error));
+          throw new Error(`${error.message} | details: ${details}`);
+        }
+        allRowsCache = data || [];
+        populateFilterOptions(allRowsCache);
+        renderTable(allRowsCache);
+        statusEl.textContent = `Total: ${allRowsCache ? allRowsCache.length : 0}`;
+      }catch(err){
+        console.error('loadDataForClass error:', err);
+        statusEl.textContent = 'Data loading error';
+    const msg = err && err.message ? err.message : String(err);
+  tbody.innerHTML = `<tr><td colspan="13">Data loading error: <div class="error-details">${escapeHtml(msg)}</div></td></tr>`;
+      }
+    }
+
+    // Dynamic class list based on selected session (2024-2027)
+    async function loadClassList(){
+      try {
+        if(sessionFilter){
+          sessionFilter.innerHTML = '';
+            const optAny = document.createElement('option'); optAny.value=''; optAny.textContent='Select Session'; sessionFilter.appendChild(optAny);
+            ['2024','2025','2026','2027'].forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; sessionFilter.appendChild(o); });
+            sessionFilter.value = '';
+            sessionFilter.onchange = () => {
+              classFilter.innerHTML = '<option value="">All</option>';
+              sectionFilter.innerHTML = '<option value="">All</option>';
+              allRowsCache = [];
+              tbody.innerHTML = '<tr><td colspan="13">Select class and section to view data</td></tr>';
+              statusEl.textContent = 'Pick class and section';
+              dynamicLoadClasses();
+            };
+        }
+        classFilter.innerHTML = '<option value="">All</option>';
+        sectionFilter.innerHTML = '<option value="">All</option>';
+        statusEl.textContent = 'Select session, then class';
+      } catch(e){
+        console.warn('loadClassList failed', e);
+      }
+    }
+
+    async function dynamicLoadClasses(){
+      const ses = sessionFilter.value;
+      if(!ses){ return; }
+      const { classKey, available } = getActiveKeys();
+      if(!available){
+        statusEl.textContent = 'No class column for session';
+        classFilter.innerHTML = '<option value="">N/A</option>';
+        return;
+      }
+      try {
+        statusEl.textContent = 'Loading classes...';
+        const { data, error } = await supabase
+          .from(tableName)
+          .select(`${classKey}`)
+          .not(classKey, 'is', null);
+        if(error) throw error;
+        const set = new Set();
+        (data||[]).forEach(r=>{ if(r[classKey]!==undefined && r[classKey]!==null && String(r[classKey]).trim()!=='') set.add(String(r[classKey])); });
+        const list = Array.from(set).sort((a,b)=>Number(a)-Number(b));
+        classFilter.innerHTML = '<option value="">All</option>' + list.map(c=>`<option value="${c}">${c}</option>`).join('');
+        statusEl.textContent = 'Pick class and section';
+      } catch(err){
+        console.warn('dynamicLoadClasses error', err);
+        statusEl.textContent = 'Class load error';
+      }
+    }
+
+    async function dynamicLoadSections(){
+      const ses = sessionFilter.value;
+      const cls = classFilter.value;
+      if(!ses || !cls){ return; }
+      const { classKey, sectionKey, available } = getActiveKeys();
+      if(!available){
+        sectionFilter.innerHTML = '<option value="">N/A</option>';
+        return;
+      }
+      try {
+        statusEl.textContent = 'Loading sections...';
+        const { data, error } = await supabase
+          .from(tableName)
+          .select(`${sectionKey}, ${classKey}`)
+          .eq(classKey, cls)
+          .not(sectionKey, 'is', null);
+        if(error) throw error;
+        const set = new Set();
+        (data||[]).forEach(r=>{ if(r[sectionKey]!==undefined && r[sectionKey]!==null && String(r[sectionKey]).trim()!=='') set.add(String(r[sectionKey])); });
+        const list = Array.from(set).sort();
+        sectionFilter.innerHTML = '<option value="">All</option>' + list.map(s=>`<option value="${s}">${s}</option>`).join('');
+        statusEl.textContent = 'Sections loaded';
+      } catch(err){
+        console.warn('dynamicLoadSections error', err);
+        statusEl.textContent = 'Section load error';
+      }
+    }
+
+    function onClassChange(){
+      const cls = classFilter.value;
+  if(!cls){ 
+    tbody.innerHTML = '<tr><td colspan="13">Select class and section to view data</td></tr>'; 
+        statusEl.textContent='Pick class and section';
+        return; 
+      }
+      // reset section and load class-only to populate sections
+      if(sectionFilter) sectionFilter.value = '';
+      dynamicLoadSections();
+      loadDataForClass(cls);
+    }
+
+  async function loadData(){
+      // Batched fetch to load ALL rows (handles Supabase default limits)
+      statusEl.textContent = 'Loading all data...';
+      try{
+        const batchSize = 1000;
+        let allData = [];
+        let lastId = 0;
+        let round = 0;
+  const { rollKey, classKey: activeClassKey, available } = getActiveKeys();
+  if(!available){
+    statusEl.textContent = 'Session columns missing';
+    tbody.innerHTML = '<tr><td colspan="13">Selected session columns not found.</td></tr>';
+    return;
+  }
+  while(true){
+          round++;
+          statusEl.textContent = `Loading... fetched ${allData.length} rows (batch ${round})`;
+          // build paginated query and optionally apply session filter
+          let q = supabase.from(tableName)
+            .select(buildSelectCols())
+            .gt('iid', lastId);
+          if(sessionFilter && sessionFilter.value){
+            q = q.eq('session', sessionFilter.value);
+          }
+          // server-side ordering by active roll
+          q = q.order(rollKey, { ascending: true }).limit(batchSize);
+          const { data, error } = await q;
+          if(error){
+            const details = JSON.stringify(error, Object.getOwnPropertyNames(error));
+            throw new Error(`${error.message} | details: ${details}`);
+          }
+          if(!data || data.length === 0) break;
+          allData = allData.concat(data);
+          lastId = data[data.length-1].iid || lastId;
+          if(data.length < batchSize) break; // last batch
+        }
+  const { classKey: ck, sectionKey: sk, rollKey: rk } = getActiveKeys();
+  // Filter out rows missing the active session's class value to reduce noise
+  allData = (allData || []).filter(r => r && (r[ck] !== undefined && r[ck] !== null && String(r[ck]).trim() !== ''));
+  allRowsCache = allData.sort((a,b)=> (Number(a[rk])||0) - (Number(b[rk])||0));
+        populateFilterOptions(allRowsCache);
+        renderTable(allRowsCache);
+        statusEl.textContent = `Total: ${allRowsCache.length} records (ALL)`;
+      }catch(err){
+        console.error('loadData error:', err);
+        statusEl.textContent = 'Data loading error';
+        const msg = err && err.message ? err.message : String(err);
+  tbody.innerHTML = `<tr><td colspan="13">Data loading error: <div class="error-details">${escapeHtml(msg)}</div></td></tr>`;
+      }
+    }
+
+    function populateFilterOptions(rows){
+      // Only rebuild Section options. Keep Class options intact to avoid resets.
+      const { classKey, sectionKey } = getActiveKeys();
+      const selClass = classFilter.value;
+      const selSection = sectionFilter.value;
+      const selSession = sessionFilter && sessionFilter.value;
+
+      // Build sections from rows, narrowed to selected class if any
+      const rowsForSections = selClass ? rows.filter(r => String(r[classKey]||'') === String(selClass)) : rows;
+      const sections = new Set();
+      rowsForSections.forEach(r => { if(r && r[sectionKey]) sections.add(String(r[sectionKey])); });
+
+      sectionFilter.innerHTML = '';
+      const optAnyS = document.createElement('option'); optAnyS.value=''; optAnyS.textContent='All'; sectionFilter.appendChild(optAnyS);
+      const sortedSections = Array.from(sections).sort();
+      sortedSections.forEach(s=>{ const o = document.createElement('option'); o.value=s; o.textContent=s; sectionFilter.appendChild(o); });
+      if(selSection && Array.from(sections).includes(selSection)) {
+        sectionFilter.value = selSection;
+      }
+
+      // keep user's session selection untouched
+      if(sessionFilter && selSession) sessionFilter.value = selSession;
+
+      // ensure section change triggers filtering
+      sectionFilter.onchange = () => { if(classFilter.value) applyFilters(); };
+      // don't override sessionFilter.onchange here; it's defined in loadClassList()
+    }
+
+    function applyFilters(){
+  const c = classFilter.value;
+  const s = sectionFilter.value;
+  const ses = sessionFilter && sessionFilter.value;
+  const { classKey, sectionKey, rollKey, available: availFilter } = getActiveKeys();
+  if(!availFilter){
+    tbody.innerHTML = '<tr><td colspan="13">Session columns not found.</td></tr>';
+    statusEl.textContent = 'Session columns missing';
+    return;
+  }
+  let filtered = allRowsCache;
+  if(c) filtered = filtered.filter(r => String(r[classKey]) === c);
+  if(s) filtered = filtered.filter(r => String(r[sectionKey]) === s);
+  if(ses === '2025'){
+    filtered = filtered.filter(r => String(r.session || '') === '2025');
+  } else if(ses === '2026'){
+    // Include rows that have any 2026 field populated even if 'session' column isn't set yet
+    filtered = filtered.filter(r => r && (r[classKey] || r[sectionKey] || r[rollKey]));
+  }
+  filtered = filtered.sort((a,b)=> (Number(a[rollKey])||0) - (Number(b[rollKey])||0));
+  renderTable(filtered);
+      statusEl.textContent = `Total: ${filtered ? filtered.length : 0}`;
+    }
+
+    function renderTable(rows){
+    if(!rows || rows.length === 0){
+  tbody.innerHTML = '<tr><td colspan="13">No records found</td></tr>';
+  if(clusterize) { clusterize.clear(); clusterize = null; }
+        return;
+      }
+      
+      const htmlRows = [];
+
+      function getThumbnailSrc(rec, iid){
+        // First, check student_photo_url
+        if(rec && rec.student_photo_url){
+          return rec.student_photo_url;
+        }
+        // Then, search photoLinks for avatar-{iid}.jpg or .png
+        if(photoLinks && iid){
+          const targetJpg = 'avatar-' + iid + '.jpg';
+          const targetPng = 'avatar-' + iid + '.png';
+          for(const url of photoLinks){
+            try{
+              const filename = new URL(url).pathname.split('/').pop();
+              if(filename === targetJpg || filename === targetPng){
+                return url;
+              }
+            }catch(e){}
+          }
+        }
+        // No image found
+        return '';
+      }
+
+      function getField(rec, candidates){
+        for(const k of candidates){
+          if(!k) continue;
+          if(rec && (rec[k] !== undefined && rec[k] !== null)) return rec[k];
+          // try lower-case key variants
+          const lk = k.toLowerCase();
+          if(rec && (rec[lk] !== undefined && rec[lk] !== null)) return rec[lk];
+        }
+        return '';
+      }
+
+      rows.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        // SL cell
+        const tdSl = document.createElement('td'); tdSl.className = 'col-sl'; tdSl.textContent = idx + 1; tr.appendChild(tdSl);
+        const iid = (r['iid'] ?? r.iid ?? r['IID'] ?? r.IID) || '';
+
+        const tdIid = document.createElement('td'); tdIid.textContent = escapeHtml(iid);
+  const { classKey, sectionKey, rollKey, available: availRender } = getActiveKeys();
+  if(!availRender){
+    tbody.innerHTML = '<tr><td colspan="13">Session columns missing.</td></tr>';
+    return;
+  }
+  const tdClass = document.createElement('td'); tdClass.textContent = escapeHtml(r[classKey]||'');
+  const tdSection = document.createElement('td'); tdSection.textContent = escapeHtml(r[sectionKey]||'');
+  const tdRoll = document.createElement('td'); tdRoll.textContent = escapeHtml(r[rollKey]||'');
+        const tdName = document.createElement('td'); tdName.textContent = escapeHtml(r['student_name_en']||'');
+  const tdFatherName = document.createElement('td'); tdFatherName.textContent = escapeHtml(r['father_name_en']||'');
+  const tdFatherMobile = document.createElement('td');
+  const fm = getField(r, ['father_mobile','father_mobile_en','father_mobile_bn','father_mobile ']);
+  tdFatherMobile.textContent = escapeHtml(fm || '');
+
+  const tdPhoto = document.createElement('td');
+        const src = getThumbnailSrc(r, iid);
+        if (src) {
+          const img = document.createElement('img'); img.className = 'row-thumb'; img.alt = 'Photo';
+          img.src = src;
+          tdPhoto.appendChild(img);
+        } else {
+          const noImg = document.createElement('span'); noImg.className = 'no-image'; noImg.textContent = 'No Image';
+          tdPhoto.appendChild(noImg);
+        }
+  const tdSession = document.createElement('td');
+  // session may be stored as 'session' or other variants
+  const sessionVal = getField(r, ['session','session_2025','academic_session']);
+  tdSession.textContent = escapeHtml(sessionVal || (r.session || ''));
+
+        const tdStatus = document.createElement('td');
+        const statusText = String(r['status'] || '');
+        tdStatus.textContent = escapeHtml(statusText);
+
+        // FullData flag column (show fulldata_ok or similar fields)
+        const tdFullData = document.createElement('td');
+        const fd = (r['fulldata_ok'] !== undefined) ? r['fulldata_ok'] : (r['full_data_ok'] !== undefined ? r['full_data_ok'] : '');
+        tdFullData.textContent = escapeHtml(fd === null ? '' : String(fd));
+
+        // apply row coloring: FullData 'ok' -> green (highest priority), otherwise Status containing TC -> red
+        const fdNorm = String(fd || '').trim().toLowerCase();
+        if(fdNorm === 'ok'){
+          tr.classList.add('row-fulldata-ok');
+        } else if (statusText && statusText.toUpperCase().includes('TC')) {
+          tr.classList.add('status-tc');
+        }
+
+  const tdAction = document.createElement('td');
+  tdAction.className = 'action-cell';
+        // Edit button (existing behaviour)
+  const btnEdit = document.createElement('button'); btnEdit.className = 'btn edit'; btnEdit.textContent = 'Edit'; btnEdit.setAttribute('data-iid', iid);
+        btnEdit.addEventListener('click', () => {
+          const url = `editdetailsnew.html?iid=${encodeURIComponent(iid)}`;
+          const w = window.open(url, '_blank');
+          try{ if(w) w.opener = null; }catch(e){}
+        });
+        tdAction.appendChild(btnEdit);
+
+        // View button (new) - open read-only modal
+  const btnView = document.createElement('button'); btnView.className = 'btn view'; btnView.textContent = 'View'; btnView.setAttribute('data-iid', iid);
+        btnView.addEventListener('click', () => { openViewByIID(iid); });
+        tdAction.appendChild(btnView);
+
+        tr.appendChild(tdIid);
+        tr.appendChild(tdClass);
+        tr.appendChild(tdSection);
+        tr.appendChild(tdRoll);
+  tr.appendChild(tdName);
+  tr.appendChild(tdFatherName);
+  tr.appendChild(tdFatherMobile);
+  tr.appendChild(tdPhoto);
+  tr.appendChild(tdSession);
+  tr.appendChild(tdStatus);
+  tr.appendChild(tdFullData);
+        tr.appendChild(tdAction);
+
+  // Collect HTML instead of appending directly
+        htmlRows.push(tr.outerHTML);
+      });
+      
+      // Use Clusterize for efficient rendering
+      if(!clusterize){
+        clusterize = new Clusterize({
+          rows: htmlRows,
+          scrollId: 'scrollArea',
+          contentId: 'contentArea',
+          rows_in_block: 50,
+          blocks_in_cluster: 4,
+          tag: 'tr'
+        });
+      } else {
+        clusterize.update(htmlRows);
+      }
+    }
+
+  async function openEditByIID(iid){
+      // fetch full row from DB to ensure we have all columns
+      modalNotice.textContent = '';
+      currentIID = iid;
+      try{
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+      .eq('iid', Number(iid))
+          .limit(1)
+          .single();
+        if(error){
+          const details = JSON.stringify(error, Object.getOwnPropertyNames(error));
+          throw new Error(`${error.message} | details: ${details}`);
+        }
+  renderEditFields(data || {});
+  // prevent background scroll
+  document.body.style.overflow = 'hidden';
+  editModal.style.display = 'flex';
+      }catch(err){
+        console.error('openEdit error:', err);
+        modalNotice.style.color = '#a00';
+        modalNotice.textContent = 'Failed to load record: ' + (err.message || err);
+        // fallback: if we had a row in the table view, user can still edit minimal fields (not implemented here)
+      }
+    }
+
+    // Open a read-only view modal for a given IID
+    async function openViewByIID(iid){
+      try{
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .eq('iid', Number(iid))
+          .limit(1)
+          .single();
+        if(error){
+          const details = JSON.stringify(error, Object.getOwnPropertyNames(error));
+          throw new Error(`${error.message} | details: ${details}`);
+        }
+  renderViewFields(data || {});
+  // prevent background scroll
+  document.body.style.overflow = 'hidden';
+  viewModal.style.display = 'flex';
+      }catch(err){
+        console.error('openView error:', err);
+        alert('Failed to load record for view: ' + (err.message || err));
+      }
+    }
+
+    // Render record fields in read-only form (labels + values)
+    function renderViewFields(record){
+      viewFields.innerHTML = '';
+      const rendered = new Set();
+
+  // Do not auto-render the photo image in view; show URL as plain text inside the fields list
+  // (This avoids unexpected image loads and keeps the view compact.)
+
+      // helper to render a single key/value
+      function renderField(key, label, val){
+        const row = document.createElement('div');
+        row.className = 'field-row';
+        const lab = document.createElement('label'); lab.textContent = (label || key) + ':';
+        const container = document.createElement('div');
+        container.style.padding = '8px';
+        container.style.background = '#f9f9f9';
+        container.style.border = '1px solid #eee';
+        container.style.flex = '1';
+        container.style.whiteSpace = 'pre-wrap';
+
+  // Show photo URL as plain text (do not embed the image)
+  container.textContent = val === null || val === undefined ? '' : String(val);
+
+        row.appendChild(lab);
+        row.appendChild(container);
+        viewFields.appendChild(row);
+      }
+
+      // 1) Render fields according to dataOrder.csv
+      if(Array.isArray(dataOrder) && dataOrder.length){
+        dataOrder.forEach(entry => {
+          const key = entry.key;
+          if(Object.prototype.hasOwnProperty.call(record, key)){
+            const val = record[key] === null || record[key] === undefined ? '' : record[key];
+            renderField(key, entry.label || key, val);
+            rendered.add(key);
+          }
+        });
+      }
+
+      // 2) Render any remaining fields not listed in dataOrder, alphabetically
+      const leftover = Object.keys(record).filter(k => !rendered.has(k)).sort();
+      leftover.forEach(k => {
+        const val = record[k] === null || record[k] === undefined ? '' : record[k];
+        renderField(k, k, val);
+        rendered.add(k);
+      });
+    }
+
+    function renderEditFields(record){
+      editFields.innerHTML = '';
+      // iterate keys in sorted order for predictability
+      const keys = Object.keys(record).sort();
+      keys.forEach(key => {
+        const val = record[key] === null || record[key] === undefined ? '' : record[key];
+        const row = document.createElement('div');
+        row.className = 'field-row';
+        const label = document.createElement('label');
+        label.textContent = key + ':';
+        // decide input type: use textarea for long text fields (heuristic)
+        let input;
+        if(String(val).length > 120 || key.toLowerCase().includes('address') || key.toLowerCase().includes('note')){
+          input = document.createElement('textarea');
+          input.rows = 4;
+        } else {
+          input = document.createElement('input');
+          input.type = 'text';
+        }
+        input.value = val;
+        input.setAttribute('data-field', key);
+        if(key === 'IID'){
+          input.readOnly = true;
+        }
+        row.appendChild(label);
+        row.appendChild(input);
+        editFields.appendChild(row);
+      });
+    }
+
+    async function saveEdit(){
+      modalNotice.textContent = '';
+      if(!currentIID){ modalNotice.textContent = 'No record selected'; return; }
+      // build payload from inputs
+      const inputs = editFields.querySelectorAll('[data-field]');
+      const payload = {};
+      inputs.forEach(inp =>{
+        const field = inp.getAttribute('data-field');
+    if(field === 'iid' || field === 'IID') return; // don't try to update primary key
+        const v = inp.value === '' ? null : inp.value;
+        payload[field] = v;
+      });
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      try{
+        const { data, error } = await supabase
+          .from(tableName)
+          .update(payload)
+          .eq('iid', Number(currentIID));
+        if(error){
+          const details = JSON.stringify(error, Object.getOwnPropertyNames(error));
+          throw new Error(`${error.message} | details: ${details}`);
+        }
+        modalNotice.style.color = 'green';
+        modalNotice.textContent = 'Updated successfully';
+        // refresh list and close
+        await loadData();
+        setTimeout(()=>{ closeModal(); modalNotice.textContent = ''; }, 700);
+      }catch(err){
+        console.error('saveEdit error:', err);
+        modalNotice.style.color = '#a00';
+        modalNotice.textContent = 'Update error: ' + (err.message || err);
+      }finally{
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
+      }
+    }
+
+    function closeModal(){
+      editModal.style.display = 'none';
+      editFields.innerHTML = '';
+      currentIID = null;
+    }
+
+  // restore body scroll when view modal closed
+  closeViewBtn.addEventListener('click', () => { document.body.style.overflow = ''; viewModal.style.display = 'none'; viewFields.innerHTML = ''; });
+  if(viewCloseX) viewCloseX.addEventListener('click', () => { document.body.style.overflow = ''; viewModal.style.display = 'none'; viewFields.innerHTML = ''; });
+
+  // when closing edit modal by clicking cancel or outside, restore body scroll
+  cancelBtn.addEventListener('click', () => { document.body.style.overflow = ''; closeModal(); });
+  editModal.addEventListener('click', (e)=>{ if(e.target===editModal) { document.body.style.overflow = ''; closeModal(); } });
+  // also handle view modal outside click to restore
+  viewModal.addEventListener('click', (e)=>{ if(e.target===viewModal) { document.body.style.overflow = ''; viewModal.style.display = 'none'; viewFields.innerHTML = ''; } });
+
+    function escapeHtml(s){
+      if(s === null || s === undefined) return '';
+      return String(s).replace(/[&<>\\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\\"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // close modal when clicking outside panel
+    editModal.addEventListener('click', (e)=>{ if(e.target===editModal) closeModal(); });
+
+    // close view modal when clicking outside panel
+    viewModal.addEventListener('click', (e)=>{ if(e.target===viewModal) { viewModal.style.display = 'none'; viewFields.innerHTML = ''; } });
+
+  // initial load: guide user to pick session first
+  tbody.innerHTML = '<tr><td colspan="13">Select session, then class and section to view data</td></tr>';
+  (async ()=>{ await discoverSessionColumns(); loadClassList(); })();
+  </script>
+  
+  <!-- Authentication Protection - Load after page initialization -->
+  <script src="./auth-check.js"></script>
+</body>
+</html>
+
