@@ -2,55 +2,89 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import PageShell from '@/components/PageShell'
+import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
 
-interface Student {
+interface Student extends Record<string, unknown> {
   iid: string
   student_name_en: string
+  class_2025: string
   section_2025: string
   roll_2025?: string | number
   total_mark?: number | null
   average_mark?: number | null
+  count_absent?: string | number | null
+}
+
+function parseNumber(value: unknown): number {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
 }
 
 export default function TotalAveragePage() {
   const navigate = useNavigate()
+  const [classVal, setClassVal] = useState('')
   const [section, setSection] = useState('')
+  const [classes, setClasses] = useState<string[]>([])
+  const [sectionsByClass, setSectionsByClass] = useState<Record<string, string[]>>({})
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [updating, setUpdating] = useState(false)
 
+  useEffect(() => {
+    loadExamAnn25Meta()
+      .then(meta => {
+        setClasses(meta.classes)
+        setSectionsByClass(meta.sectionsByClass)
+      })
+      .catch(() => {
+        setClasses([])
+        setSectionsByClass({})
+      })
+  }, [])
+
   const loadStudents = useCallback(async () => {
-    if (!section) { setStatus('Please select a section'); return }
+    if (!classVal || !section) { setStatus('Please select class and section'); return }
     setLoading(true); setStatus('Loading…')
     const { data, error } = await supabase
       .from('exam_ann25')
-      .select('iid, student_name_en, section_2025, roll_2025, total_mark, average_mark')
+      .select('*')
+      .eq('class_2025', classVal)
       .eq('section_2025', section)
       .order('roll_2025', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     setStudents((data ?? []) as Student[])
-    setStatus(`Loaded ${data?.length ?? 0} students`)
+    setStatus(`Loaded ${data?.length ?? 0} students for Class ${classVal} / Section ${section}`)
     setLoading(false)
-  }, [section])
+  }, [classVal, section])
 
   async function calculateTotals() {
     if (students.length === 0) return
     setUpdating(true); setStatus('Calculating totals…')
     let updated = 0
     for (const student of students) {
-      const { data: marks } = await supabase
-        .from('result_entry_2025')
-        .select('total')
-        .eq('IID', student.iid)
+      const totalColumns = Object.keys(student).filter(key => /^\*?.+_Total$/i.test(key))
+      let totalMark = 0
+      let validSubjects = 0
 
-      if (!marks) continue
-      const totalMark = marks.reduce((sum, m) => sum + (Number(m.total) || 0), 0)
-      const avgMark = marks.length > 0 ? +(totalMark / marks.length).toFixed(2) : 0
+      totalColumns.forEach(key => {
+        const marks = parseNumber(student[key])
+        if (marks > 0) {
+          totalMark += marks
+          validSubjects++
+        }
+      })
+
+      const avgMark = validSubjects > 0 ? Math.round(totalMark / validSubjects) : 0
+      const absentCount = Math.max(0, 9 - validSubjects)
 
       await supabase
         .from('exam_ann25')
-        .update({ total_mark: totalMark, average_mark: avgMark })
+        .update({
+          total_mark: totalMark,
+          average_mark: avgMark,
+          count_absent: absentCount > 0 ? String(absentCount) : null,
+        })
         .eq('iid', student.iid)
 
       updated++
@@ -66,7 +100,7 @@ export default function TotalAveragePage() {
     })
   }, [navigate])
 
-  const sections = ['6A','6B','6C','7A','7B','7C','8A','8B','8C','9A','9B','10A','10B']
+  const sections = classVal ? sectionsByClass[classVal] ?? [] : []
 
   return (
     <PageShell title="Part 2 – Total & Average">
@@ -74,6 +108,13 @@ export default function TotalAveragePage() {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div className="card" style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
+              <div>
+                <label>Class</label>
+                <select value={classVal} onChange={e => { setClassVal(e.target.value); setSection(''); }} style={{ minWidth: '140px' }}>
+                  <option value="">Select Class</option>
+                  {classes.map(c => <option key={c} value={c}>Class {c}</option>)}
+                </select>
+              </div>
               <div>
                 <label>Section</label>
                 <select value={section} onChange={e => setSection(e.target.value)} style={{ minWidth: '140px' }}>
@@ -99,7 +140,9 @@ export default function TotalAveragePage() {
                     <th>#</th>
                     <th>IID</th>
                     <th>Student Name</th>
+                    <th>Class</th>
                     <th>Section</th>
+                    <th>Roll</th>
                     <th>Total Mark</th>
                     <th>Average</th>
                   </tr>
@@ -110,7 +153,9 @@ export default function TotalAveragePage() {
                       <td>{i + 1}</td>
                       <td>{s.iid}</td>
                       <td>{s.student_name_en}</td>
+                      <td>{s.class_2025}</td>
                       <td>{s.section_2025}</td>
+                      <td>{s.roll_2025 ?? '—'}</td>
                       <td>{s.total_mark ?? '—'}</td>
                       <td>{s.average_mark ?? '—'}</td>
                     </tr>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
+import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
 
 interface Student {
   iid: string
@@ -8,6 +9,7 @@ interface Student {
   father_name_en?: string
   roll_2025?: string | number
   section_2025: string
+  class_2025?: string | number
   gpa_final?: number | string | null
   remark?: string | null
 }
@@ -19,6 +21,8 @@ export default function ResultListPage() {
   const [search, setSearch] = useState('')
   const [classFilter, setClassFilter] = useState('')
   const [sectionFilter, setSectionFilter] = useState('')
+  const [classes, setClasses] = useState<string[]>([])
+  const [sectionsByClass, setSectionsByClass] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState('')
 
@@ -27,13 +31,17 @@ export default function ResultListPage() {
       if (!user) { navigate('/login', { replace: true }); return }
       loadData()
     })
+    loadExamAnn25Meta().then(meta => {
+      setClasses(meta.classes)
+      setSectionsByClass(meta.sectionsByClass)
+    })
   }, [navigate])
 
   async function loadData() {
     setLoading(true)
     const { data, error } = await supabase
       .from('exam_ann25')
-      .select('iid, student_name_en, father_name_en, roll_2025, section_2025, gpa_final, remark')
+      .select('iid, student_name_en, father_name_en, roll_2025, section_2025, class_2025, gpa_final, remark')
       .order('roll_2025', { ascending: true })
     if (error) { setCount('Error: ' + error.message); setLoading(false); return }
     const list = (data ?? []) as Student[]
@@ -50,7 +58,7 @@ export default function ResultListPage() {
         s.student_name_en.toLowerCase().includes(q) ||
         String(s.roll_2025 ?? '').includes(q) ||
         s.iid.toLowerCase().includes(q)
-      const matchClass = !classFilter || s.section_2025.startsWith(classFilter)
+      const matchClass = !classFilter || String(s.class_2025 ?? '') === classFilter
       const matchSection = !sectionFilter || s.section_2025 === sectionFilter
       return matchSearch && matchClass && matchSection
     })
@@ -58,8 +66,7 @@ export default function ResultListPage() {
     setCount(`Showing ${result.length} of ${students.length} students`)
   }, [search, classFilter, sectionFilter, students])
 
-  const classes = ['6', '7', '8', '9', '10']
-  const sections = ['6A','6B','6C','7A','7B','7C','8A','8B','8C','9A','9B','10A','10B']
+  const sections = classFilter ? sectionsByClass[classFilter] ?? [] : Array.from(new Set(students.map(s => s.section_2025))).sort()
 
   return (
     <div style={{ fontFamily: 'var(--font-family)', background: '#f8fafc', minHeight: '100vh' }}>

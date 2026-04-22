@@ -1,11 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-
-const CLASSES = ['6','7','8','9','10']
-const SECTION_MAP: Record<string, string[]> = {
-  '6': ['6A','6B','6C'], '7': ['7A','7B','7C'], '8': ['8A','8B','8C'], '9': ['9A','9B'], '10': ['10A','10B'],
-}
+import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
 
 interface SubjectComp { CQ?: string; MCQ?: string; Practical?: string; Total?: string; GPA?: string }
 interface StudentRow { [key: string]: unknown }
@@ -18,6 +14,8 @@ export default function ResultEntryPage() {
   const [subjects, setSubjects] = useState<Map<string, SubjectComp>>(new Map())
   const [students, setStudents] = useState<StudentRow[]>([])
   const [iidCol, setIidCol] = useState('iid')
+  const [classes, setClasses] = useState<string[]>([])
+  const [sectionsByClass, setSectionsByClass] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [userEmail, setUserEmail] = useState('')
@@ -55,19 +53,22 @@ export default function ResultEntryPage() {
       })
       setSubjects(smap)
     }
+
+    const meta = await loadExamAnn25Meta()
+    setClasses(meta.classes)
+    setSectionsByClass(meta.sectionsByClass)
   }
 
   const loadStudents = useCallback(async () => {
-    if (!section || !subject) { setStatus('Select section and subject'); return }
+    if (!cls || !section || !subject) { setStatus('Select class, section and subject'); return }
     setLoading(true); setStatus('Loading…')
-    const sectionCol = 'section_2025'
-    const { data, error } = await supabase.from('exam_ann25').select('*').eq(sectionCol, section).order(iidCol, { ascending: true })
+    const { data, error } = await supabase.from('exam_ann25').select('*').eq('class_2025', cls).eq('section_2025', section).order(iidCol, { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     setStudents((data ?? []) as StudentRow[])
     editRef.current = {}
-    setStatus(`${data?.length ?? 0} students`)
+    setStatus(`${data?.length ?? 0} students for Class ${cls} / Section ${section}`)
     setLoading(false)
-  }, [section, subject, iidCol])
+  }, [cls, section, subject, iidCol])
 
   useEffect(() => { if (section && subject) loadStudents() }, [section, subject, loadStudents])
 
@@ -99,7 +100,7 @@ export default function ResultEntryPage() {
   }
 
   const comps = subjects.get(subject)
-  const sections = cls ? SECTION_MAP[cls] ?? [] : []
+  const sections = cls ? sectionsByClass[cls] ?? [] : []
 
   return (
     <div style={{ fontFamily: 'var(--font-family)', background: '#f6f8fa', minHeight: '100vh' }}>
@@ -116,7 +117,7 @@ export default function ResultEntryPage() {
               <label style={{ display: 'block', fontSize: '12px', color: '#555', marginBottom: '4px' }}>Class</label>
               <select value={cls} onChange={e => { setCls(e.target.value); setSection('') }} style={{ minWidth: '120px' }}>
                 <option value="">Select</option>
-                {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
+                {classes.map(c => <option key={c} value={c}>Class {c}</option>)}
               </select>
             </div>
             <div>

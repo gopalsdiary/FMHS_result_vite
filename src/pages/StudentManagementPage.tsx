@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
+import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
 import PageShell from '@/components/PageShell'
 
 interface Student {
@@ -9,6 +10,7 @@ interface Student {
   father_name_en?: string
   father_mobile?: string
   roll_2025?: string | number
+  class_2025?: string | null
   section_2025: string
   gpa_final?: number | string | null
   count_absent?: string | number | null
@@ -16,14 +18,15 @@ interface Student {
   remark?: string | null
 }
 
-const SECTIONS = ['6A', '6B', '6C', '7A', '7B', '7C', '8A', '8B', '8C', '9A', '9B', '10A', '10B']
-
 export default function StudentManagementPage() {
   const navigate = useNavigate()
   const [students, setStudents] = useState<Student[]>([])
   const [filtered, setFiltered] = useState<Student[]>([])
   const [search, setSearch] = useState('')
+  const [classFilter, setClassFilter] = useState('')
   const [sectionFilter, setSectionFilter] = useState('')
+  const [classes, setClasses] = useState<string[]>([])
+  const [sectionsByClass, setSectionsByClass] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -35,13 +38,17 @@ export default function StudentManagementPage() {
       if (!user) { navigate('/login', { replace: true }); return }
       loadStudents()
     })
+    loadExamAnn25Meta().then(meta => {
+      setClasses(meta.classes)
+      setSectionsByClass(meta.sectionsByClass)
+    })
   }, [navigate])
 
   async function loadStudents() {
     setLoading(true)
     const { data, error } = await supabase
       .from('exam_ann25')
-      .select('iid, student_name_en, father_name_en, father_mobile, roll_2025, section_2025, gpa_final, count_absent, class_rank, remark')
+      .select('iid, student_name_en, father_name_en, father_mobile, roll_2025, class_2025, section_2025, gpa_final, count_absent, class_rank, remark')
       .order('section_2025', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const list = (data ?? []) as Student[]
@@ -55,10 +62,11 @@ export default function StudentManagementPage() {
     const q = search.toLowerCase()
     setFiltered(students.filter(s => {
       const matchSearch = !q || s.student_name_en.toLowerCase().includes(q) || String(s.roll_2025 ?? '').includes(q) || s.iid.toLowerCase().includes(q) || (s.father_mobile ?? '').includes(q)
+      const matchClass = !classFilter || String(s.class_2025 ?? '') === classFilter
       const matchSection = !sectionFilter || s.section_2025 === sectionFilter
-      return matchSearch && matchSection
+      return matchSearch && matchClass && matchSection
     }))
-  }, [search, sectionFilter, students])
+  }, [search, classFilter, sectionFilter, students])
 
   async function saveStudent() {
     const payload = {
@@ -67,6 +75,7 @@ export default function StudentManagementPage() {
       father_name_en: String(editStudent.father_name_en ?? '').trim(),
       father_mobile: String(editStudent.father_mobile ?? '').trim(),
       roll_2025: editStudent.roll_2025 === '' || editStudent.roll_2025 === undefined ? null : editStudent.roll_2025,
+      class_2025: String(editStudent.class_2025 ?? '').trim() || null,
       section_2025: String(editStudent.section_2025 ?? '').trim(),
     }
 
@@ -118,9 +127,13 @@ export default function StudentManagementPage() {
           <div className="card" style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
               <input type="text" placeholder="Search name, roll, IID, mobile…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: '1 1 200px' }} />
+              <select value={classFilter} onChange={e => { setClassFilter(e.target.value); setSectionFilter('') }}>
+                <option value="">All Classes</option>
+                {classes.map(c => <option key={c} value={c}>Class {c}</option>)}
+              </select>
               <select value={sectionFilter} onChange={e => setSectionFilter(e.target.value)}>
                 <option value="">All Sections</option>
-                {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                {(classFilter ? sectionsByClass[classFilter] ?? [] : Array.from(new Set(students.map(s => s.section_2025))).sort()).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <button className="btn btn-success" onClick={openAdd}>➕ Add Student</button>
               <button className="btn btn-secondary" onClick={loadStudents}>🔄 Refresh</button>
@@ -136,7 +149,7 @@ export default function StudentManagementPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>#</th><th>IID</th><th>Student Name</th><th>Roll</th><th>Section</th><th>Father Name</th><th>Mobile</th><th>GPA</th><th>Actions</th>
+                    <th>#</th><th>IID</th><th>Student Name</th><th>Roll</th><th>Class</th><th>Section</th><th>Father Name</th><th>Mobile</th><th>GPA</th><th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -146,6 +159,7 @@ export default function StudentManagementPage() {
                       <td>{s.iid}</td>
                       <td style={{ fontWeight: 500 }}>{s.student_name_en}</td>
                       <td style={{ textAlign: 'center' }}>{s.roll_2025 ?? '—'}</td>
+                      <td style={{ textAlign: 'center' }}>{s.class_2025 ?? '—'}</td>
                       <td style={{ textAlign: 'center' }}>{s.section_2025}</td>
                       <td>{s.father_name_en ?? '—'}</td>
                       <td>{s.father_mobile ?? '—'}</td>
@@ -173,11 +187,12 @@ export default function StudentManagementPage() {
                   </div>
                 ))}
                 <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Class</label>
+                  <input type="text" value={String(editStudent.class_2025 ?? '')} onChange={e => setEditStudent(p => ({ ...p, class_2025: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Section</label>
-                  <select value={String(editStudent.section_2025 ?? '')} onChange={e => setEditStudent(p => ({ ...p, section_2025: e.target.value }))} style={{ width: '100%' }}>
-                    <option value="">Select Section</option>
-                    {SECTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <input type="text" value={String(editStudent.section_2025 ?? '')} onChange={e => setEditStudent(p => ({ ...p, section_2025: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
                   <button onClick={() => setShowModal(false)} style={{ padding: '8px 20px', background: '#6a737d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>

@@ -1,11 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
-
-const CLASSES = ['6','7','8','9','10']
-const SECTION_MAP: Record<string, string[]> = {
-  '6': ['6A','6B','6C'], '7': ['7A','7B','7C'], '8': ['8A','8B','8C'], '9': ['9A','9B'], '10': ['10A','10B'],
-}
+import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
 
 interface SubjectComp { CQ?: string; MCQ?: string; Practical?: string; Total?: string; GPA?: string }
 interface StudentRow { [key: string]: unknown }
@@ -18,6 +14,8 @@ export default function ResultEntryAdminPage() {
   const [subjects, setSubjects] = useState<Map<string, SubjectComp>>(new Map())
   const [students, setStudents] = useState<StudentRow[]>([])
   const [iidCol, setIidCol] = useState('iid')
+  const [classes, setClasses] = useState<string[]>([])
+  const [sectionsByClass, setSectionsByClass] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const editRef = useRef<Record<string, Record<string, unknown>>>({})
@@ -46,18 +44,22 @@ export default function ResultEntryAdminPage() {
       })
       setSubjects(smap)
     }
+
+    const meta = await loadExamAnn25Meta()
+    setClasses(meta.classes)
+    setSectionsByClass(meta.sectionsByClass)
   }
 
   const loadStudents = useCallback(async () => {
-    if (!section || !subject) { setStatus('Select section and subject'); return }
+    if (!cls || !section || !subject) { setStatus('Select class, section and subject'); return }
     setLoading(true); setStatus('Loading…')
-    const { data, error } = await supabase.from('exam_ann25').select('*').eq('section_2025', section).order(iidCol, { ascending: true })
+    const { data, error } = await supabase.from('exam_ann25').select('*').eq('class_2025', cls).eq('section_2025', section).order(iidCol, { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     setStudents((data ?? []) as StudentRow[])
     editRef.current = {}
-    setStatus(`${data?.length ?? 0} students loaded`)
+    setStatus(`${data?.length ?? 0} students loaded for Class ${cls} / Section ${section}`)
     setLoading(false)
-  }, [section, subject, iidCol])
+  }, [cls, section, subject, iidCol])
 
   useEffect(() => { if (section && subject) loadStudents() }, [section, subject, loadStudents])
 
@@ -89,7 +91,7 @@ export default function ResultEntryAdminPage() {
   }
 
   const comps = subjects.get(subject)
-  const sections = cls ? SECTION_MAP[cls] ?? [] : []
+  const sections = cls ? sectionsByClass[cls] ?? [] : []
 
   return (
     <div style={{ fontFamily: 'var(--font-family)', background: '#f6f8fa', minHeight: '100vh' }}>
@@ -105,7 +107,7 @@ export default function ResultEntryAdminPage() {
               <label style={{ display: 'block', fontSize: '12px', color: '#555', marginBottom: '4px' }}>Class</label>
               <select value={cls} onChange={e => { setCls(e.target.value); setSection('') }}>
                 <option value="">Select</option>
-                {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
+                {classes.map(c => <option key={c} value={c}>Class {c}</option>)}
               </select>
             </div>
             <div>
@@ -142,6 +144,8 @@ export default function ResultEntryAdminPage() {
                 <tr style={{ background: '#1a1a2e', color: '#fff' }}>
                   <th style={{ border: '1px solid #444', padding: '8px', textAlign: 'center' }}>IID</th>
                   <th style={{ border: '1px solid #444', padding: '8px' }}>Name</th>
+                  <th style={{ border: '1px solid #444', padding: '8px', textAlign: 'center' }}>Class</th>
+                  <th style={{ border: '1px solid #444', padding: '8px', textAlign: 'center' }}>Section</th>
                   <th style={{ border: '1px solid #444', padding: '8px', textAlign: 'center' }}>Roll</th>
                   {comps.CQ && <th style={{ border: '1px solid #444', padding: '8px', textAlign: 'center' }}>CQ</th>}
                   {comps.MCQ && <th style={{ border: '1px solid #444', padding: '8px', textAlign: 'center' }}>MCQ</th>}
@@ -153,12 +157,16 @@ export default function ResultEntryAdminPage() {
               <tbody>
                 {students.map((row, ri) => {
                   const iid = String(row[iidCol] ?? '')
-                  const nameCol = Object.keys(row).find(k => /student_name_en/i.test(k)) ?? Object.keys(row).find(k => /student_name|name/i.test(k)) ?? 'name'
-                  const rollCol = Object.keys(row).find(k => /roll_2025/i.test(k)) ?? Object.keys(row).find(k => /roll/i.test(k)) ?? 'roll'
+                  const classCol = Object.keys(row).find(k => /class_2025/i.test(k)) ?? 'class_2025'
+                  const sectionCol = Object.keys(row).find(k => /section_2025/i.test(k)) ?? 'section_2025'
+                  const nameCol = Object.keys(row).find(k => /student_name_en/i.test(k)) ?? Object.keys(row).find(k => /student_name|name/i.test(k)) ?? 'student_name_en'
+                  const rollCol = Object.keys(row).find(k => /roll_2025/i.test(k)) ?? 'roll_2025'
                   return (
                     <tr key={iid} style={{ background: ri % 2 === 0 ? '#fff' : '#f9fafb' }}>
                       <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{iid}</td>
                       <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px' }}>{String(row[nameCol] ?? '')}</td>
+                      <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{String(row[classCol] ?? '')}</td>
+                      <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{String(row[sectionCol] ?? '')}</td>
                       <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{String(row[rollCol] ?? '')}</td>
                       {comps.CQ && <td style={{ border: '1px solid #e1e4e8', padding: '2px' }}><input type="number" defaultValue={row[comps.CQ!] !== null && row[comps.CQ!] !== undefined ? String(row[comps.CQ!]) : ''} onChange={e => handleEdit(iid, comps.CQ!, e.target.value)} style={{ width: '60px', padding: '4px', border: '1px solid #ccc', borderRadius: '3px', textAlign: 'center', fontSize: '12px' }} /></td>}
                       {comps.MCQ && <td style={{ border: '1px solid #e1e4e8', padding: '2px' }}><input type="number" defaultValue={row[comps.MCQ!] !== null && row[comps.MCQ!] !== undefined ? String(row[comps.MCQ!]) : ''} onChange={e => handleEdit(iid, comps.MCQ!, e.target.value)} style={{ width: '60px', padding: '4px', border: '1px solid #ccc', borderRadius: '3px', textAlign: 'center', fontSize: '12px' }} /></td>}

@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { supabase } from '@/lib/supabaseClient'
 
+const LETTERHEAD_IMAGE = 'https://storage.googleapis.com/glide-prod.appspot.com/uploads-v2/tFCNijuby2oapSCgvrQ8/pub/aT4p92D1bGZMP8sh1wZN.png'
+
 interface SubjectRow { subject: string; cq: string; mcq: string; practical: string; total: string; gpa: string }
 interface StudentInfo {
   iid: string
@@ -166,7 +168,12 @@ export default function StudentDetailsPage() {
       </div>
 
       <div style={{ textAlign: 'center', borderBottom: '3px double #000', paddingBottom: '12px', marginBottom: '16px' }}>
-        <img src="/pad.png" alt="" style={{ height: '60px', marginBottom: '4px' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        <img
+          src={LETTERHEAD_IMAGE}
+          alt=""
+          style={{ display: 'block', maxWidth: '100%', width: '100%', height: 'auto', margin: '0 auto 4px' }}
+          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+        />
         <div style={{ fontSize: '14px', color: '#444' }}>Annual Examination — 2025</div>
         <div className="report-title">RESULT MARKSHEET</div>
       </div>

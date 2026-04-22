@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabaseClient'
 import { handleLogout } from '@/lib/authHelper'
+import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
 import type { User } from '@supabase/supabase-js'
 
 interface PrintStudent {
@@ -27,14 +28,13 @@ interface SubjectMark {
   absent?: boolean
 }
 
-const CLASS_OPTIONS = ['6', '7', '8', '9', '10']
-const SECTION_OPTIONS = ['A', 'B', 'C', 'D', 'E']
-
 export default function PrintResultsPage() {
   const navigate = useNavigate()
   const [user, setUser] = useState<User | null>(null)
   const [classVal, setClassVal] = useState('')
   const [sectionVal, setSectionVal] = useState('')
+  const [classOptions, setClassOptions] = useState<string[]>([])
+  const [sectionsByClass, setSectionsByClass] = useState<Record<string, string[]>>({})
   const [sortByRank, setSortByRank] = useState(false)
   const [students, setStudents] = useState<PrintStudent[]>([])
   const [loading, setLoading] = useState(false)
@@ -45,16 +45,20 @@ export default function PrintResultsPage() {
       if (!user) { navigate('/login', { replace: true }); return }
       setUser(user)
     })
+    loadExamAnn25Meta().then(meta => {
+      setClassOptions(meta.classes)
+      setSectionsByClass(meta.sectionsByClass)
+    })
   }, [navigate])
 
   const loadStudents = useCallback(async () => {
     if (!classVal || !sectionVal) { setStatus('Please select class and section'); return }
-    const section = `${classVal}${sectionVal}`
     setLoading(true); setStatus('Loading…')
     const { data, error } = await supabase
       .from('exam_ann25')
       .select('iid, student_name_en, father_name_en, father_mobile, roll_2025, section_2025, gpa_final, remark, class_rank')
-      .eq('section_2025', section)
+      .eq('class_2025', classVal)
+      .eq('section_2025', sectionVal)
       .order('roll_2025', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     let list = (data ?? []) as PrintStudent[]
@@ -63,6 +67,8 @@ export default function PrintResultsPage() {
     setStatus(`Loaded ${list.length} students`)
     setLoading(false)
   }, [classVal, sectionVal, sortByRank])
+
+  const sectionOptions = classVal ? sectionsByClass[classVal] ?? [] : []
 
   if (!user) return <div className="spinner" style={{ marginTop: '80px' }} />
 
@@ -85,14 +91,14 @@ export default function PrintResultsPage() {
               <label>Class</label>
               <select value={classVal} onChange={e => setClassVal(e.target.value)} style={{ minWidth: '120px' }}>
                 <option value="">Select Class</option>
-                {CLASS_OPTIONS.map(c => <option key={c} value={c}>Class {c}</option>)}
+                {classOptions.map(c => <option key={c} value={c}>Class {c}</option>)}
               </select>
             </div>
             <div>
               <label>Section</label>
               <select value={sectionVal} onChange={e => setSectionVal(e.target.value)} style={{ minWidth: '120px' }}>
                 <option value="">Select Section</option>
-                {SECTION_OPTIONS.map(s => <option key={s} value={s}>Section {s}</option>)}
+                {sectionOptions.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500 }}>

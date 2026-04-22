@@ -122,7 +122,7 @@ export default function SubjectGpaPage() {
         const gpaRaw = c.GPA ? row[c.GPA] : null
         const hasAny = cq > 0 || mcq > 0 || practical > 0 || total > 0 || (typeof gpaRaw === 'string' && gpaRaw.trim().toUpperCase() === 'F')
         if (!hasAny) return
-        parsed.push({ iid: String(row[iidCol] ?? ''), name: String(row.student_name ?? row.name ?? ''), roll: row.roll as string, cq, mcq, practical, total, gpa: gpaRaw as string | null, originalRow: row as Record<string, unknown> })
+        parsed.push({ iid: String(row[iidCol] ?? ''), name: String(row.student_name_en ?? ''), roll: row.roll_2025 as string, cq, mcq, practical, total, gpa: gpaRaw as string | null, originalRow: row as Record<string, unknown> })
       })
     } else {
       const subs = subjInfo.subjects
@@ -135,7 +135,7 @@ export default function SubjectGpaPage() {
         const gpaRaw = firstPaper.components.GPA ? row[firstPaper.components.GPA] : null
         const hasGpa = (typeof gpaRaw === 'string' && gpaRaw.trim().toUpperCase() === 'F') || Number(gpaRaw) > 0
         if (!hasGpa && t1 <= 0 && t2 <= 0) return
-        parsed.push({ iid: String(row[iidCol] ?? ''), name: String(row.student_name ?? row.name ?? ''), roll: row.roll as string, cq: 0, mcq: 0, practical: 0, total: convertedTotal, gpa: gpaRaw as string | null, originalRow: row as Record<string, unknown> })
+        parsed.push({ iid: String(row[iidCol] ?? ''), name: String(row.student_name_en ?? ''), roll: row.roll_2025 as string, cq: 0, mcq: 0, practical: 0, total: convertedTotal, gpa: gpaRaw as string | null, originalRow: row as Record<string, unknown> })
       })
     }
 
@@ -270,6 +270,7 @@ export default function SubjectGpaPage() {
                 <thead>
                   <tr>
                     <th>IID</th>
+                    <th>Roll</th><th>Name</th>
                     <th>CQ</th><th>MCQ</th><th>Practical</th>
                     <th>Total</th><th>GPA</th>
                     <th>Action</th>
@@ -279,6 +280,8 @@ export default function SubjectGpaPage() {
                   {data.map((row, i) => (
                     <tr key={row.iid}>
                       <td>{row.iid}</td>
+                      <td>{row.roll || '—'}</td>
+                      <td style={{ textAlign: 'left' }}>{row.name || '—'}</td>
                       <td>{row.cq || '—'}</td>
                       <td>{row.mcq || '—'}</td>
                       <td>{row.practical || '—'}</td>
