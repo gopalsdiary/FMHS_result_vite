@@ -1,0 +1,128 @@
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+:root {
+  --primary: #667eea;
+  --primary-dark: #5a67d8;
+  --secondary: #764ba2;
+  --accent: #667eea;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #1a202c;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --radius: 12px;
+  --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 { font-weight: 700; line-height: 1.25; }
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Utility ────────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+.hidden { display: none !important; }
+
+/* ── Common card ────────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+/* ── Button base ────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.25s ease;
+}
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; }
+.btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-danger  { background: var(--danger);  color: #fff; }
+.btn-secondary { background: #e2e8f0; color: var(--text); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
+
+/* ── Form elements ──────────────────────────────────────────────────────── */
+input[type="text"], input[type="email"], input[type="password"],
+input[type="number"], select, textarea {
+  width: 100%; padding: 10px 14px;
+  border: 2px solid var(--border); border-radius: 8px;
+  font-size: 14px; font-family: var(--font-family);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fff;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+}
+label { font-weight: 600; font-size: 14px; color: var(--text); display: block; margin-bottom: 6px; }
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+.table-responsive { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: var(--bg); font-weight: 600; position: sticky; top: 0; z-index: 1; }
+tbody tr:hover { background: rgba(102,126,234,0.04); }
+
+/* ── Status / Alerts ────────────────────────────────────────────────────── */
+.alert { padding: 12px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; }
+.alert-error   { background: #fef2f2; color: #b91c1c; border-left: 4px solid var(--danger); }
+.alert-success { background: #f0fdf4; color: #166534; border-left: 4px solid var(--success); }
+.alert-info    { background: #eff6ff; color: #1e40af; border-left: 4px solid var(--info); }
+.alert-warning { background: #fffbeb; color: #92400e; border-left: 4px solid var(--warning); }
+
+/* ── Loading spinner ────────────────────────────────────────────────────── */
+.spinner {
+  width: 40px; height: 40px; border: 4px solid var(--border);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 40px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Header / Sidebar layout ────────────────────────────────────────────── */
+.app-header {
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+  padding: 16px 32px;
+  display: flex; justify-content: space-between; align-items: center;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  position: sticky; top: 0; z-index: 100;
+}
+.app-logo {
+  font-size: 1.4rem; font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  background-clip: text; -webkit-background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+}
+
+/* ── Print helpers ──────────────────────────────────────────────────────── */
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}
