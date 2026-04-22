@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import PageShell from '@/components/PageShell'
+import { supabase } from '@/services/supabaseClient'
+import PageShell from '@/layout/PageShell'
 
 interface DetectedSubject { name: string; hasCQ: boolean; hasMCQ: boolean; hasPractical: boolean; hasTotal: boolean; hasGPA: boolean }
 

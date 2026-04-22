@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import PageShell from '@/components/PageShell'
+import { supabase } from '@/services/supabaseClient'
+import PageShell from '@/layout/PageShell'
 
 interface ResultRow { [key: string]: unknown }
 

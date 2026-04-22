@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import PageShell from '@/components/PageShell'
+import { supabase } from '@/services/supabaseClient'
+import PageShell from '@/layout/PageShell'
 
 const SECTIONS = ['6A','6B','6C','7A','7B','7C','8A','8B','8C','9A','9B','10A','10B']
 

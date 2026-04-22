@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/services/supabaseClient'
 
 export type ExamAnn25Meta = {
   classes: string[]

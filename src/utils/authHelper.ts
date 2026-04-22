@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js'
-import { supabase } from './supabaseClient'
+import { supabase } from '@/services/supabaseClient'
 
 /**
  * Returns the currently authenticated user, or null if not signed in.

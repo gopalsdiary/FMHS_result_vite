@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import { handleLogout } from '@/lib/authHelper'
-import { ADMIN_DASHBOARD_PATH, TEACHER_DASHBOARD_PATH, isAdminEmail } from '@/lib/userAccess'
+import { supabase } from '@/services/supabaseClient'
+import { handleLogout } from '@/utils/authHelper'
+import { ADMIN_DASHBOARD_PATH, TEACHER_DASHBOARD_PATH, isAdminEmail } from '@/utils/userAccess'
 import type { User } from '@supabase/supabase-js'
 
 interface PageShellProps {

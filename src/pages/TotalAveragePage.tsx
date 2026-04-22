@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import PageShell from '@/components/PageShell'
+import { supabase } from '@/services/supabaseClient'
+import PageShell from '@/layout/PageShell'
 
 interface StudentRow extends Record<string, unknown> {
   iid: string

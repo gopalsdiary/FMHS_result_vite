@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
-import { buildResultEntryDraftKey, clearResultEntryDrafts, readResultEntryDrafts, upsertResultEntryDraft } from '@/lib/resultEntryDrafts'
-import { TEACHER_RESULT_ENTRY_PATH, isAdminEmail } from '@/lib/userAccess'
+import { supabase } from '@/services/supabaseClient'
+import { loadExamAnn25Meta } from '@/services/examAnn25Meta'
+import { buildResultEntryDraftKey, clearResultEntryDrafts, readResultEntryDrafts, upsertResultEntryDraft } from '@/utils/resultEntryDrafts'
+import { TEACHER_RESULT_ENTRY_PATH, isAdminEmail } from '@/utils/userAccess'
 
 interface SubjectComp { CQ?: string; MCQ?: string; Practical?: string; Total?: string; GPA?: string }
 interface StudentRow { [key: string]: unknown }

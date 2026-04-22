@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import { getPostLoginRedirect } from '@/lib/userAccess'
+import { supabase } from '@/services/supabaseClient'
+import { getPostLoginRedirect } from '@/utils/userAccess'
 
 /** Teacher login — same Supabase auth, different redirect target. */
 export default function LoginTeacherPage() {

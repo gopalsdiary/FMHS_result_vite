@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
+import { supabase } from '@/services/supabaseClient'
+import { loadExamAnn25Meta } from '@/services/examAnn25Meta'
 
 interface Student {
   iid: string

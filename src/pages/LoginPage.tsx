@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import { getPostLoginRedirect } from '@/lib/userAccess'
+import { supabase } from '@/services/supabaseClient'
+import { getPostLoginRedirect } from '@/utils/userAccess'
 
 export default function LoginPage() {
   const navigate = useNavigate()

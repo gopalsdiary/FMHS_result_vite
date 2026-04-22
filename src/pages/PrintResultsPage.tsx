@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import { handleLogout } from '@/lib/authHelper'
-import { loadExamAnn25Meta } from '@/lib/examAnn25Meta'
+import { supabase } from '@/services/supabaseClient'
+import { handleLogout } from '@/utils/authHelper'
+import { loadExamAnn25Meta } from '@/services/examAnn25Meta'
 import type { User } from '@supabase/supabase-js'
 
 interface PrintStudent {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabaseClient'
-import { handleLogout } from '@/lib/authHelper'
-import { TEACHER_DASHBOARD_PATH, isAdminEmail } from '@/lib/userAccess'
+import { supabase } from '@/services/supabaseClient'
+import { handleLogout } from '@/utils/authHelper'
+import { TEACHER_DASHBOARD_PATH, isAdminEmail } from '@/utils/userAccess'
 import type { User } from '@supabase/supabase-js'
 
 interface DashboardCard {
