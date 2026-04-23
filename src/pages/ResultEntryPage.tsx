@@ -196,6 +196,15 @@ export default function ResultEntryPage() {
     await loadStudents()
   }
 
+  const resetData = () => {
+    if (students.length === 0) return
+    if (window.confirm('Are you sure you want to discard all unsaved changes and reload from database?')) {
+      editRef.current = {}
+      clearResultEntryDrafts(draftStorageKey)
+      loadStudents()
+    }
+  }
+
   const comps = subjects.get(subject)
   const sections = cls ? sectionsByClass[cls] ?? [] : []
   const firstRow = students[0]
@@ -338,6 +347,9 @@ export default function ResultEntryPage() {
             <button onClick={saveAll} style={{ padding: '8px 14px', background: '#1a7f37', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }} disabled={students.length === 0}>
               💾 Save All
             </button>
+            <button onClick={resetData} style={{ padding: '8px 14px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }} disabled={students.length === 0}>
+              🔄 Reset
+            </button>
             <button
               onClick={() => setShowIid(prev => !prev)}
               style={{ padding: '8px 14px', background: showIid ? '#dbeafe' : '#fff', color: '#0366d6', border: '1px solid #0366d6', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
@@ -360,7 +372,7 @@ export default function ResultEntryPage() {
           <div style={{ overflowX: isMobile ? 'hidden' : 'auto', border: '1px solid #d0d7de', borderRadius: '10px', background: '#fff' }}>
             <table key={tableVersion} style={tableStyle}>
               <thead>
-                <tr style={{ background: '#f0f3f6' }}>
+                <tr style={{ background: '#f0f3f6', color: '#000' }}>
                   {showIid && <th style={{ border: '1px solid #d0d7de', padding: headerPadding, textAlign: 'center', fontSize: isMobile ? '9px' : '13px', lineHeight: 1.1 }}>IID</th>}
                   {showNames && <th style={{ border: '1px solid #d0d7de', padding: headerPadding, fontSize: isMobile ? '9px' : '13px', lineHeight: 1.1 }}>Name</th>}
                   <th style={{ border: '1px solid #d0d7de', padding: headerPadding, textAlign: 'center', fontSize: isMobile ? '9px' : '13px', lineHeight: 1.1 }}>Roll</th>

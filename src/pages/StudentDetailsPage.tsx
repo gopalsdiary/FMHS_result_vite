@@ -15,6 +15,7 @@ interface StudentInfo {
   fatherName?: string
   motherName?: string
   mobile?: string
+  examName?: string
 }
 
 function pickVal(row: Record<string, unknown>, candidates: string[]): string {
@@ -56,6 +57,7 @@ export default function StudentDetailsPage() {
       fatherName: pickVal(row, ['father_name_en', 'father_name', 'fatherName']),
       motherName: pickVal(row, ['mother_name_en', 'mother_name', 'motherName']),
       mobile: pickVal(row, ['father_mobile', 'mobile', 'Mobile', 'phone']),
+      examName: pickVal(row, ['exam_name_year', 'exam_name', 'examName']),
     }
     setInfo(studentInfo)
 
@@ -84,14 +86,22 @@ export default function StudentDetailsPage() {
     }
     setSubjects(subjectRows)
 
-    try {
-      const qrUrl = `${window.location.origin}/student-details?IID=${encodeURIComponent(iid)}`
-      const dataUrl = await QRCode.toDataURL(qrUrl, { width: 150, margin: 1 })
-      if (qrRef.current) qrRef.current.src = dataUrl
-    } catch { /* ignore qr errors */ }
-
     setLoading(false)
   }
+
+  useEffect(() => {
+    if (!info || !qrRef.current) return
+    const generateQR = async () => {
+      try {
+        const qrUrl = `${window.location.origin}/student-details?IID=${encodeURIComponent(iid)}`
+        const dataUrl = await QRCode.toDataURL(qrUrl, { width: 150, margin: 1 })
+        if (qrRef.current) qrRef.current.src = dataUrl
+      } catch (err) {
+        console.error('QR generation error:', err)
+      }
+    }
+    generateQR()
+  }, [info, iid])
 
   if (loading) return <div style={{ textAlign: 'center', padding: '60px' }}><div className="spinner" /></div>
   if (error) return (
@@ -106,160 +116,150 @@ export default function StudentDetailsPage() {
   const numericGpas = gpas.filter(g => g !== 'F' && !isNaN(Number(g))).map(Number)
   const finalGpa = hasF ? 'F' : numericGpas.length > 0 ? (numericGpas.reduce((a, b) => a + b, 0) / numericGpas.length).toFixed(2) : '—'
 
+  const totalMark = subjects.reduce((sum, s) => sum + (Number(s.total) || 0), 0)
+  const avgMark = subjects.length > 0 ? (totalMark / subjects.length).toFixed(0) : '0'
+  const failCount = subjects.filter(s => s.gpa === 'F').length
+  const remark = failCount > 0 ? `fail: ${failCount}` : 'Pass'
+
   return (
-    <div style={{ fontFamily: "'Times New Roman', serif", background: '#fff', maxWidth: '850px', margin: '20px auto', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', borderRadius: '8px' }}>
-      <style>{`
-        .no-print { display: block; }
-        @media print { .no-print { display:none !important; } body { margin:0; } }
-        .report-title { font-size: 1.5em; font-weight: bold; color: #d32f2f; text-align: center; margin: 15px 0; text-decoration: underline; }
-        .table-wrapper { overflow-x: auto; }
-        .marksheet-table {
-          background: linear-gradient(135deg, #f8f9fa, #ffffff);
-          border-radius: 10px;
-          overflow: hidden;
-          box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-          border: 2px solid #000000;
-          border-collapse: collapse;
-          table-layout: fixed;
-          width: 100%;
-        }
-        .marksheet-table th {
-          background: linear-gradient(135deg, #4CAF50, #45a049);
-          color: white;
-          font-weight: bold;
-          text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-          border: none;
-          padding: 12px 8px;
-        }
-        .marksheet-table th:first-child { background: linear-gradient(135deg, #2196F3, #1976D2); }
-        .marksheet-table td {
-          border: 1px solid #e0e0e0;
-          padding: 10px 8px;
-          background: #ffffff;
-          transition: all 0.3s ease;
-        }
-        .marksheet-table td:first-child {
-          background: linear-gradient(135deg, #e3f2fd, #f8f9fa);
-          font-weight: bold;
-          color: #1976D2;
-          border-left: 4px solid #2196F3;
-          white-space: normal;
-          word-break: break-word;
-          overflow-wrap: anywhere;
-        }
-        .marksheet-table tr:nth-child(odd) td { background: #ffffff; }
-        .marksheet-table tr:nth-child(odd) td:first-child { background: linear-gradient(135deg, #e3f2fd, #f8f9fa); }
-        .marksheet-table tr:nth-child(even) td { background: rgba(255, 255, 0, 0.1); }
-        .marksheet-table tr:nth-child(even) td:first-child { background: linear-gradient(135deg, #fffde7, #fff9c4); }
-        .marksheet-table tr:hover td { background: linear-gradient(135deg, #fff3e0, #ffeaa7); transform: scale(1.02); box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3); }
-        .marksheet-table tr:hover td:first-child { background: linear-gradient(135deg, #e1f5fe, #b3e5fc); border-left-color: #0277BD; }
-        .bottom-qr img { width: 150px; height: 150px; border: 1px solid #333; padding: 3px; background: white; }
-        @media print {
-          .bottom-qr { display: block !important; }
-          .bottom-qr img { width: 180px; height: 180px; }
-          .marksheet-table tr:hover td { transform: none; box-shadow: none; }
-        }
-      `}</style>
+    <div style={{ background: '#f0f2f5', minHeight: '100vh', padding: '20px 10px' }}>
+      <div style={{ fontFamily: "'Inter', sans-serif", background: '#fff', maxWidth: '800px', margin: '0 auto', padding: '40px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', borderRadius: '12px', position: 'relative' }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+          
+          .no-print { display: flex; gap: 8px; margin-bottom: 24px; }
+          @media print { 
+            .no-print { display:none !important; } 
+            body { background: #fff !important; margin: 0; padding: 0; }
+            .main-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; max-width: none !important; border-radius: 0 !important; padding: 20px !important; }
+          }
+          
+          .header-title { color: #1e3a8a; font-size: 28px; font-weight: 800; text-align: center; margin-bottom: 4px; }
+          .header-subtitle { color: #4b5563; font-size: 16px; text-align: center; margin-bottom: 12px; }
+          .exam-title { color: #dc2626; font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 30px; }
+          
+          .student-name { font-size: 24px; font-weight: 800; color: #111827; margin-bottom: 8px; text-transform: uppercase; }
+          .student-details { font-size: 15px; color: #374151; line-height: 1.5; margin-bottom: 30px; }
+          
+          .marks-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; }
+          .marks-table th { padding: 12px; font-size: 14px; font-weight: 700; color: #fff; text-align: center; background-color: #10b981; }
+          .marks-table th.subject-col { background-color: #2563eb; text-align: left; width: 35%; }
+          
+          .marks-table td { padding: 12px; border-bottom: 1px solid #f3f4f6; font-size: 15px; text-align: center; }
+          .marks-table td.subject-name { color: #2563eb; font-weight: 700; text-align: left; }
+          
+          .summary-bar { 
+            display: flex; justify-content: space-between; 
+            background-color: #f0f7ff; padding: 15px 25px; 
+            border-radius: 16px; margin-bottom: 40px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+          }
+          .summary-item { text-align: center; flex: 1; border-right: 1px solid #dbeafe; }
+          .summary-item:last-child { border-right: none; }
+          .summary-label { font-size: 12px; font-weight: 700; color: #1e3a8a; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .summary-value { font-size: 18px; font-weight: 800; color: #111827; }
+          
+          .qr-section { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; }
+          .qr-box { border: 1px solid #000; padding: 10px; display: inline-block; background: #fff; }
+          .qr-text { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+          .scan-verify { font-size: 11px; text-align: center; margin-top: 4px; font-weight: 600; }
+        `}</style>
 
-      <div className="no-print" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button onClick={() => navigate(-1)} style={{ padding: '8px 16px', background: '#6a737d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>← Back</button>
-        <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#0366d6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🖨️ Print Result</button>
-        <a href="https://modelresult.netlify.app" target="_blank" rel="noopener noreferrer" style={{ padding: '8px 16px', background: '#4caf50', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Search Result</a>
-      </div>
+        <div className="no-print">
+          <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>← Back</button>
+          <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#1e3a8a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>🖨️ Print Result</button>
+        </div>
 
-      <div style={{ textAlign: 'center', borderBottom: '3px double #000', paddingBottom: '12px', marginBottom: '16px' }}>
-        <img
-          src={LETTERHEAD_IMAGE}
-          alt=""
-          style={{ display: 'block', maxWidth: '100%', width: '100%', height: 'auto', margin: '0 auto 4px' }}
-          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-        />
-        <div style={{ fontSize: '14px', color: '#444' }}>Annual Examination — 2025</div>
-        <div className="report-title">RESULT MARKSHEET</div>
-      </div>
+        <div className="main-container">
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <img
+              src={LETTERHEAD_IMAGE}
+              alt=""
+              style={{ display: 'block', maxWidth: '100%', width: '100%', height: 'auto', margin: '0 auto 4px' }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
+          </div>
+          <div className="exam-title">{info?.examName || '1st Year Terminal Examination-2026'}</div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', gap: '16px', alignItems: 'flex-start' }}>
-        <table style={{ fontSize: '14px', flex: 1 }}>
-          <tbody>
-            <tr><td style={{ paddingRight: '8px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Student Name</td><td>: {info?.name}</td></tr>
-            <tr><td style={{ fontWeight: 'bold' }}>Father's Name</td><td>: {info?.fatherName ?? '—'}</td></tr>
-            <tr><td style={{ fontWeight: 'bold' }}>IID</td><td>: {info?.iid}</td></tr>
-            <tr><td style={{ fontWeight: 'bold' }}>Roll</td><td>: {info?.roll}</td></tr>
-            <tr><td style={{ fontWeight: 'bold' }}>Class / Section</td><td>: {info?.className} / {info?.section}</td></tr>
-          </tbody>
-        </table>
-      </div>
+          {/* Student Info */}
+          <div className="student-name">{info?.name}</div>
+          <div className="student-details">
+            <div>Father's Name: {info?.fatherName || 'N/A'}</div>
+            <div>Roll: {info?.roll} | Class: {info?.className} | Section: {info?.section}</div>
+            <div>Mobile Number: {info?.mobile || 'N/A'} | IID: {info?.iid}</div>
+          </div>
 
-      <div className="table-wrapper">
-        <table className="marksheet-table" style={{ marginBottom: '16px', fontSize: '13px' }}>
-          <thead>
-            <tr style={{ background: 'linear-gradient(135deg, #4CAF50, #45a049)', color: '#fff' }}>
-              <th style={{ padding: '10px 8px', border: '1px solid #aaa', textAlign: 'left' }}>Subject</th>
-              <th style={{ padding: '10px 8px', border: '1px solid #aaa', textAlign: 'center' }}>Written/CQ</th>
-              <th style={{ padding: '10px 8px', border: '1px solid #aaa', textAlign: 'center' }}>MCQ</th>
-              <th style={{ padding: '10px 8px', border: '1px solid #aaa', textAlign: 'center' }}>Practical</th>
-              <th style={{ padding: '10px 8px', border: '1px solid #aaa', textAlign: 'center' }}>Total</th>
-              <th style={{ padding: '10px 8px', border: '1px solid #aaa', textAlign: 'center' }}>GPA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subjects.map((s, i) => (
-              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : 'rgba(255,255,0,0.07)' }}>
-                <td style={{ padding: '9px 8px', border: '1px solid #e0e0e0', fontWeight: 'bold', color: '#1976D2', borderLeft: `4px solid hsl(${i * 25}, 70%, 50%)` }}>{s.subject}</td>
-                <td style={{ padding: '9px 8px', border: '1px solid #e0e0e0', textAlign: 'center' }}>{s.cq || '—'}</td>
-                <td style={{ padding: '9px 8px', border: '1px solid #e0e0e0', textAlign: 'center' }}>{s.mcq || '—'}</td>
-                <td style={{ padding: '9px 8px', border: '1px solid #e0e0e0', textAlign: 'center' }}>{s.practical || '—'}</td>
-                <td style={{ padding: '9px 8px', border: '1px solid #e0e0e0', textAlign: 'center', fontWeight: 600 }}>{s.total || '—'}</td>
-                <td style={{ padding: '9px 8px', border: '1px solid #e0e0e0', textAlign: 'center', fontWeight: 700, color: s.gpa === 'F' ? '#d32f2f' : '#1a7f37' }}>{s.gpa || '—'}</td>
+          {/* Table */}
+          <table className="marks-table">
+            <thead>
+              <tr>
+                <th className="subject-col">Subject</th>
+                <th className="mark-col">CQ</th>
+                <th className="mark-col">MCQ</th>
+                <th className="mark-col">Practical</th>
+                <th className="mark-col">Total</th>
+                <th className="mark-col">GPA</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {subjects.map((s, i) => (
+                <tr key={i}>
+                  <td className="subject-name">{s.subject}</td>
+                  <td>{s.cq || '-'}</td>
+                  <td>{s.mcq || '-'}</td>
+                  <td>{s.practical || '-'}</td>
+                  <td style={{ fontWeight: 700 }}>{s.total || '-'}</td>
+                  <td style={{ fontWeight: 700 }}>{s.gpa || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginTop: '16px', padding: '16px', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
-        <div style={{ fontSize: '18px' }}>
-          <strong>GPA: </strong>
-          <span style={{ fontWeight: 800, fontSize: '22px', color: hasF ? '#d32f2f' : '#1a7f37' }}>{finalGpa}</span>
-        </div>
-        <div style={{ fontSize: '16px' }}>
-          <strong>Result: </strong>
-          <span style={{ fontWeight: 700, color: hasF ? '#d32f2f' : '#1a7f37' }}>{hasF ? 'FAIL' : 'PASS'}</span>
-        </div>
-      </div>
+          {/* Summary Bar */}
+          <div className="summary-bar">
+            <div className="summary-item">
+              <div className="summary-label">Total Mark</div>
+              <div className="summary-value">{totalMark}</div>
+            </div>
+            <div className="summary-item">
+              <div className="summary-label">Avg Mark</div>
+              <div className="summary-value">{avgMark}</div>
+            </div>
+            <div className="summary-item">
+              <div className="summary-label">GPA</div>
+              <div className="summary-value">{finalGpa === 'F' ? '0' : finalGpa}</div>
+            </div>
+            <div className="summary-item">
+              <div className="summary-label">Remark</div>
+              <div className="summary-value" style={{ color: failCount > 0 ? '#dc2626' : '#10b981' }}>{remark}</div>
+            </div>
+            <div className="summary-item">
+              <div className="summary-label">Rank</div>
+              <div className="summary-value">-</div>
+            </div>
+          </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px', fontSize: '13px' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderTop: '1px solid #000', width: '120px', paddingTop: '4px' }}>Class Teacher</div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ borderTop: '1px solid #000', width: '120px', paddingTop: '4px' }}>Principal</div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '20px', gap: '16px' }}>
-        <div style={{ flex: 1, paddingRight: '20px' }}>
-          <p style={{ marginTop: '20px', fontWeight: 'bold' }}>
-            {info?.roll ? `Roll: ${info.roll} | ` : ''}
-            {info?.section ? `Section: ${info.section} | ` : ''}
-            {info?.iid ? `IID: ${info.iid}` : ''}
-          </p>
-          <p style={{ marginTop: '5px', fontWeight: 'normal', textAlign: 'left', fontSize: '0.8em' }}>নির্দেশনা :</p>
-          <p style={{ marginTop: '0px', fontWeight: 'normal', textAlign: 'left', fontSize: '0.8em' }}>
-            নতুন শিক্ষাবর্ষে জানুয়ারির ১ম সপ্তাহে নতুন শ্রেণিতে ভর্তি হয়ে নতুন বই সংগ্রহ করতে হবে।
-            ভর্তির সময় মার্কশীটের ফটোকপি অবশ্যই আনতে হবে।
-          </p>
-          <p style={{ marginTop: '0px', fontWeight: 'normal', textAlign: 'left', fontSize: '0.8em' }}>
-            গ্রহণযোগ্য কারণ উল্লেখ করে প্রয়োজনীয় ক্ষেত্রে অগ্রিম ছুটি নিতে হবে। পূর্বানুমতি ছাড়া এক
-            টানা ১০ দিন ক্লাসে অনুপস্থিত থাকলে হাজিরা বহিতে নাম কাটা যাবে।
-          </p>
-          <p style={{ marginTop: '10px', fontWeight: 'normal', textAlign: 'left', fontSize: '0.8em' }}>
-            Verify this result by scanning the QR code.
-          </p>
-        </div>
-        <div className="bottom-qr" style={{ flexShrink: 0, textAlign: 'center' }}>
-          <img ref={qrRef} alt="QR Code" />
-          <div style={{ fontSize: '8pt', textAlign: 'center', marginTop: '3px' }}>Scan for verify</div>
+          {/* QR and Footer */}
+          <div className="qr-section">
+            <div style={{ flex: 1, paddingRight: '40px', fontSize: '13px', color: '#374151', lineHeight: '1.6' }}>
+              <div style={{ fontWeight: 700, marginBottom: '8px' }}>নির্দেশনা :</div>
+              <p style={{ marginBottom: '8px' }}>
+                নতুন শিক্ষাবর্ষে জানুয়ারির ১ম সপ্তাহে নতুন শ্রেণিতে ভর্তি হয়ে নতুন বই সংগ্রহ করতে হবে। 
+                ভর্তির সময় মার্কশীটের ফটোকপি অবশ্যই আনতে হবে।
+              </p>
+              <p>
+                গ্রহণযোগ্য কারণ উল্লেখ করে প্রয়োজনীয় ক্ষেত্রে অগ্রিম ছুটি নিতে হবে। 
+                পূর্বানুমতি ছাড়া এক টানা ১০ দিন ক্লাসে অনুপস্থিত থাকলে হাজিরা বহিতে নাম কাটা যাবে।
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div className="qr-box">
+                <img ref={qrRef} alt="QR Code" style={{ width: '120px', height: '120px' }} />
+              </div>
+              <div className="scan-verify">Scan for verify</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
