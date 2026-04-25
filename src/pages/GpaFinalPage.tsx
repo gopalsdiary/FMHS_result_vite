@@ -5,6 +5,13 @@ import PageShell from '@/layout/PageShell'
 
 interface SubjectMap { Total?: string; GPA?: string }
 
+interface ClassSubjectInfo {
+  subject_code: string
+  class: number
+  is_fourth_subject: boolean
+  exclude_from_rank: boolean
+}
+
 interface StudentRow extends Record<string, unknown> {
   id: number
   exam_id: number | null
@@ -18,6 +25,8 @@ interface StudentRow extends Record<string, unknown> {
   gpa_final: string | number | null
   class_rank: number | null
   remark: string | null
+  optional_subject?: string | null
+  _rank_total?: number | null // total marks excluding exclude_from_rank subjects (for ranking only)
   // DB snapshots
   _db_gpa: string | number | null
   _db_rank: number | null
@@ -55,6 +64,8 @@ export default function GpaFinalPage() {
   const [rowSaving, setRowSaving] = useState<Record<number, boolean>>({})
   const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
   const [subjectRules, setSubjectRules] = useState<any[]>([])
+  const [classSubjectInfo, setClassSubjectInfo] = useState<ClassSubjectInfo[]>([])
+  const [optionalSubjectMap, setOptionalSubjectMap] = useState<Record<string, string>>({}) // iid -> optional_subject
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -74,6 +85,43 @@ export default function GpaFinalPage() {
     // Load rules for pass marks
     const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', activeExamId)
     setSubjectRules(rules || [])
+
+    // Build class-subject assignments from rules
+    const classInfo: ClassSubjectInfo[] = []
+    ;(rules || []).forEach(r => {
+      if (r.exam_class && Array.isArray(r.exam_class)) {
+        r.exam_class.forEach((c: any) => {
+          classInfo.push({
+            subject_code: r.subject_code,
+            class: Number(c.class),
+            is_fourth_subject: Boolean(c.is_fourth_subject),
+            exclude_from_rank: Boolean(c.exclude_from_rank)
+          })
+        })
+      }
+    })
+    setClassSubjectInfo(classInfo)
+
+    // Load optional_subject from student_database for all students in this exam
+    const optMap: Record<string, string> = {}
+    if (activeExamId !== null) {
+      // Get all iids from exam data first
+      const { data: iidRows } = await supabase.from('fmhs_exam_data').select('iid').eq('exam_id', activeExamId)
+      if (iidRows && iidRows.length > 0) {
+        const iids = iidRows.map(r => r.iid).filter(Boolean)
+        // Batch fetch optional_subject from student_database
+        for (let i = 0; i < iids.length; i += 500) {
+          const batch = iids.slice(i, i + 500)
+          const { data: stuData } = await supabase.from('student_database').select('iid, optional_subject').in('iid', batch)
+          if (stuData) {
+            stuData.forEach(s => {
+              if (s.optional_subject) optMap[String(s.iid)] = s.optional_subject
+            })
+          }
+        }
+      }
+    }
+    setOptionalSubjectMap(optMap)
 
     // Detect subjects from table schema
     let sampleQuery = supabase.from('fmhs_exam_data').select('*').limit(1)
@@ -147,34 +195,99 @@ export default function GpaFinalPage() {
 
   function updateCalculations(rows: StudentRow[]): StudentRow[] {
     return rows.map(student => {
+      const studentClass = Number(student.class) || 0
+      const studentIid = String(student.iid ?? '')
+      const studentOptionalSubject = optionalSubjectMap[studentIid] || ''
+
+      // Get class-specific subject assignments
+      const classAssignments = classSubjectInfo.filter(a => a.class === studentClass)
+      // Build a set of subject_codes assigned to this class
+      const assignedCodes = new Set(classAssignments.map(a => a.subject_code))
+      // Map subject_code -> is_fourth_subject / exclude_from_rank
+      const fourthSubjectCodes = new Set(classAssignments.filter(a => a.is_fourth_subject).map(a => a.subject_code))
+      const excludeFromRankCodes = new Set(classAssignments.filter(a => a.exclude_from_rank).map(a => a.subject_code))
+
+      // Map subject_code -> subject_name from rules
+      const codeToName: Record<string, string> = {}
+      subjectRules.forEach((r: any) => { codeToName[r.subject_code] = r.subject_name })
+
+      // Determine which detected subjects belong to this class
+      // A subject belongs to a class if its subject_code is in assignedCodes,
+      // or if no class assignments exist at all (fallback: include all)
+      const hasAssignments = classAssignments.length > 0
       let totalMarks = 0, validSubjects = 0
+      let rankTotalMarks = 0 // total marks excluding exclude_from_rank subjects (for ranking)
+      let attendedSubjects = 0 // for absent count (excludes 4th subject from count)
       let failCount = 0, gpaSum = 0, gpaSubjectsCount = 0
+      let expectedMainSubjects = 0 // total subjects this class should have (per student)
 
       detectedSubjects.forEach(subject => {
         const totalCol = subjectMap[subject]?.Total
         const gpaCol = subjectMap[subject]?.GPA
+
+        // Find the subject_code for this subject column
+        const subjectCleanName = subject.replace(/^\*+\s*/, '')
+        let subjectCode = ''
+        for (const r of subjectRules) {
+          if (r.subject_name && subjectCleanName.toLowerCase() === r.subject_name.toLowerCase()) {
+            subjectCode = r.subject_code
+            break
+          }
+        }
+
+        // If class assignments exist, skip subjects not assigned to this class
+        if (hasAssignments && subjectCode && !assignedCodes.has(subjectCode)) return
+
+        // Check if this is a 4th subject for this class
+        const isClassFourthSubject = subjectCode ? fourthSubjectCodes.has(subjectCode) : false
+        // Check if excluded from rank
+        const isExcludedFromRank = subjectCode ? excludeFromRankCodes.has(subjectCode) : false
+
+        // Check if this subject matches the student's optional_subject (for 4th subject GPA-2 rule)
+        const isStudentFourthSubject = isClassFourthSubject && studentOptionalSubject && subjectCleanName.toLowerCase().includes(studentOptionalSubject.toLowerCase())
+
+        // If it's not excluded from rank and not this student's 4th subject, it is a main subject
+        if (!isExcludedFromRank && !isStudentFourthSubject) {
+          expectedMainSubjects++
+        }
+
         if (totalCol) {
           const marks = parseFloat(String(student[totalCol] ?? 0)) || 0
           if (marks > 0) {
-            totalMarks += marks
-            validSubjects++
+            // For ranking: exclude_from_rank subjects don't count towards total and avg
+            if (!isExcludedFromRank) {
+              totalMarks += marks
+              rankTotalMarks += marks
+              validSubjects++
+              // For absent count: 4th subject doesn't count as "attended"
+              if (!isStudentFourthSubject) {
+                attendedSubjects++
+              }
+            }
           }
         }
-        if (gpaCol) {
-          const raw = student[gpaCol]
-          const rawStr = (raw === null || raw === undefined) ? '' : String(raw).trim()
-          if (rawStr === '') return
-          const isF = rawStr.toUpperCase() === 'F'
-          const g = isF ? 0 : parseFloat(rawStr)
-          if (!isNaN(g)) {
-            gpaSum += g
-            gpaSubjectsCount++
-            if (g <= 0) failCount++
+
+        if (gpaCol && !isExcludedFromRank) {
+          const val = String(student[gpaCol] ?? '').trim()
+          if (val === 'F') {
+            if (!isStudentFourthSubject) failCount++ // Fail in 4th subject doesn't count as total fail
+          } else if (val && val !== '0' && val !== '0.00' && !isNaN(parseFloat(val))) {
+            let g = parseFloat(val)
+            if (isStudentFourthSubject) {
+              g = Math.max(0, g - 2)
+              gpaSum += g
+            } else {
+              gpaSum += g
+              gpaSubjectsCount++
+            }
           }
         }
       })
 
-      const countAbsent = Math.max(0, 9 - validSubjects)
+      // Calculate expected subject count for this class
+      let totalSubjectCount = hasAssignments ? expectedMainSubjects : detectedSubjects.length
+
+      const countAbsent = Math.max(0, totalSubjectCount - attendedSubjects)
       const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
       const remark = failCount > 0 ? `fail: ${failCount}` : ''
 
@@ -182,7 +295,9 @@ export default function GpaFinalPage() {
       if ((failCount + countAbsent) > 0) {
         gpaFinal = null
       } else if (gpaSubjectsCount > 0) {
-        const raw = Math.min(5, gpaSum / 9)
+        // Divide by total expected subjects (not hardcoded 9)
+        const divisor = totalSubjectCount > 0 ? totalSubjectCount : gpaSubjectsCount
+        const raw = Math.min(5, gpaSum / divisor)
         gpaFinal = isNaN(raw) ? null : parseFloat(raw.toFixed(2))
       }
 
@@ -193,6 +308,8 @@ export default function GpaFinalPage() {
         count_absent: countAbsent || null,
         gpa_final: gpaFinal,
         remark: remark || null,
+        optional_subject: studentOptionalSubject || null,
+        _rank_total: rankTotalMarks || null,
       }
     })
   }
@@ -211,15 +328,18 @@ export default function GpaFinalPage() {
       eligible.sort((a, b) => {
         const gA = a.gpa_final != null ? Number(a.gpa_final) : null
         const gB = b.gpa_final != null ? Number(b.gpa_final) : null
+        // Use _rank_total (excludes exclude_from_rank subjects) for tie-breaking
+        const rA = a._rank_total ?? a.total_mark ?? 0
+        const rB = b._rank_total ?? b.total_mark ?? 0
         if (gA !== null && gB !== null) {
           if (Math.abs(gA - gB) > 0.001) return gB - gA
-          if ((b.total_mark ?? 0) !== (a.total_mark ?? 0)) return (b.total_mark ?? 0) - (a.total_mark ?? 0)
+          if (rB !== rA) return rB - rA
           return (a.roll ?? 999999) - (b.roll ?? 999999)
         }
         if (gA !== null) return -1; if (gB !== null) return 1
         const fA = extractFailCount(a.remark), fB = extractFailCount(b.remark)
         if (fA !== fB) return fA - fB
-        if ((b.total_mark ?? 0) !== (a.total_mark ?? 0)) return (b.total_mark ?? 0) - (a.total_mark ?? 0)
+        if (rB !== rA) return rB - rA
         return (a.roll ?? 999999) - (b.roll ?? 999999)
       })
       eligible.forEach((s, rank) => {

@@ -39,17 +39,16 @@ interface SubjectDisplayCols {
   isCombined: boolean
 }
 
-function calculateGPA(total: number, subjectName = '', criteria: GradingCriteria): number {
+function calculateGPA(total: number, subjectName = '', criteria: GradingCriteria, fullMarks: number = 100): number {
   if (total <= 0) return 0
-  const isAgri = subjectName.toLowerCase().includes('agriculture')
+  const normalizedTotal = (total / fullMarks) * 100
   let base = 0
-  if (total >= criteria.gradeAPlus) base = 5
-  else if (total >= criteria.gradeA) base = 4
-  else if (total >= criteria.gradeAMinus) base = 3.5
-  else if (total >= criteria.gradeB) base = 3
-  else if (total >= criteria.gradeC) base = 2
-  else if (total >= criteria.gradeD) base = 1
-  if (isAgri) return Math.max(0, base - 2)
+  if (normalizedTotal >= criteria.gradeAPlus) base = 5
+  else if (normalizedTotal >= criteria.gradeA) base = 4
+  else if (normalizedTotal >= criteria.gradeAMinus) base = 3.5
+  else if (normalizedTotal >= criteria.gradeB) base = 3
+  else if (normalizedTotal >= criteria.gradeC) base = 2
+  else if (normalizedTotal >= criteria.gradeD) base = 1
   return base
 }
 
@@ -78,6 +77,7 @@ export default function SubjectGpaPage() {
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
   const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
+  const [subjectRules, setSubjectRules] = useState<any[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -88,6 +88,10 @@ export default function SubjectGpaPage() {
 
   async function initSubjects() {
     setStatus('Loading subjects…')
+    if (activeExamId !== null) {
+      const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', activeExamId)
+      setSubjectRules(rules || [])
+    }
     const { data: rows, error } = await supabase.from(TABLE_NAME).select('*').limit(1)
     if (error || !rows?.length) { setStatus('Error loading table: ' + error?.message); return }
     const cols = Object.keys(rows[0])
@@ -178,7 +182,18 @@ export default function SubjectGpaPage() {
         if (subs.length < 2) return
         const t1 = Number(row[subs[0].components.TOTAL!]) || 0
         const t2 = Number(row[subs[1].components.TOTAL!]) || 0
-        const convertedTotal = Math.round(((t1 + t2) / 150) * 100 * 100) / 100
+        
+        let combinedFullMarks = 100 // default fallback
+        if (subjectRules.length > 0) {
+          const rule1 = subjectRules.find(r => r.subject_name === subs[0].base.replace(/^\*+\s*/, ''))
+          const rule2 = subjectRules.find(r => r.subject_name === subs[1].base.replace(/^\*+\s*/, ''))
+          if (rule1 && rule2) combinedFullMarks = rule1.full_marks + rule2.full_marks
+          else combinedFullMarks = 150
+        } else {
+          combinedFullMarks = 150
+        }
+        
+        const convertedTotal = Math.round(((t1 + t2) / combinedFullMarks) * 100 * 100) / 100
         const gpaRaw = firstPaper.components.GPA ? row[firstPaper.components.GPA] : null
         const hasGpa = (typeof gpaRaw === 'string' && gpaRaw.trim().toUpperCase() === 'F') || Number(gpaRaw) > 0
         if (!hasGpa && t1 <= 0 && t2 <= 0) return
@@ -219,8 +234,20 @@ export default function SubjectGpaPage() {
 
       let gpa: number | string | null = null
       if (total === 0) { gpa = null }
-      else if (hasFailed) { gpa = selectedSubject.toLowerCase().includes('agriculture') ? 0 : 'F' }
-      else { gpa = calculateGPA(total, selectedSubject, criteria) }
+      else if (hasFailed) { gpa = 'F' }
+      else { 
+        let fullMarks = 100
+        if (isCombined) {
+           const subs = (subjInfo as Extract<SubjectType, { type: 'combined' }>).subjects
+           const rule1 = subjectRules.find(r => r.subject_name === subs[0].base.replace(/^\*+\s*/, ''))
+           const rule2 = subjectRules.find(r => r.subject_name === subs[1].base.replace(/^\*+\s*/, ''))
+           if (rule1 && rule2) fullMarks = rule1.full_marks + rule2.full_marks
+        } else {
+           const rule = subjectRules.find(r => r.subject_name === selectedSubject.replace(/^\*+\s*/, ''))
+           if (rule) fullMarks = rule.full_marks
+        }
+        gpa = calculateGPA(total, selectedSubject, criteria, fullMarks) 
+      }
       return { ...row, total, gpa }
     })
     setData(updated)

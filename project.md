@@ -2,7 +2,8 @@
 
 ## 📌 Project Overview
 A modern, high-performance, and privacy-focused Result Management System built for educational institutions. The system allows administrators and teachers to efficiently manage student marks, calculate grades (GPA), and generate comprehensive reports.
-
+** supabase mcp is connected.
+Language: TypeScript ; English ; 
 ---
 
 ## ✅ Accomplishments & Core Features
@@ -65,10 +66,10 @@ A modern, high-performance, and privacy-focused Result Management System built f
 এরপর, 6,7,8 এর ক্ষেত্রে ৪র্থ বিষয় নেই; ৯,১০,১১,১২ এর ক্ষেত্রে আছে। 
  6,7,8 এ কিছু বিষয়ের মার্ক ক্লাসের র‍্যাঙ্ক এর ক্ষেত্রে কাজে লাগবে না। তাই সেটিও নির্ধারণ করতে হবে আগেই। 
 -------------------------- 
-
+৪র্থ বিষয় student_database টেবিলের optional_subject column এর থেকে মেচিং করিয়ে নিবে। 
 
 রেজাল্ট প্রসেসিং যেহেতু ; সেহেতু নিখুতভাবে করতে হবে। 
-
+শিক্ষার্থীদের আলাদা আলাদা  optional_subject থাকতে পারে। 
 
 *Last Updated: 2026-04-24*
 

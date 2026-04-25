@@ -38,6 +38,38 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
   const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', examId)
   if (!rules || rules.length === 0) throw new Error('No subject rules found for this exam.')
 
+  // Build class-subject assignments from rules
+  const classSubjectInfo: { subject_code: string; class: number; is_fourth_subject: boolean; exclude_from_rank: boolean }[] = []
+  rules.forEach(r => {
+    if (r.exam_class && Array.isArray(r.exam_class)) {
+      r.exam_class.forEach((c: any) => {
+        classSubjectInfo.push({
+          subject_code: r.subject_code,
+          class: Number(c.class),
+          is_fourth_subject: Boolean(c.is_fourth_subject),
+          exclude_from_rank: Boolean(c.exclude_from_rank)
+        })
+      })
+    }
+  })
+
+  // Load optional_subject from student_database
+  onProgress?.('Fetching student optional subjects...')
+  const optMap: Record<string, string> = {}
+  const { data: iidRows } = await supabase.from('fmhs_exam_data').select('iid').eq('exam_id', examId)
+  if (iidRows && iidRows.length > 0) {
+    const iids = iidRows.map(r => r.iid).filter(Boolean)
+    for (let i = 0; i < iids.length; i += 500) {
+      const batch = iids.slice(i, i + 500)
+      const { data: stuData } = await supabase.from('student_database').select('iid, optional_subject').in('iid', batch)
+      if (stuData) {
+        stuData.forEach(s => {
+          if (s.optional_subject) optMap[String(s.iid)] = s.optional_subject
+        })
+      }
+    }
+  }
+
   onProgress?.('Fetching student data...')
   let students: any[] = []
   let from = 0
@@ -60,12 +92,41 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
   
   const updates = students.map(student => {
     const update: any = { id: student.id }
+    const studentClass = Number(student.class) || 0
+    const studentIid = String(student.iid ?? '')
+    const studentOptionalSubject = optMap[studentIid] || ''
+
+    // Get class-specific assignments
+    const classAssignments = classSubjectInfo.filter(a => a.class === studentClass)
+    const hasAssignments = classAssignments.length > 0
+    const assignedCodes = new Set(classAssignments.map(a => a.subject_code))
+    const fourthSubjectCodes = new Set(classAssignments.filter(a => a.is_fourth_subject).map(a => a.subject_code))
+    const excludeFromRankCodes = new Set(classAssignments.filter(a => a.exclude_from_rank).map(a => a.subject_code))
+
     let totalGPA = 0
-    let subjectCount = 0
+    let gpaSubjectsCount = 0
     let totalMarks = 0
-    let failed = false
+    let validSubjects = 0
+    let attendedSubjects = 0 // excludes 4th subject
+    let failCount = 0
+    let expectedMainSubjects = 0
 
     rules.forEach(rule => {
+      // If class assignments exist, skip subjects not assigned to this class
+      if (hasAssignments && !assignedCodes.has(rule.subject_code)) return
+
+      const isClassFourthSubject = fourthSubjectCodes.has(rule.subject_code)
+      const isExcludedFromRank = excludeFromRankCodes.has(rule.subject_code)
+      
+      // It is ONLY this student's 4th subject if it matches their optional_subject
+      const isStudentFourthSubject = isClassFourthSubject && studentOptionalSubject &&
+        rule.subject_name.toLowerCase().includes(studentOptionalSubject.toLowerCase())
+
+      // If it's not excluded from rank, and NOT this student's 4th subject, it is a main subject for them
+      if (!isExcludedFromRank && !isStudentFourthSubject) {
+        expectedMainSubjects++
+      }
+
       const base = `*${rule.subject_name}`
       const cq = Number(student[`${base}_CQ`]) || 0
       const mcq = Number(student[`${base}_MCQ`]) || 0
@@ -82,17 +143,53 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
       
       update[`${base}_Total`] = total
       update[`${base}_GPA`] = isFailed ? 'F' : grade
-      
-      if (isFailed) failed = true
-      totalGPA += isFailed ? 0 : gpa
-      totalMarks += total
-      subjectCount++
+
+      if (total > 0) {
+        if (!isExcludedFromRank) {
+          totalMarks += total
+          validSubjects++
+          if (!isStudentFourthSubject) attendedSubjects++
+        }
+      }
+
+      // GPA calculation with 4th subject handling
+      if (!isExcludedFromRank) {
+        let effectiveGpa = isFailed ? 0 : gpa
+        if (isStudentFourthSubject && effectiveGpa > 0) {
+          effectiveGpa = Math.max(0, effectiveGpa - 2)
+        }
+        totalGPA += effectiveGpa
+        
+        // If it's the 4th subject, it shouldn't increase the divisor for GPA average calculation
+        // Wait! In Bangladesh, the 4th subject GPA is ADDED, but the subject is NOT counted in the divisor!
+        // The divisor is ONLY the main subjects!
+        if (!isStudentFourthSubject) {
+          gpaSubjectsCount++
+          if (effectiveGpa <= 0) failCount++ // Fail in 4th subject doesn't count as total fail
+        }
+      }
     })
 
-    const finalGPA = failed ? 0 : (totalGPA / subjectCount)
-    update.total_mark = totalMarks
-    update.average_mark = totalMarks / subjectCount
-    update.gpa_final = failed ? 'F' : finalGPA.toFixed(2)
+    // Calculate expected subject count for this class
+    let totalSubjectCount = hasAssignments ? expectedMainSubjects : rules.length
+
+    const countAbsent = Math.max(0, totalSubjectCount - attendedSubjects)
+    const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
+
+    let gpaFinal: string | number | null = null
+    if ((failCount + countAbsent) > 0) {
+      gpaFinal = null
+    } else if (gpaSubjectsCount > 0) {
+      const divisor = totalSubjectCount > 0 ? totalSubjectCount : gpaSubjectsCount
+      const raw = Math.min(5, totalGPA / divisor)
+      gpaFinal = isNaN(raw) ? null : parseFloat(raw.toFixed(2))
+    }
+
+    update.total_mark = totalMarks || null
+    update.average_mark = avgCalc || null
+    update.count_absent = countAbsent > 0 ? String(countAbsent) : null
+    update.gpa_final = gpaFinal
+    update.remark = failCount > 0 ? `fail: ${failCount}` : null
     update.status = 'Processed'
     
     return update

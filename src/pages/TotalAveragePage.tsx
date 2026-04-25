@@ -24,6 +24,13 @@ function parseNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
+interface ClassSubjectInfo {
+  subject_code: string
+  class: number
+  is_fourth_subject: boolean
+  exclude_from_rank: boolean
+}
+
 export default function TotalAveragePage() {
   const { examId } = useParams()
   const navigate = useNavigate()
@@ -37,6 +44,8 @@ export default function TotalAveragePage() {
   const [rowSaving, setRowSaving] = useState<Record<number, boolean>>({})
   const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
   const [status, setStatus] = useState('')
+  const [classSubjectInfo, setClassSubjectInfo] = useState<ClassSubjectInfo[]>([])
+  const [subjectRules, setSubjectRules] = useState<any[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -67,6 +76,27 @@ export default function TotalAveragePage() {
     setLoading(true); setStatus(activeExamId !== null ? `Loading students for exam ${activeExamId}…` : 'Loading all students…')
     const cols = await detectSubjectCols(activeExamId)
     setSubjectCols(cols)
+
+    // Load class-subject assignments and subject rules
+    if (activeExamId !== null) {
+      const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', activeExamId)
+      setSubjectRules(rules || [])
+      
+      const classInfo: ClassSubjectInfo[] = []
+      ;(rules || []).forEach(r => {
+        if (r.exam_class && Array.isArray(r.exam_class)) {
+          r.exam_class.forEach((c: any) => {
+            classInfo.push({
+              subject_code: r.subject_code,
+              class: Number(c.class),
+              is_fourth_subject: Boolean(c.is_fourth_subject),
+              exclude_from_rank: Boolean(c.exclude_from_rank)
+            })
+          })
+        }
+      })
+      setClassSubjectInfo(classInfo)
+    }
 
     const selectCols = [
       'id', 'exam_id', 'iid', 'class', 'section', 'roll',
@@ -106,17 +136,62 @@ export default function TotalAveragePage() {
 
   useEffect(() => { loadAll() }, [loadAll])
 
-  // Calculate totals in memory for all rows
+  // Calculate totals in memory for all rows — class-aware
   function calcAll(rows: StudentRow[], cols: string[]): StudentRow[] {
-    const subjectCount = cols.length
+    // Build subject_code -> subject_name mapping from rules
+    const codeToName: Record<string, string> = {}
+    subjectRules.forEach((r: any) => { codeToName[r.subject_code] = r.subject_name })
+
     return rows.map(student => {
+      const studentClass = Number(student.class) || 0
+      const classAssignments = classSubjectInfo.filter(a => a.class === studentClass)
+      const hasAssignments = classAssignments.length > 0
+      const assignedCodes = new Set(classAssignments.map(a => a.subject_code))
+      const fourthSubjectCodes = new Set(classAssignments.filter(a => a.is_fourth_subject).map(a => a.subject_code))
+
       let total = 0, valid = 0
+      let attendedSubjects = 0 // excludes 4th subject for absent count
+      let totalSubjectCount = 0 // expected subjects for this class
+
       cols.forEach(col => {
+        // Extract subject name from column like "*Bangla 1st Paper_Total"
+        const subjectCleanName = col.replace(/^\*+\s*/, '').replace(/_Total$/i, '').trim()
+        // Find subject_code for this subject
+        let subjectCode = ''
+        for (const r of subjectRules) {
+          if (r.subject_name && subjectCleanName.toLowerCase() === r.subject_name.toLowerCase()) {
+            subjectCode = r.subject_code
+            break
+          }
+        }
+
+        // If class assignments exist, skip subjects not assigned to this class
+        if (hasAssignments && subjectCode && !assignedCodes.has(subjectCode)) return
+
+        const isFourthSubject = subjectCode ? fourthSubjectCodes.has(subjectCode) : false
+
+        const isExcluded = subjectCode ? classAssignments.find(a => a.subject_code === subjectCode)?.exclude_from_rank : false
         const m = parseNum(student[col])
-        if (m > 0) { total += m; valid++ }
+        if (m > 0) {
+          if (!isExcluded) {
+            total += m
+            valid++
+          }
+          if (!isFourthSubject && !isExcluded) {
+            attendedSubjects++
+          }
+        }
       })
+
+      // Calculate expected subject count for this class
+      if (hasAssignments) {
+        totalSubjectCount = classAssignments.filter(a => !a.is_fourth_subject && !a.exclude_from_rank).length
+      } else {
+        totalSubjectCount = cols.length
+      }
+
       const avg = valid > 0 ? Math.round(total / valid) : 0
-      const absent = Math.max(0, subjectCount - valid)
+      const absent = Math.max(0, totalSubjectCount - attendedSubjects)
       return {
         ...student,
         total_mark: total > 0 ? total : null,

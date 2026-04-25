@@ -103,6 +103,7 @@ create table public."FMHS_exam_subjects" (
   total_mcq numeric null default 30,
   total_practical numeric null default 0,
   created_at timestamp with time zone null default now(),
+  exam_class jsonb null,
   constraint exam_subjects_pkey primary key (id),
   constraint exam_subjects_exam_id_subject_code_key unique (exam_id, subject_code),
   constraint exam_subjects_exam_id_fkey foreign KEY (exam_id) references "FMHS_exams_names" (id) on delete CASCADE
@@ -120,3 +121,4 @@ create table public."FMHS_exam_subject_selection" (
   comment text null,
   constraint subject_table_pkey primary key (subject_code)
 ) TABLESPACE pg_default;
+

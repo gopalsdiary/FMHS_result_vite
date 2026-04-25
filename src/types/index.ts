@@ -27,6 +27,16 @@ export interface Subject {
   subject_order?: number
 }
 
+// ─── Class-Subject Assignment (per exam) ─────────────────────────────────────
+export interface ClassSubjectAssignment {
+  id?: number
+  exam_id: number
+  subject_code: string
+  class: number
+  is_fourth_subject?: boolean
+  exclude_from_rank?: boolean
+}
+
 // ─── Grade / Mark ────────────────────────────────────────────────────────────
 export interface GradeEntry {
   id?: number
