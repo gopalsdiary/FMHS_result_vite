@@ -1,4 +1,5 @@
 import { supabase } from '@/services/supabaseClient'
+import { EXAM_TABLE, COL } from '@/services/examTableConfig'
 
 export type ExamAnn25Meta = {
   classes: string[]
@@ -17,15 +18,18 @@ function normalizeSectionValue(value: unknown): string {
   return raw
 }
 
-export async function loadExamAnn25Meta(): Promise<ExamAnn25Meta> {
-  const { data, error } = await supabase.from('exam_ann25').select('class_2025, section_2025')
+export async function loadExamAnn25Meta(examId?: number): Promise<ExamAnn25Meta> {
+  let query = supabase.from(EXAM_TABLE).select(`${COL.class}, ${COL.section}`)
+  if (examId) query = query.eq(COL.examId, examId)
+
+  const { data, error } = await query
   if (error) throw error
 
   const sectionsByClass: Record<string, Set<string>> = {}
 
   for (const row of data ?? []) {
-    const classValue = normalizeClassValue((row as Record<string, unknown>).class_2025)
-    const sectionValue = normalizeSectionValue((row as Record<string, unknown>).section_2025)
+    const classValue = normalizeClassValue((row as Record<string, unknown>)[COL.class])
+    const sectionValue = normalizeSectionValue((row as Record<string, unknown>)[COL.section])
     if (!classValue || !sectionValue) continue
     if (!sectionsByClass[classValue]) sectionsByClass[classValue] = new Set<string>()
     sectionsByClass[classValue].add(sectionValue)

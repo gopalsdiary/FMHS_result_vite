@@ -6,10 +6,10 @@ import { loadExamAnn25Meta } from '@/services/examAnn25Meta'
 
 interface Student {
   iid: string
-  class_2025?: string
-  section_2025?: string
+  class?: string
+  section?: string
   student_name_en?: string
-  roll_2025?: string | number
+  roll?: string | number
   total_mark?: number
   average_mark?: number
   gpa_final?: string
@@ -18,7 +18,7 @@ interface Student {
 
 function buildSms(s: Student, customMsg: string): string {
   const name = s.student_name_en ?? 'Student'
-  const roll = s.roll_2025 ?? ''
+  const roll = s.roll ?? ''
   const totalNum = Number(s.total_mark ?? 0)
   if (!name || totalNum <= 0) return ''
   const gpa = s.gpa_final ?? ''
@@ -57,12 +57,29 @@ export default function SmsPage() {
 
   async function load() {
     if (!classVal || !section) { setStatus('Select class and section'); return }
-    setLoading(true)
-    const { data, error } = await supabase.from('exam_ann25').select('iid, class_2025, section_2025, student_name_en, roll_2025, total_mark, average_mark, gpa_final, remark').eq('class_2025', classVal).eq('section_2025', section).order('roll_2025', { ascending: true })
-    if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
-    const list = (data ?? []) as Student[]
-    const resultList = list.filter(s => Number(s.total_mark ?? 0) > 0)
-    setStudents(list)
+    setLoading(true); setStatus('Scanning database...')
+    
+    let allData: Student[] = []
+    let from = 0; let to = 999; let hasMore = true
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('fmhs_exam_data')
+        .select('iid, class, section, student_name_en, roll, total_mark, average_mark, gpa_final, remark')
+        .eq('class', classVal)
+        .eq('section', section)
+        .order('roll', { ascending: true })
+        .range(from, to)
+      
+      if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
+      if (data && data.length > 0) {
+        allData = [...allData, ...(data as Student[])]
+        if (data.length < 1000) hasMore = false
+        else { from += 1000; to += 1000 }
+      } else { hasMore = false }
+    }
+
+    const resultList = allData.filter(s => Number(s.total_mark ?? 0) > 0)
+    setStudents(allData)
     setStatus(`${resultList.length} students with results`)
     setLoading(false)
   }
@@ -80,9 +97,9 @@ export default function SmsPage() {
   function exportCsv() {
     const rows = visibleStudents.map(s => [
       `"${s.student_name_en ?? ''}"`,
-      `"${s.class_2025 ?? ''}"`,
-      `"${s.section_2025 ?? ''}"`,
-      `"${s.roll_2025 ?? ''}"`,
+      `"${s.class ?? ''}"`,
+      `"${s.section ?? ''}"`,
+      `"${s.roll ?? ''}"`,
       `"${s.total_mark ?? ''}"`,
       `"${s.average_mark ?? ''}"`,
       `"${s.gpa_final ?? ''}"`,
@@ -153,9 +170,9 @@ export default function SmsPage() {
                 <tbody>
                   {visibleStudents.map(s => (
                     <tr key={s.iid} style={{ background: s.iid === selectedIid ? '#eff6ff' : undefined }}>
-                      <td style={{ textAlign: 'center' }}>{s.class_2025}</td>
-                      <td style={{ textAlign: 'center' }}>{s.section_2025}</td>
-                      <td style={{ textAlign: 'center' }}>{s.roll_2025}</td>
+                      <td style={{ textAlign: 'center' }}>{s.class}</td>
+                      <td style={{ textAlign: 'center' }}>{s.section}</td>
+                      <td style={{ textAlign: 'center' }}>{s.roll}</td>
                       <td style={{ fontWeight: 500 }}>{s.student_name_en}</td>
                       <td style={{ textAlign: 'center' }}>{s.total_mark}</td>
                       <td style={{ textAlign: 'center' }}>{s.average_mark}</td>
@@ -178,3 +195,4 @@ export default function SmsPage() {
     </PageShell>
   )
 }
+

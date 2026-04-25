@@ -8,8 +8,8 @@ const SECTIONS = ['6A','6B','6C','7A','7B','7C','8A','8B','8C','9A','9B','10A','
 interface StudentFull {
   iid: string
   student_name_en?: string
-  roll_2025?: string
-  section_2025?: string
+  roll?: string
+  section?: string
   total_mark?: number
   average_mark?: number
   gpa_final?: string
@@ -25,7 +25,7 @@ function buildFullSms(s: StudentFull, customMsg: string): string {
     'FMHS Annual Result 2025',
     `Name: ${s.student_name_en ?? ''}`,
     s.father_name_en ? `Father: ${s.father_name_en}` : '',
-    `Section: ${s.section_2025 ?? ''} | Roll: ${s.roll_2025 ?? ''}`,
+    `Section: ${s.section ?? ''} | Roll: ${s.roll ?? ''}`,
     `Rank: ${s.class_rank ?? ''}`,
     `Total: ${s.total_mark ?? ''} | Avg: ${s.average_mark ?? ''}`,
     `GPA: ${s.gpa_final ?? ''} | Result: ${s.remark ?? ''}`,
@@ -55,7 +55,7 @@ export default function SmsFullPage() {
   async function load() {
     if (!section) { setStatus('Select section'); return }
     setLoading(true)
-    const { data, error } = await supabase.from('exam_ann25').select('*').eq('section_2025', section).order('roll_2025', { ascending: true })
+    const { data, error } = await supabase.from('fmhs_exam_data').select('*').eq('section', section).order('roll', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const rows = (data ?? []) as StudentFull[]
     setStudents(rows)
@@ -131,7 +131,7 @@ export default function SmsFullPage() {
                     <th style={{ border: '1px solid #444', padding: '8px', whiteSpace: 'nowrap' }}>GPA</th>
                     <th style={{ border: '1px solid #444', padding: '8px', whiteSpace: 'nowrap' }}>Rank</th>
                     <th style={{ border: '1px solid #444', padding: '8px', whiteSpace: 'nowrap' }}>Remark</th>
-                    {showAllCols && allCols.filter(c => !['roll_2025','student_name_en','total_mark','average_mark','gpa_final','class_rank','remark','iid','section_2025'].includes(c)).map(c => (
+                    {showAllCols && allCols.filter(c => !['roll','student_name_en','total_mark','average_mark','gpa_final','class_rank','remark','iid','section'].includes(c)).map(c => (
                       <th key={c} style={{ border: '1px solid #444', padding: '8px', whiteSpace: 'nowrap', fontSize: '11px' }}>{c}</th>
                     ))}
                     <th style={{ border: '1px solid #444', padding: '8px' }}>Actions</th>
@@ -140,7 +140,7 @@ export default function SmsFullPage() {
                 <tbody>
                   {students.map((s, ri) => (
                     <tr key={s.iid} style={{ background: s.iid === selectedIid ? '#eff6ff' : ri % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                      <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{s.roll_2025}</td>
+                      <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{s.roll}</td>
                       <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', fontWeight: 500, whiteSpace: 'nowrap' }}>{s.student_name_en}</td>
                       <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{s.total_mark}</td>
                       <td style={{ border: '1px solid #e1e4e8', padding: '4px 8px', textAlign: 'center' }}>{s.average_mark}</td>
@@ -165,3 +165,4 @@ export default function SmsFullPage() {
     </PageShell>
   )
 }
+

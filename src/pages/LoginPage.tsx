@@ -180,3 +180,4 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid rgba(233,30,99,0.25)', fontWeight: 500,
   },
 }
+

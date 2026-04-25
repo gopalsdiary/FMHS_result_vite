@@ -33,7 +33,7 @@ export default function TeacherSetupPage() {
   async function load() {
     setLoading(true)
     const { data, error } = await supabase
-      .from('subject_selection')
+      .from('FMHS_exam_subject_selection')
       .select('*')
       .order('class')
       .order('section')
@@ -52,8 +52,8 @@ export default function TeacherSetupPage() {
       comment: form.comment,
     }
     const { error } = editId
-      ? await supabase.from('subject_selection').update(payload).eq('subject_code', editId)
-      : await supabase.from('subject_selection').insert(payload)
+      ? await supabase.from('FMHS_exam_subject_selection').update(payload).eq('subject_code', editId)
+      : await supabase.from('FMHS_exam_subject_selection').insert(payload)
     if (error) { setStatus('Error: ' + error.message); return }
     setStatus(editId ? '✅ Updated' : '✅ Added'); setEditId(null)
     setForm(emptyForm)
@@ -62,7 +62,7 @@ export default function TeacherSetupPage() {
 
   async function del(id: number) {
     if (!confirm('Delete this entry?')) return
-    const { error } = await supabase.from('subject_selection').delete().eq('subject_code', id)
+    const { error } = await supabase.from('FMHS_exam_subject_selection').delete().eq('subject_code', id)
     if (error) setStatus('Error: ' + error.message)
     else { setStatus('Deleted'); load() }
   }
@@ -134,3 +134,4 @@ export default function TeacherSetupPage() {
     </PageShell>
   )
 }
+

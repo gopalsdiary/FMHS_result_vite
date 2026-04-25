@@ -8,8 +8,8 @@ interface Student {
   student_name_en: string
   father_name_en?: string
   father_mobile?: string
-  roll_2025?: string | number
-  section_2025: string
+  roll?: string | number
+  section: string
   gpa_final?: number | string | null
 }
 
@@ -34,9 +34,9 @@ export default function DataListPage() {
   async function loadData() {
     setLoading(true)
     const { data, error } = await supabase
-      .from('exam_ann25')
-      .select('iid, student_name_en, father_name_en, father_mobile, roll_2025, section_2025, gpa_final')
-      .order('roll_2025', { ascending: true })
+      .from('fmhs_exam_data')
+      .select('iid, student_name_en, father_name_en, father_mobile, roll, section, gpa_final')
+      .order('roll', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const list = (data ?? []) as Student[]
     setStudents(list); setFiltered(list)
@@ -47,15 +47,15 @@ export default function DataListPage() {
   useEffect(() => {
     const q = search.toLowerCase()
     setFiltered(students.filter(s => {
-      const matchSearch = !q || s.student_name_en.toLowerCase().includes(q) || String(s.roll_2025 ?? '').includes(q) || s.iid.toLowerCase().includes(q) || (s.father_mobile ?? '').includes(q)
-      const matchSection = !sectionFilter || s.section_2025 === sectionFilter
+      const matchSearch = !q || s.student_name_en.toLowerCase().includes(q) || String(s.roll ?? '').includes(q) || s.iid.toLowerCase().includes(q) || (s.father_mobile ?? '').includes(q)
+      const matchSection = !sectionFilter || s.section === sectionFilter
       return matchSearch && matchSection
     }))
   }, [search, sectionFilter, students])
 
   function exportCSV() {
     const headers = ['IID','Student Name','Father Name','Roll','Mobile','Section','GPA']
-    const rows = filtered.map(s => [s.iid, s.student_name_en, s.father_name_en ?? '', String(s.roll_2025 ?? ''), s.father_mobile ?? '', s.section_2025, String(s.gpa_final ?? '')])
+    const rows = filtered.map(s => [s.iid, s.student_name_en, s.father_name_en ?? '', String(s.roll ?? ''), s.father_mobile ?? '', s.section, String(s.gpa_final ?? '')])
     const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -97,9 +97,9 @@ export default function DataListPage() {
                       <td>{s.iid}</td>
                       <td style={{ fontWeight: 500 }}>{s.student_name_en}</td>
                       <td>{s.father_name_en ?? '—'}</td>
-                      <td style={{ textAlign: 'center' }}>{s.roll_2025 ?? '—'}</td>
+                      <td style={{ textAlign: 'center' }}>{s.roll ?? '—'}</td>
                       <td>{s.father_mobile ?? '—'}</td>
-                      <td style={{ textAlign: 'center' }}>{s.section_2025}</td>
+                      <td style={{ textAlign: 'center' }}>{s.section}</td>
                       <td style={{ textAlign: 'center', fontWeight: 600, color: s.gpa_final === 'F' ? '#d73a49' : '#1a7f37' }}>{String(s.gpa_final ?? '—')}</td>
                       <td>
                         <button onClick={() => navigate(`/student-details?IID=${encodeURIComponent(s.iid)}`)} style={{ fontSize: '11px', padding: '3px 8px', background: '#0366d6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
@@ -117,3 +117,4 @@ export default function DataListPage() {
     </PageShell>
   )
 }
+

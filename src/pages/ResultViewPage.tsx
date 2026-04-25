@@ -23,8 +23,8 @@ export default function ResultViewPage() {
 
   async function loadData() {
     setLoading(true)
-    let query = supabase.from('exam_ann25').select('*')
-    if (section) query = query.eq('section_2025', section)
+    let query = supabase.from('fmhs_exam_data').select('*')
+    if (section) query = query.eq('section', section)
     const { data, error } = await query.order('roll', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const list = data ?? []
@@ -81,3 +81,4 @@ export default function ResultViewPage() {
     </PageShell>
   )
 }
+

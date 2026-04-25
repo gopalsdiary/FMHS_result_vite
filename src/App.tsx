@@ -11,6 +11,11 @@ import TeacherDashboardPage from './pages/TeacherDashboardPage'
 // Result workflow
 import PrintResultsPage from './pages/PrintResultsPage'
 import TotalAveragePage from './pages/TotalAveragePage'
+import ExamManagerPage from './pages/ExamManagerPage'
+import ExamPanelPage from './pages/ExamPanelPage'
+import SubjectRulesPage from './pages/SubjectRulesPage'
+import TeacherAssignmentPage from './pages/TeacherAssignmentPage'
+import TeacherGradeEntryPage from './pages/TeacherGradeEntryPage'
 import SubjectGpaPage from './pages/SubjectGpaPage'
 import GpaFinalPage from './pages/GpaFinalPage'
 import ResultListPage from './pages/ResultListPage'
@@ -60,14 +65,19 @@ export default function App() {
         <Route path="/teacher-dashboard" element={<TeacherDashboardPage />} />
 
         {/* Result workflow */}
-        <Route path="/print-results" element={<PrintResultsPage />} />
-        <Route path="/total-average" element={<TotalAveragePage />} />
-        <Route path="/subject-gpa" element={<SubjectGpaPage />} />
-        <Route path="/gpa-final" element={<GpaFinalPage />} />
-        <Route path="/result-list" element={<ResultListPage />} />
-        <Route path="/fail-report" element={<FailReportPage />} />
-        <Route path="/process-results" element={<ProcessResultsPage />} />
-        <Route path="/result-view" element={<ResultViewPage />} />
+        <Route path="/print-results/:examId?" element={<PrintResultsPage />} />
+        <Route path="/total-average/:examId?" element={<TotalAveragePage />} />
+        <Route path="/exam-manager" element={<ExamManagerPage />} />
+        <Route path="/subject-gpa/:examId?" element={<SubjectGpaPage />} />
+        <Route path="/gpa-final/:examId?" element={<GpaFinalPage />} />
+        <Route path="/exam-panel/:id" element={<ExamPanelPage />} />
+        <Route path="/exam-subjects/:id" element={<SubjectRulesPage />} />
+        <Route path="/exam-teachers/:id" element={<TeacherAssignmentPage />} />
+        <Route path="/teacher-entry/:examId/:assignId" element={<TeacherGradeEntryPage />} />
+        <Route path="/result-list/:examId?" element={<ResultListPage />} />
+        <Route path="/fail-report/:examId?" element={<FailReportPage />} />
+        <Route path="/process-results/:examId?" element={<ProcessResultsPage />} />
+        <Route path="/result-view/:examId?" element={<ResultViewPage />} />
 
         {/* Grade entry */}
         <Route path="/grade-entry" element={<GradeEntrySystemPage />} />
@@ -101,3 +111,4 @@ export default function App() {
     </BrowserRouter>
   )
 }
+

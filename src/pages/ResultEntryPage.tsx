@@ -14,7 +14,7 @@ function findColumn(row: StudentRow | undefined, patterns: RegExp[], fallback: s
 }
 
 function sortRowsByRoll(rows: StudentRow[]): StudentRow[] {
-  const rollColumn = findColumn(rows[0], [/roll_2025/i, /roll/i], 'roll_2025')
+  const rollColumn = findColumn(rows[0], [/roll/i, /roll/i], 'roll')
   return [...rows].sort((left, right) => {
     const leftRoll = Number(left[rollColumn])
     const rightRoll = Number(right[rollColumn])
@@ -75,13 +75,13 @@ export default function ResultEntryPage() {
   const draftStorageKey = buildResultEntryDraftKey('teacher', userEmail, cls, section, subject)
 
   async function loadSubjectsFromDB(email: string) {
-    const { data } = await supabase.from('subject_selection').select('subject_name, class, section').eq('teacher_email_id', email)
+    const { data } = await supabase.from('FMHS_exam_subject_selection').select('subject_name, class, section').eq('teacher_email_id', email)
     if (data?.length) {
       const classSet = new Set(data.map(r => String(r.class)))
       setCls(Array.from(classSet)[0] ?? '')
     }
 
-    const { data: sampleRows } = await supabase.from('exam_ann25').select('*').limit(1)
+    const { data: sampleRows } = await supabase.from('fmhs_exam_data').select('*').limit(1)
     if (sampleRows?.length) {
       const keys = Object.keys(sampleRows[0])
       const ic = keys.find(k => /^iid$/i.test(k)) ?? 'iid'
@@ -108,10 +108,10 @@ export default function ResultEntryPage() {
     setLoading(true)
     setStatus('Loading…')
     const { data, error } = await supabase
-      .from('exam_ann25')
+      .from('fmhs_exam_data')
       .select('*')
-      .eq('class_2025', cls)
-      .eq('section_2025', section)
+      .eq('class', cls)
+      .eq('section', section)
       .order(iidCol, { ascending: true })
 
     if (error) {
@@ -184,7 +184,7 @@ export default function ResultEntryPage() {
     }
 
     setStatus('Saving…')
-    const { error } = await supabase.from('exam_ann25').upsert(updates, { onConflict: iidCol })
+    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: iidCol })
     if (error) {
       setStatus('Error: ' + error.message)
       return
@@ -209,7 +209,7 @@ export default function ResultEntryPage() {
   const sections = cls ? sectionsByClass[cls] ?? [] : []
   const firstRow = students[0]
   const nameCol = findColumn(firstRow, [/student_name_en/i, /student_name|name/i], 'student_name_en')
-  const rollCol = findColumn(firstRow, [/roll_2025/i, /roll/i], 'roll_2025')
+  const rollCol = findColumn(firstRow, [/roll/i, /roll/i], 'roll')
   const fields = [
     comps?.CQ ? { key: comps.CQ, label: 'CQ' } : null,
     comps?.MCQ ? { key: comps.MCQ, label: 'MCQ' } : null,
@@ -290,7 +290,7 @@ export default function ResultEntryPage() {
     }
 
     setRowSaving(prev => ({ ...prev, [iid]: true }))
-    const { error } = await supabase.from('exam_ann25').update(payload).eq(iidCol, iid)
+    const { error } = await supabase.from('fmhs_exam_data').update(payload).eq(iidCol, iid)
     setRowSaving(prev => ({ ...prev, [iid]: false }))
 
     if (error) {
@@ -442,3 +442,4 @@ export default function ResultEntryPage() {
     </div>
   )
 }
+

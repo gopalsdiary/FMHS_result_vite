@@ -30,20 +30,28 @@ export default function StudentDetailsPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const iid = searchParams.get('IID') ?? ''
+  const examId = searchParams.get('examID')
   const [info, setInfo] = useState<StudentInfo | null>(null)
   const [subjects, setSubjects] = useState<SubjectRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const qrRef = useRef<HTMLImageElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!iid) { setError('No student ID specified'); setLoading(false); return }
     loadStudent()
-  }, [iid])
+  }, [iid, examId])
 
   async function loadStudent() {
     setLoading(true)
-    const { data, error: err } = await supabase.from('exam_ann25').select('*').eq('iid', iid).limit(1)
+    let query = supabase.from('fmhs_exam_data').select('*').eq('iid', iid)
+    
+    if (examId) {
+      query = query.eq('exam_id', examId)
+    }
+
+    const { data, error: err } = await query.limit(1)
     if (err || !data?.length) { setError(err?.message ?? 'Student not found'); setLoading(false); return }
     const row = data[0] as Record<string, unknown>
     const keys = Object.keys(row)
@@ -51,13 +59,13 @@ export default function StudentDetailsPage() {
     const studentInfo: StudentInfo = {
       iid: pickVal(row, ['iid', 'IID']),
       name: pickVal(row, ['student_name_en', 'student_name', 'name', 'Name']),
-      roll: pickVal(row, ['roll_2025', 'roll', 'Roll']),
-      section: pickVal(row, ['section_2025', 'section', 'Section']),
-      className: pickVal(row, ['class_2025', 'class', 'Class']),
+      roll: pickVal(row, ['roll', 'roll', 'Roll']),
+      section: pickVal(row, ['section', 'section', 'Section']),
+      className: pickVal(row, ['class', 'class', 'Class']),
       fatherName: pickVal(row, ['father_name_en', 'father_name', 'fatherName']),
       motherName: pickVal(row, ['mother_name_en', 'mother_name', 'motherName']),
       mobile: pickVal(row, ['father_mobile', 'mobile', 'Mobile', 'phone']),
-      examName: pickVal(row, ['exam_name_year', 'exam_name', 'examName']),
+      examName: pickVal(row, ['exam_name_year', 'exam_name_en', 'exam_name', 'examName', 'Exam_Name', 'EXAM_NAME']),
     }
     setInfo(studentInfo)
 
@@ -93,7 +101,7 @@ export default function StudentDetailsPage() {
     if (!info || !qrRef.current) return
     const generateQR = async () => {
       try {
-        const qrUrl = `${window.location.origin}/student-details?IID=${encodeURIComponent(iid)}`
+        const qrUrl = `${window.location.origin}/student-details?IID=${encodeURIComponent(iid)}${examId ? `&examID=${examId}` : ''}`
         const dataUrl = await QRCode.toDataURL(qrUrl, { width: 150, margin: 1 })
         if (qrRef.current) qrRef.current.src = dataUrl
       } catch (err) {
@@ -102,6 +110,42 @@ export default function StudentDetailsPage() {
     }
     generateQR()
   }, [info, iid])
+
+  const handleDownloadPDF = () => {
+    // Direct script injection to avoid white screen
+    const existingScript = document.getElementById('html2pdf-script')
+    if (!existingScript) {
+      const script = document.createElement('script')
+      script.id = 'html2pdf-script'
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+      script.onload = () => runPDF()
+      document.body.appendChild(script)
+    } else {
+      runPDF()
+    }
+  }
+
+  const runPDF = () => {
+    const element = containerRef.current
+    if (!element) return
+    // @ts-ignore
+    const h2p = window.html2pdf
+    if (!h2p) return
+
+    const opt = {
+      margin: [5, 5, 5, 5],
+      filename: `Result_${(info?.name || 'Student').replace(/\s+/g, '_')}_${info?.iid || ''}.pdf`,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        letterRendering: true,
+        width: 800 // Force width to match the component's maxWidth for consistent scaling
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }
+    h2p().from(element).set(opt).save()
+  }
 
   if (loading) return <div style={{ textAlign: 'center', padding: '60px' }}><div className="spinner" /></div>
   if (error) return (
@@ -129,14 +173,51 @@ export default function StudentDetailsPage() {
           
           .no-print { display: flex; gap: 8px; margin-bottom: 24px; }
           @media print { 
+            @page { size: A4; margin: 10mm; }
             .no-print { display:none !important; } 
             body { background: #fff !important; margin: 0; padding: 0; }
-            .main-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; max-width: none !important; border-radius: 0 !important; padding: 20px !important; }
+            .main-container { 
+              box-shadow: none !important; margin: 0 !important; width: 100% !important; 
+              max-width: none !important; border-radius: 0 !important; padding: 0 !important;
+              border: none !important;
+            }
+            .summary-bar { border: 1px solid #000 !important; background: #f9fafb !important; }
+            .summary-item { border-right: 1px solid #000 !important; }
+            .summary-item:last-child { border-right: none !important; }
+            
+            /* Print scaling for A4 */
+            .exam-title { 
+              margin-bottom: 15px !important; font-size: 14px !important; 
+              padding: 4px 20px !important;
+              color: #dc2626 !important; background: transparent !important;
+              border: 1px solid #dc2626 !important;
+            }
+            .student-name { font-size: 20px !important; margin-bottom: 4px !important; }
+            .student-details { margin-bottom: 15px !important; font-size: 13px !important; }
+            .marks-table { margin-bottom: 15px !important; border: 1px solid #000 !important; }
+            .marks-table th, .marks-table td { padding: 5px 8px !important; font-size: 12px !important; border: 1px solid #000 !important; }
+            .summary-bar { margin-bottom: 20px !important; padding: 8px 10px !important; border-radius: 4px !important; }
+            .summary-value { font-size: 15px !important; }
+            .qr-section { margin-top: 10px !important; }
+            .qr-box img { width: 90px !important; height: 90px !important; }
           }
           
           .header-title { color: #1e3a8a; font-size: 28px; font-weight: 800; text-align: center; margin-bottom: 4px; }
           .header-subtitle { color: #4b5563; font-size: 16px; text-align: center; margin-bottom: 12px; }
-          .exam-title { color: #dc2626; font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 30px; }
+          .exam-title { 
+            color: #fff; 
+            background: #dc2626;
+            display: inline-block;
+            padding: 6px 30px;
+            font-size: 18px; 
+            font-weight: 700; 
+            text-align: center; 
+            margin: 0 auto 30px auto;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+          .exam-title-container { text-align: center; }
           
           .student-name { font-size: 24px; font-weight: 800; color: #111827; margin-bottom: 8px; text-transform: uppercase; }
           .student-details { font-size: 15px; color: #374151; line-height: 1.5; margin-bottom: 30px; }
@@ -168,9 +249,10 @@ export default function StudentDetailsPage() {
         <div className="no-print">
           <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>← Back</button>
           <button onClick={() => window.print()} style={{ padding: '10px 20px', background: '#1e3a8a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>🖨️ Print Result</button>
+          <button onClick={handleDownloadPDF} style={{ padding: '10px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>📥 Download PDF</button>
         </div>
 
-        <div className="main-container">
+        <div ref={containerRef} className="main-container">
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '16px' }}>
             <img
@@ -180,7 +262,9 @@ export default function StudentDetailsPage() {
               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
           </div>
-          <div className="exam-title">{info?.examName || '1st Year Terminal Examination-2026'}</div>
+          <div className="exam-title-container">
+            <div className="exam-title">{info?.examName || 'Examination Result'}</div>
+          </div>
 
           {/* Student Info */}
           <div className="student-name">{info?.name}</div>

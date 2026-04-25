@@ -113,3 +113,4 @@ export async function handleLogout(redirectAfterLogin?: string, loginPath = '/lo
     window.location.replace(loginPath)
   }
 }
+

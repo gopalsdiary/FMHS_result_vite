@@ -9,9 +9,9 @@ interface Student {
   student_name_en: string
   father_name_en?: string
   father_mobile?: string
-  roll_2025?: string | number
-  class_2025?: string | null
-  section_2025: string
+  roll?: string | number
+  class?: string | null
+  section: string
   gpa_final?: number | string | null
   count_absent?: string | number | null
   class_rank?: number | null
@@ -47,9 +47,9 @@ export default function StudentManagementPage() {
   async function loadStudents() {
     setLoading(true)
     const { data, error } = await supabase
-      .from('exam_ann25')
-      .select('iid, student_name_en, father_name_en, father_mobile, roll_2025, class_2025, section_2025, gpa_final, count_absent, class_rank, remark')
-      .order('section_2025', { ascending: true })
+      .from('fmhs_exam_data')
+      .select('iid, student_name_en, father_name_en, father_mobile, roll, class, section, gpa_final, count_absent, class_rank, remark')
+      .order('section', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const list = (data ?? []) as Student[]
     setStudents(list)
@@ -61,9 +61,9 @@ export default function StudentManagementPage() {
   useEffect(() => {
     const q = search.toLowerCase()
     setFiltered(students.filter(s => {
-      const matchSearch = !q || s.student_name_en.toLowerCase().includes(q) || String(s.roll_2025 ?? '').includes(q) || s.iid.toLowerCase().includes(q) || (s.father_mobile ?? '').includes(q)
-      const matchClass = !classFilter || String(s.class_2025 ?? '') === classFilter
-      const matchSection = !sectionFilter || s.section_2025 === sectionFilter
+      const matchSearch = !q || s.student_name_en.toLowerCase().includes(q) || String(s.roll ?? '').includes(q) || s.iid.toLowerCase().includes(q) || (s.father_mobile ?? '').includes(q)
+      const matchClass = !classFilter || String(s.class ?? '') === classFilter
+      const matchSection = !sectionFilter || s.section === sectionFilter
       return matchSearch && matchClass && matchSection
     }))
   }, [search, classFilter, sectionFilter, students])
@@ -74,14 +74,14 @@ export default function StudentManagementPage() {
       student_name_en: String(editStudent.student_name_en ?? '').trim(),
       father_name_en: String(editStudent.father_name_en ?? '').trim(),
       father_mobile: String(editStudent.father_mobile ?? '').trim(),
-      roll_2025: editStudent.roll_2025 === '' || editStudent.roll_2025 === undefined ? null : editStudent.roll_2025,
-      class_2025: String(editStudent.class_2025 ?? '').trim() || null,
-      section_2025: String(editStudent.section_2025 ?? '').trim(),
+      roll: editStudent.roll === '' || editStudent.roll === undefined ? null : editStudent.roll,
+      class: String(editStudent.class ?? '').trim() || null,
+      section: String(editStudent.section ?? '').trim(),
     }
 
     const { error } = isEditing
-      ? await supabase.from('exam_ann25').update(payload).eq('iid', editStudent.iid)
-      : await supabase.from('exam_ann25').insert(payload)
+      ? await supabase.from('fmhs_exam_data').update(payload).eq('iid', editStudent.iid)
+      : await supabase.from('fmhs_exam_data').insert(payload)
 
     if (error) { setStatus('Error: ' + error.message); return }
     setStatus(isEditing ? 'Updated student' : 'Added student')
@@ -92,7 +92,7 @@ export default function StudentManagementPage() {
 
   async function deleteStudent(iid: string) {
     if (!confirm(`Delete student ${iid}? This cannot be undone.`)) return
-    const { error } = await supabase.from('exam_ann25').delete().eq('iid', iid)
+    const { error } = await supabase.from('fmhs_exam_data').delete().eq('iid', iid)
     if (error) { setStatus('Error: ' + error.message); return }
     setStatus('Deleted ' + iid)
     loadStudents()
@@ -133,7 +133,7 @@ export default function StudentManagementPage() {
               </select>
               <select value={sectionFilter} onChange={e => setSectionFilter(e.target.value)}>
                 <option value="">All Sections</option>
-                {(classFilter ? sectionsByClass[classFilter] ?? [] : Array.from(new Set(students.map(s => s.section_2025))).sort()).map(s => <option key={s} value={s}>{s}</option>)}
+                {(classFilter ? sectionsByClass[classFilter] ?? [] : Array.from(new Set(students.map(s => s.section))).sort()).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <button className="btn btn-success" onClick={openAdd}>➕ Add Student</button>
               <button className="btn btn-secondary" onClick={loadStudents}>🔄 Refresh</button>
@@ -158,9 +158,9 @@ export default function StudentManagementPage() {
                       <td>{i + 1}</td>
                       <td>{s.iid}</td>
                       <td style={{ fontWeight: 500 }}>{s.student_name_en}</td>
-                      <td style={{ textAlign: 'center' }}>{s.roll_2025 ?? '—'}</td>
-                      <td style={{ textAlign: 'center' }}>{s.class_2025 ?? '—'}</td>
-                      <td style={{ textAlign: 'center' }}>{s.section_2025}</td>
+                      <td style={{ textAlign: 'center' }}>{s.roll ?? '—'}</td>
+                      <td style={{ textAlign: 'center' }}>{s.class ?? '—'}</td>
+                      <td style={{ textAlign: 'center' }}>{s.section}</td>
                       <td>{s.father_name_en ?? '—'}</td>
                       <td>{s.father_mobile ?? '—'}</td>
                       <td style={{ textAlign: 'center', fontWeight: 600, color: s.gpa_final === 'F' ? '#d73a49' : '#1a7f37' }}>{String(s.gpa_final ?? '—')}</td>
@@ -180,7 +180,7 @@ export default function StudentManagementPage() {
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
               <div style={{ background: '#fff', borderRadius: '10px', padding: '24px', width: '480px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
                 <h3 style={{ margin: '0 0 20px', fontWeight: 700, color: '#24292f' }}>{isEditing ? 'Edit Student' : 'Add New Student'}</h3>
-                {([['iid','IID'],['student_name_en','Student Name'],['father_name_en',"Father's Name"],['father_mobile','Father Mobile'],['roll_2025','Roll']] as [keyof Student, string][]).map(([field, label]) => (
+                {([['iid','IID'],['student_name_en','Student Name'],['father_name_en',"Father's Name"],['father_mobile','Father Mobile'],['roll','Roll']] as [keyof Student, string][]).map(([field, label]) => (
                   <div key={field} style={{ marginBottom: '12px' }}>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>{label}</label>
                     <input type="text" value={String(editStudent[field] ?? '')} onChange={e => setEditStudent(p => ({ ...p, [field]: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} disabled={isEditing && field === 'iid'} />
@@ -188,11 +188,11 @@ export default function StudentManagementPage() {
                 ))}
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Class</label>
-                  <input type="text" value={String(editStudent.class_2025 ?? '')} onChange={e => setEditStudent(p => ({ ...p, class_2025: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} />
+                  <input type="text" value={String(editStudent.class ?? '')} onChange={e => setEditStudent(p => ({ ...p, class: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} />
                 </div>
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>Section</label>
-                  <input type="text" value={String(editStudent.section_2025 ?? '')} onChange={e => setEditStudent(p => ({ ...p, section_2025: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} />
+                  <input type="text" value={String(editStudent.section ?? '')} onChange={e => setEditStudent(p => ({ ...p, section: e.target.value }))} style={{ width: '100%', boxSizing: 'border-box' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
                   <button onClick={() => setShowModal(false)} style={{ padding: '8px 20px', background: '#6a737d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>

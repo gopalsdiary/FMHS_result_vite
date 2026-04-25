@@ -33,7 +33,7 @@ export default function StudentDetailsAccessPage() {
 
   async function loadStudent() {
     setLoading(true)
-    const { data, error: err } = await supabase.from('exam_ann25').select('*').eq('iid', iid).limit(1)
+    const { data, error: err } = await supabase.from('fmhs_exam_data').select('*').eq('iid', iid).limit(1)
     if (err || !data?.length) { setError(err?.message ?? 'Student not found'); setLoading(false); return }
     const row = data[0] as Record<string, unknown>
     const keys = Object.keys(row)
@@ -42,8 +42,8 @@ export default function StudentDetailsAccessPage() {
       iid: pickVal(row, ['iid', 'IID']),
       name: pickVal(row, ['student_name', 'name']),
       roll: pickVal(row, ['roll']),
-      section: pickVal(row, ['section_2025', 'section']),
-      className: pickVal(row, ['class_2025', 'class']),
+      section: pickVal(row, ['section', 'section']),
+      className: pickVal(row, ['class', 'class']),
       fatherName: pickVal(row, ['father_name']),
       motherName: pickVal(row, ['mother_name']),
     })
@@ -158,3 +158,4 @@ export default function StudentDetailsAccessPage() {
     </div>
   )
 }
+

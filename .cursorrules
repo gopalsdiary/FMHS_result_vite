@@ -1,0 +1,70 @@
+# FMHS Result Management System - Project Rules & Skills
+
+You are an expert AI developer working on the FMHS Result Management System. This project is a modern, high-performance web application for educational institutions.
+
+## Technology Stack
+- **Frontend**: Vite + React + TypeScript
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime)
+- **Styling**: Vanilla CSS with modern aesthetics (Glassmorphism, Vibrant Gradients)
+- **Typography**: 'Outfit', sans-serif (Google Fonts)
+
+## Design System Guidelines
+- **Border Radius**: Always use `32px` or `24px` for main containers to achieve a premium look.
+- **Colors**:
+  - Primary: `#4f46e5` (Indigo)
+  - Success: `#059669` (Emerald)
+  - Danger: `#ef4444` (Rose)
+  - Background: `#f8fafc` (Slate 50)
+- **Glassmorphism**: Use `backdrop-filter: blur(10px)` and semi-transparent backgrounds for overlays.
+- **Visual Feedback**:
+  - Unsaved/Pending changes: Orange (`#f59e0b`)
+  - Saving: Grey/Loading (`#94a3b8`)
+  - Saved/Success: Green (`#10b981`)
+
+## Core Features & Logic
+1. **Privacy-First Mark Entry**:
+   - you can follow (old_file) folder for logic.  
+    old_file\1_print_results.html ; old_file\2_result_dashboard.html ; old_file\2_total_average.html
+    old_file\3_Subject_GPA.html ; old_file\4_gpa_final.html ; old_file\5_resultlist.html
+    old_file\6_process_results_fail_report.html ; old_file\result_entry_admin.html
+    old_file\result_entry_teacher.html; old_file\7_sms_full.html ; old_file\7_sms.html
+    old_file\summary.html ; old_file\result_view.html 
+
+    - Student names (`student_name_en`) and identifiers (`iid`) MUST be hidden by default in mark entry tables.
+   - Use a `showDetails` toggle button to reveal them only when needed.
+   - Redundant columns like 'Class' and 'Section' should be removed from tables if they are already in the context header.
+
+2. **Data Persistence Strategy**:
+   - **Local Cache**: Always store unsaved marks in `localStorage` immediately upon editing.
+   - **Restore**: On page load, automatically check for and restore any unsaved marks from `localStorage`.
+   - **Batch Saving**: Support individual row saving and a "Save All" feature. Clear local cache only after a successful Supabase sync.
+
+3. **Real-time Calculations**:
+   - Calculate Total (CQ + MCQ + Practical) instantly as the user types.
+   - Update UI immediately to reflect GPA and Grades based on subject rules.
+
+4. **Reset Functionality**:
+   - Provide a "Reset" button to clear local unsaved changes and re-fetch clean data from the database.
+
+5. **Data Integrity & Import Rules**:
+   - **Status Check**: During student import, EXCLUDE any student with status "TC" from `student_database`.
+   - **Duplicate Prevention**: Never import the same student into the same exam twice.
+   - **Full Scan**: When loading from `fmhs_exam_data` or `student_database`, ensure the logic scans until the very last record (handle pagination/scrolling correctly).
+   - **Deletion Safety**: Prevent deletion of any exam or subject if it contains existing marks in `fmhs_exam_data`.
+
+6. **Database Naming Convention**:
+   - Follow the established format for mark columns: `*SubjectName_CQ`, `*SubjectName_MCQ`, `*SubjectName_Practical`, `*SubjectName_Total`, `*SubjectName_GPA`.
+
+## Coding Standards
+- Use **Functional Components** with Hooks.
+- Prefer **TypeScript** interfaces for all data structures (Exam, Assignment, StudentRow, SubjectRule).
+- Keep components focused and modular.
+- Always use **Supabase service role** patterns carefully and prioritize secure data fetching.
+
+## Key Files to Watch
+- `src/pages/ExamPanelPage.tsx`: Main administrative mark entry and results dashboard.
+- `src/pages/TeacherGradeEntryPage.tsx`: Specialized teacher mark entry interface.
+- `src/services/resultProcessor.ts`: Core logic for GPA and Mark calculations.
+- `src/services/supabaseClient.ts`: Supabase initialization and helpers.
+
+Maintain the highest standards of code quality and UI elegance. Always prioritize user speed and data safety.

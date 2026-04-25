@@ -10,8 +10,8 @@ interface PrintStudent {
   student_name_en: string
   father_name_en?: string
   father_mobile?: string
-  roll_2025?: string | number
-  section_2025: string
+  roll?: string | number
+  section: string
   gpa_final?: number | null
   remark?: string | null
   class_rank?: number | null
@@ -55,11 +55,11 @@ export default function PrintResultsPage() {
     if (!classVal || !sectionVal) { setStatus('Please select class and section'); return }
     setLoading(true); setStatus('Loading…')
     const { data, error } = await supabase
-      .from('exam_ann25')
-      .select('iid, student_name_en, father_name_en, father_mobile, roll_2025, section_2025, gpa_final, remark, class_rank')
-      .eq('class_2025', classVal)
-      .eq('section_2025', sectionVal)
-      .order('roll_2025', { ascending: true })
+      .from('fmhs_exam_data')
+      .select('iid, student_name_en, father_name_en, father_mobile, roll, section, gpa_final, remark, class_rank')
+      .eq('class', classVal)
+      .eq('section', sectionVal)
+      .order('roll', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     let list = (data ?? []) as PrintStudent[]
     if (sortByRank) list = [...list].sort((a, b) => (a.class_rank ?? 999) - (b.class_rank ?? 999))
@@ -134,11 +134,11 @@ export default function PrintResultsPage() {
               <tbody>
                 {students.map(s => (
                   <tr key={s.iid}>
-                    <td>{s.roll_2025 ?? '—'}</td>
+                    <td>{s.roll ?? '—'}</td>
                     <td>{s.iid}</td>
                     <td>{s.student_name_en}</td>
                     <td>{s.father_name_en ?? '—'}</td>
-                    <td>{s.section_2025}</td>
+                    <td>{s.section}</td>
                     <td>{s.class_rank ?? '—'}</td>
                     <td>{s.gpa_final ?? '—'}</td>
                     <td>{s.remark ?? '—'}</td>
@@ -152,3 +152,4 @@ export default function PrintResultsPage() {
     </div>
   )
 }
+

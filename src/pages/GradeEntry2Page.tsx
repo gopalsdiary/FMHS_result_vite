@@ -5,7 +5,7 @@ import PageShell from '@/layout/PageShell'
 
 const SECTIONS = ['6A','6B','6C','7A','7B','7C','8A','8B','8C','9A','9B','10A','10B']
 
-interface Student { iid: string; student_name_en: string; roll_2025: string | number; total_mark: number | null; average_mark: number | null; gpa_final: number | string | null; remark: string | null }
+interface Student { iid: string; student_name_en: string; roll: string | number; total_mark: number | null; average_mark: number | null; gpa_final: number | string | null; remark: string | null }
 
 export default function GradeEntry2Page() {
   const navigate = useNavigate()
@@ -24,10 +24,10 @@ export default function GradeEntry2Page() {
     if (!section) { setStatus('Please select a section'); return }
     setLoading(true); setStatus('Loading…')
     const { data, error } = await supabase
-      .from('exam_ann25')
-      .select('iid, student_name_en, roll_2025, total_mark, average_mark, gpa_final, remark')
-      .eq('section_2025', section)
-      .order('roll_2025', { ascending: true })
+      .from('fmhs_exam_data')
+      .select('iid, student_name_en, roll, total_mark, average_mark, gpa_final, remark')
+      .eq('section', section)
+      .order('roll', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     setStudents((data ?? []) as Student[])
     setStatus(`${data?.length ?? 0} students loaded`)
@@ -42,7 +42,7 @@ export default function GradeEntry2Page() {
 
   async function saveRow(index: number) {
     const s = students[index]
-    const { error } = await supabase.from('exam_ann25')
+    const { error } = await supabase.from('fmhs_exam_data')
       .update({ total_mark: s.total_mark, average_mark: s.average_mark, gpa_final: s.gpa_final, remark: s.remark })
       .eq('iid', s.iid)
     setStatus(error ? 'Error: ' + error.message : `Saved ${s.student_name_en}`)
@@ -52,7 +52,7 @@ export default function GradeEntry2Page() {
     setStatus('Saving all…')
     let done = 0
     for (const s of students) {
-      const { error } = await supabase.from('exam_ann25')
+      const { error } = await supabase.from('fmhs_exam_data')
         .update({ total_mark: s.total_mark, average_mark: s.average_mark, gpa_final: s.gpa_final, remark: s.remark })
         .eq('iid', s.iid)
       if (!error) done++
@@ -96,7 +96,7 @@ export default function GradeEntry2Page() {
                       <td>{i + 1}</td>
                       <td>{s.iid}</td>
                       <td>{s.student_name_en}</td>
-                      <td>{s.roll_2025 ?? '—'}</td>
+                      <td>{s.roll ?? '—'}</td>
                       <td><input type="number" value={s.total_mark ?? ''} onChange={e => update(i, 'total_mark', e.target.value)} style={{ width: '80px' }} /></td>
                       <td><input type="number" value={s.average_mark ?? ''} onChange={e => update(i, 'average_mark', e.target.value)} style={{ width: '80px' }} /></td>
                       <td><input type="text" value={String(s.gpa_final ?? '')} onChange={e => update(i, 'gpa_final', e.target.value)} style={{ width: '70px' }} /></td>
@@ -113,3 +113,4 @@ export default function GradeEntry2Page() {
     </PageShell>
   )
 }
+

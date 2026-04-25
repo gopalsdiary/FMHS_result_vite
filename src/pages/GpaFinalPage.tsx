@@ -7,9 +7,9 @@ interface SubjectMap { Total?: string; GPA?: string }
 
 interface StudentRow extends Record<string, unknown> {
   iid: string
-  class_2025: string | null
-  section_2025: string | null
-  roll_2025: number | null
+  class: string | null
+  section: string | null
+  roll: number | null
   total_mark: number | null
   average_mark: number | null
   count_absent: number | null
@@ -58,7 +58,7 @@ export default function GpaFinalPage() {
     setLoading(true); setStatus('Loading all students…')
 
     // Detect subjects from table schema
-    const { data: sample } = await supabase.from('exam_ann25').select('*').limit(1)
+    const { data: sample } = await supabase.from('fmhs_exam_data').select('*').limit(1)
     const compRe = /(.+?)(?:_|\s)(Total|GPA)$/i
     const smap: Record<string, SubjectMap> = {}
     if (sample?.length) {
@@ -79,7 +79,7 @@ export default function GpaFinalPage() {
     setSubjectMap(smap)
 
     // Build select: core cols + all subject GPA and Total cols
-    const coreCols = 'iid, class_2025, section_2025, roll_2025, total_mark, average_mark, count_absent, gpa_final, class_rank, remark'
+    const coreCols = 'iid, class, section, roll, total_mark, average_mark, count_absent, gpa_final, class_rank, remark'
     const subjCols = subjects.flatMap(s => {
       const cols: string[] = []
       if (smap[s].GPA) cols.push(`"${smap[s].GPA}"`)
@@ -89,11 +89,11 @@ export default function GpaFinalPage() {
     const selectStr = subjCols ? `${coreCols}, ${subjCols}` : coreCols
 
     const { data, error } = await supabase
-      .from('exam_ann25')
+      .from('fmhs_exam_data')
       .select(selectStr)
-      .order('class_2025', { ascending: false })
-      .order('section_2025', { ascending: false })
-      .order('roll_2025', { ascending: false })
+      .order('class', { ascending: false })
+      .order('section', { ascending: false })
+      .order('roll', { ascending: false })
 
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
 
@@ -169,7 +169,7 @@ export default function GpaFinalPage() {
   function calcClassRanks(rows: StudentRow[]): StudentRow[] {
     const groups: Record<string, StudentRow[]> = {}
     rows.forEach(s => {
-      const key = `${s.class_2025}_${s.section_2025}`
+      const key = `${s.class}_${s.section}`
       groups[key] = groups[key] ?? []
       groups[key].push(s)
     })
@@ -183,13 +183,13 @@ export default function GpaFinalPage() {
         if (gA !== null && gB !== null) {
           if (Math.abs(gA - gB) > 0.001) return gB - gA
           if ((b.total_mark ?? 0) !== (a.total_mark ?? 0)) return (b.total_mark ?? 0) - (a.total_mark ?? 0)
-          return (a.roll_2025 ?? 999999) - (b.roll_2025 ?? 999999)
+          return (a.roll ?? 999999) - (b.roll ?? 999999)
         }
         if (gA !== null) return -1; if (gB !== null) return 1
         const fA = extractFailCount(a.remark), fB = extractFailCount(b.remark)
         if (fA !== fB) return fA - fB
         if ((b.total_mark ?? 0) !== (a.total_mark ?? 0)) return (b.total_mark ?? 0) - (a.total_mark ?? 0)
-        return (a.roll_2025 ?? 999999) - (b.roll_2025 ?? 999999)
+        return (a.roll ?? 999999) - (b.roll ?? 999999)
       })
       eligible.forEach((s, rank) => {
         const idx = result.findIndex(r => r.iid === s.iid)
@@ -221,7 +221,7 @@ export default function GpaFinalPage() {
       class_rank: s.class_rank ?? null,
       remark: s.remark ?? null,
     }))
-    const { error } = await supabase.from('exam_ann25').upsert(updates)
+    const { error } = await supabase.from('fmhs_exam_data').upsert(updates)
     if (!error) {
       setStudents(recalculated.map(s => ({
         ...s,
@@ -240,7 +240,7 @@ export default function GpaFinalPage() {
     if (!s) return
     setRowSaving(prev => ({ ...prev, [iid]: true }))
     if (window.confirm(`Save to database?\n\nGPA Final: ${s.gpa_final ?? ''}\nClass Rank: ${s.class_rank ?? ''}\nRemark: ${s.remark ?? ''}`)) {
-      const { error } = await supabase.from('exam_ann25').update({
+      const { error } = await supabase.from('fmhs_exam_data').update({
         gpa_final: s.gpa_final === null ? null : parseFloat(String(s.gpa_final)),
         class_rank: s.class_rank ?? null,
         remark: s.remark ?? null,

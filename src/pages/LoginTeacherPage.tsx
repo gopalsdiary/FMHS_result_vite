@@ -151,3 +151,4 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px', textAlign: 'center', border: '1px solid rgba(33,150,243,0.25)',
   },
 }
+

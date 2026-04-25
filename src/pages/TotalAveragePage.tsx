@@ -5,9 +5,9 @@ import PageShell from '@/layout/PageShell'
 
 interface StudentRow extends Record<string, unknown> {
   iid: string
-  class_2025: string | null
-  section_2025: string | null
-  roll_2025: number | null
+  class: string | null
+  section: string | null
+  roll: number | null
   total_mark: number | null
   average_mark: number | null
   count_absent: string | null
@@ -41,7 +41,7 @@ export default function TotalAveragePage() {
 
   // Detect subject Total columns from first row
   async function detectSubjectCols(): Promise<string[]> {
-    const { data } = await supabase.from('exam_ann25').select('*').limit(1)
+    const { data } = await supabase.from('fmhs_exam_data').select('*').limit(1)
     if (!data?.length) return []
     const keys = Object.keys(data[0])
     return keys.filter(k => /\*?.+_Total$/i.test(k))
@@ -53,17 +53,17 @@ export default function TotalAveragePage() {
     setSubjectCols(cols)
 
     const selectCols = [
-      'iid', 'class_2025', 'section_2025', 'roll_2025',
+      'iid', 'class', 'section', 'roll',
       'total_mark', 'average_mark', 'count_absent',
       ...cols.map(c => `"${c}"`)
     ].join(', ')
 
     const { data, error } = await supabase
-      .from('exam_ann25')
+      .from('fmhs_exam_data')
       .select(selectCols)
-      .order('class_2025', { ascending: true })
-      .order('section_2025', { ascending: true })
-      .order('roll_2025', { ascending: true })
+      .order('class', { ascending: true })
+      .order('section', { ascending: true })
+      .order('roll', { ascending: true })
 
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
 
@@ -121,7 +121,7 @@ export default function TotalAveragePage() {
       average_mark: s.average_mark ?? null,
       count_absent: s.count_absent ?? null,
     }))
-    const { error } = await supabase.from('exam_ann25').upsert(updates, { onConflict: 'iid' })
+    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: 'iid' })
     if (!error) {
       setStudents(prev => prev.map(s => ({ ...s, _db_total: s.total_mark, _db_avg: s.average_mark, _db_absent: s.count_absent })))
       setStatus(`✅ Saved ${students.length} records to database`)
@@ -136,7 +136,7 @@ export default function TotalAveragePage() {
     if (!s) return
     setRowSaving(prev => ({ ...prev, [iid]: true }))
     const { error } = await supabase
-      .from('exam_ann25')
+      .from('fmhs_exam_data')
       .update({
         total_mark: s.total_mark ?? null,
         average_mark: s.average_mark ?? null,
@@ -229,9 +229,9 @@ export default function TotalAveragePage() {
                     return (
                       <tr key={s.iid} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.iid}</td>
-                        <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.class_2025 ?? '—'}</td>
-                        <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.section_2025 ?? '—'}</td>
-                        <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.roll_2025 ?? '—'}</td>
+                        <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.class ?? '—'}</td>
+                        <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.section ?? '—'}</td>
+                        <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.roll ?? '—'}</td>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, background: '#f0f9ff' }}>{s.total_mark ?? ''}</td>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, background: '#f0f9ff' }}>{s.average_mark ?? ''}</td>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, background: '#f0f9ff' }}>{s.count_absent ?? ''}</td>
@@ -269,3 +269,4 @@ export default function TotalAveragePage() {
     </PageShell>
   )
 }
+

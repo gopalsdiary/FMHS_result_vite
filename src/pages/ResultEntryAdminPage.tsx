@@ -14,7 +14,7 @@ function findColumn(row: StudentRow | undefined, patterns: RegExp[], fallback: s
 }
 
 function sortRowsByRoll(rows: StudentRow[]): StudentRow[] {
-  const rollColumn = findColumn(rows[0], [/roll_2025/i, /roll/i], 'roll_2025')
+  const rollColumn = findColumn(rows[0], [/roll/i, /roll/i], 'roll')
   return [...rows].sort((left, right) => {
     const leftRoll = Number(left[rollColumn])
     const rightRoll = Number(right[rollColumn])
@@ -71,7 +71,7 @@ export default function ResultEntryAdminPage() {
   const draftStorageKey = buildResultEntryDraftKey('admin', draftOwner, cls, section, subject)
 
   async function detectColumns() {
-    const { data: sampleRows } = await supabase.from('exam_ann25').select('*').limit(1)
+    const { data: sampleRows } = await supabase.from('fmhs_exam_data').select('*').limit(1)
     if (sampleRows?.length) {
       const keys = Object.keys(sampleRows[0])
       const ic = keys.find(k => /^iid$/i.test(k)) ?? 'iid'
@@ -97,11 +97,16 @@ export default function ResultEntryAdminPage() {
     if (!cls || !section || !subject) { setStatus('Select class, section and subject'); return }
     setLoading(true)
     setStatus('Loading…')
-    const { data, error } = await supabase
-      .from('exam_ann25')
-      .select('*')
-      .eq('class_2025', cls)
-      .eq('section_2025', section)
+    const restoredDrafts = readResultEntryDrafts(draftStorageKey)
+    const { data: examData } = await supabase.from('FMHS_exams_names').select('id').eq('is_live', true).order('id', { ascending: false }).limit(1).maybeSingle()
+    const activeExamId = examData?.id
+
+    let query = supabase.from('fmhs_exam_data').select('*')
+    if (activeExamId) query = query.eq('exam_id', activeExamId)
+    
+    const { data, error } = await query
+      .eq('class', cls)
+      .eq('section', section)
       .order(iidCol, { ascending: true })
 
     if (error) {
@@ -110,7 +115,6 @@ export default function ResultEntryAdminPage() {
       return
     }
 
-    const restoredDrafts = readResultEntryDrafts(draftStorageKey)
     setStudents(sortRowsByRoll((data ?? []) as StudentRow[]))
     editRef.current = restoredDrafts
     setTableVersion(version => version + 1)
@@ -174,7 +178,7 @@ export default function ResultEntryAdminPage() {
     }
 
     setStatus('Saving…')
-    const { error } = await supabase.from('exam_ann25').upsert(updates, { onConflict: iidCol })
+    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: iidCol })
     if (error) {
       setStatus('Error: ' + error.message)
       return
@@ -199,7 +203,7 @@ export default function ResultEntryAdminPage() {
   const sections = cls ? sectionsByClass[cls] ?? [] : []
   const firstRow = students[0]
   const nameCol = findColumn(firstRow, [/student_name_en/i, /student_name|name/i], 'student_name_en')
-  const rollCol = findColumn(firstRow, [/roll_2025/i, /roll/i], 'roll_2025')
+  const rollCol = findColumn(firstRow, [/roll/i, /roll/i], 'roll')
   const fields = [
     comps?.CQ ? { key: comps.CQ, label: 'CQ' } : null,
     comps?.MCQ ? { key: comps.MCQ, label: 'MCQ' } : null,
@@ -280,7 +284,7 @@ export default function ResultEntryAdminPage() {
     }
 
     setRowSaving(prev => ({ ...prev, [iid]: true }))
-    const { error } = await supabase.from('exam_ann25').update(payload).eq(iidCol, iid)
+    const { error } = await supabase.from('fmhs_exam_data').update(payload).eq(iidCol, iid)
     setRowSaving(prev => ({ ...prev, [iid]: false }))
 
     if (error) {
@@ -428,3 +432,4 @@ export default function ResultEntryAdminPage() {
     </div>
   )
 }
+

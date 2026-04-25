@@ -12,7 +12,7 @@ interface SectionStats {
 }
 
 interface Student {
-  iid: string; section_2025?: string; gpa_final?: string; remark?: string; total_mark?: number
+  iid: string; section?: string; gpa_final?: string; remark?: string; total_mark?: number
 }
 
 export default function SummaryPage() {
@@ -31,12 +31,12 @@ export default function SummaryPage() {
 
   async function loadAll() {
     setLoading(true); setStatus('Loading…')
-    const { data, error } = await supabase.from('exam_ann25').select('iid, section_2025, gpa_final, remark, total_mark')
+    const { data, error } = await supabase.from('fmhs_exam_data').select('iid, section, gpa_final, remark, total_mark')
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const rows = (data ?? []) as Student[]
     const grouped = new Map<string, Student[]>()
     rows.forEach(r => {
-      const sec = r.section_2025 ?? 'Unknown'
+      const sec = r.section ?? 'Unknown'
       if (!grouped.has(sec)) grouped.set(sec, [])
       grouped.get(sec)!.push(r)
     })
@@ -183,3 +183,4 @@ export default function SummaryPage() {
     </PageShell>
   )
 }
+

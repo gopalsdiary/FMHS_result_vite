@@ -26,9 +26,9 @@ export default function ProcessResultsPage() {
     setLoading(true); setStatus('Loading…')
 
     const { data, error } = await supabase
-      .from('exam_ann25')
+      .from('fmhs_exam_data')
       .select('*')
-      .eq('section_2025', section)
+      .eq('section', section)
       .order('roll', { ascending: true })
 
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
@@ -103,3 +103,4 @@ export default function ProcessResultsPage() {
     </PageShell>
   )
 }
+

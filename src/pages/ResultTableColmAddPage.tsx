@@ -22,7 +22,7 @@ export default function ResultTableColmAddPage() {
 
   async function loadCols() {
     setLoading(true)
-    const { data, error } = await supabase.from('exam_ann25').select('*').limit(1)
+    const { data, error } = await supabase.from('fmhs_exam_data').select('*').limit(1)
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     if (data?.length) {
       const keys = Object.keys(data[0])
@@ -63,7 +63,7 @@ export default function ResultTableColmAddPage() {
       {() => (
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div className="card" style={{ marginBottom: '20px' }}>
-            <div style={{ fontWeight: 600, marginBottom: '8px' }}>Add Subject Columns to exam_ann25</div>
+            <div style={{ fontWeight: 600, marginBottom: '8px' }}>Add Subject Columns to fmhs_exam_data</div>
             <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>
               Subject columns follow the pattern: <code>SubjectName_CQ</code>, <code>SubjectName_MCQ</code>, <code>SubjectName_Total</code>, <code>SubjectName_GPA</code>
             </p>
@@ -92,7 +92,7 @@ export default function ResultTableColmAddPage() {
 
           {!loading && (
             <div className="card">
-              <div style={{ fontWeight: 600, marginBottom: '12px' }}>Current Subject Columns in exam_ann25</div>
+              <div style={{ fontWeight: 600, marginBottom: '12px' }}>Current Subject Columns in fmhs_exam_data</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
                 {Array.from(subjectGroups.entries()).map(([subj, comps]) => (
                   <div key={subj} style={{ padding: '10px 14px', border: '1px solid #d0d7de', borderRadius: '6px', background: '#f6f8fa' }}>
@@ -115,3 +115,4 @@ export default function ResultTableColmAddPage() {
     </PageShell>
   )
 }
+

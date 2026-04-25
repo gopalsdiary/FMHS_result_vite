@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 import { loadExamAnn25Meta } from '@/services/examAnn25Meta'
 
-interface FailStudent { iid: string; student_name_en: string; class_2025: string; section_2025: string; roll_2025: string | number; gpa_final: string | number | null; subjects: string[] }
+interface FailStudent { iid: string; student_name_en: string; class: string; section: string; roll: string | number; gpa_final: string | number | null; subjects: string[] }
 
 export default function FailReportPage() {
+  const { examId } = useParams()
   const navigate = useNavigate()
   const [classVal, setClassVal] = useState('')
   const [section, setSection] = useState('')
@@ -30,21 +31,33 @@ export default function FailReportPage() {
 
   const loadReport = useCallback(async () => {
     if (!classVal || !section) { setStatus('Please select class and section'); return }
-    setLoading(true); setStatus('Loading…')
+    setLoading(true); setStatus('Scanning database...')
 
-    const { data, error } = await supabase
-      .from('exam_ann25')
-      .select('iid, student_name_en, class_2025, section_2025, roll_2025, gpa_final')
-      .eq('class_2025', classVal)
-      .eq('section_2025', section)
-      .order('roll_2025', { ascending: true })
+    let allData: FailStudent[] = []
+    let from = 0; let to = 999; let hasMore = true
+    while (hasMore) {
+      let query = supabase
+        .from('fmhs_exam_data')
+        .select('iid, student_name_en, class, section, roll, gpa_final')
+        .eq('class', classVal)
+        .eq('section', section)
+      
+      if (examId) query = query.eq('exam_id', examId)
+      
+      const { data, error } = await query.order('roll', { ascending: true }).range(from, to)
+      if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
+      if (data && data.length > 0) {
+        allData = [...allData, ...(data as FailStudent[])]
+        if (data.length < 1000) hasMore = false
+        else { from += 1000; to += 1000 }
+      } else { hasMore = false }
+    }
 
-    if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
-    const fails = ((data ?? []) as FailStudent[]).filter(s => String(s.gpa_final ?? '').trim().toUpperCase() === 'F' || Number(s.gpa_final) === 0)
+    const fails = allData.filter(s => String(s.gpa_final ?? '').trim().toUpperCase() === 'F' || (s.gpa_final !== null && Number(s.gpa_final) === 0 && s.gpa_final !== ''))
     setStudents(fails)
     setStatus(`${fails.length} failed student(s) in Class ${classVal} / Section ${section}`)
     setLoading(false)
-  }, [classVal, section])
+  }, [classVal, section, examId])
 
   return (
     <PageShell title="Part 6 – Fail Report">
@@ -100,9 +113,9 @@ export default function FailReportPage() {
                       <td>{i + 1}</td>
                       <td>{s.iid}</td>
                       <td style={{ fontWeight: 600 }}>{s.student_name_en}</td>
-                      <td>{s.class_2025}</td>
-                      <td>{s.section_2025}</td>
-                      <td>{s.roll_2025 ?? '—'}</td>
+                      <td>{s.class}</td>
+                      <td>{s.section}</td>
+                      <td>{s.roll ?? '—'}</td>
                       <td style={{ fontWeight: 700, color: '#d73a49' }}>{String(s.gpa_final ?? 'F')}</td>
                       <td style={{ color: '#d73a49', fontWeight: 600 }}>FAIL</td>
                     </tr>
@@ -122,3 +135,4 @@ export default function FailReportPage() {
     </PageShell>
   )
 }
+

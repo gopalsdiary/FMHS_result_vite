@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 
-const TABLE_NAME = 'exam_ann25'
+const TABLE_NAME = 'fmhs_exam_data'
 
 interface GradingCriteria {
   cqPass: number; mcqPass: number; practicalPass: number; totalPass: number
@@ -397,3 +397,4 @@ export default function SubjectGpaPage() {
     </PageShell>
   )
 }
+
