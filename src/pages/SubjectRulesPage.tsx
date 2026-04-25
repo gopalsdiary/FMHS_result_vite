@@ -184,11 +184,23 @@ export default function SubjectRulesPage() {
                      <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', fontWeight: 800, fontSize: '1rem' }}>
                        {r.subject_name}
                      </td>
-                     <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{r.total_cq}</td>
-                     <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{r.total_mcq}</td>
-                     <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{r.total_practical}</td>
+                     <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center', color: '#1e293b', fontWeight: 800 }}>
+                        {r.total_cq}
+                        {r.total_cq > 0 && <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>P: {r.pass_cq}</div>}
+                     </td>
+                     <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center', color: '#1e293b', fontWeight: 800 }}>
+                        {r.total_mcq}
+                        {r.total_mcq > 0 && <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>P: {r.pass_mcq}</div>}
+                     </td>
+                     <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center', color: '#1e293b', fontWeight: 800 }}>
+                        {r.total_practical}
+                        {r.total_practical > 0 && <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>P: {r.pass_practical}</div>}
+                     </td>
                      <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', textAlign: 'center' }}>
-                       <span style={{ background: '#f0fdf4', color: '#166534', padding: '4px 12px', borderRadius: '8px', fontWeight: 800, fontSize: '12px' }}>{r.pass_total}</span>
+                       <span style={{ background: '#f0fdf4', color: '#166534', padding: '4px 12px', borderRadius: '8px', fontWeight: 800, fontSize: '12px', display: 'block' }}>
+                          {r.pass_total}
+                          <div style={{ fontSize: '9px', opacity: 0.7, fontWeight: 600 }}>TOTAL PASS</div>
+                       </span>
                      </td>
                      <td style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', borderRight: '1px solid #f1f5f9', borderRadius: '0 16px 16px 0', textAlign: 'right' }}>
                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>

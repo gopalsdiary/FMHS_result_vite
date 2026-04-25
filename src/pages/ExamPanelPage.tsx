@@ -317,6 +317,14 @@ export default function ExamPanelPage() {
         rows.forEach(r => {
           if (parsed[r.id]) {
             Object.assign(r, parsed[r.id])
+            const subject = subjectMap[subVal]
+            const totalCol = subject?.Total
+            const componentCols = [subject?.CQ, subject?.MCQ, subject?.Practical].filter(Boolean) as string[]
+            const hasComponentDraft = componentCols.some(col => Object.prototype.hasOwnProperty.call(parsed[r.id], col))
+            if (totalCol && hasComponentDraft) {
+              const totalValue = calculateDraftTotal(String(r.id), r as StudentRow, subVal)
+              r[totalCol] = totalValue
+            }
           }
         })
 
@@ -334,10 +342,81 @@ export default function ExamPanelPage() {
 
   const [savingRows, setSavingRows] = useState<Record<string, 'pending' | 'saving' | 'success'>>({})
 
-  function handleEdit(rowId: string, col: string, value: string) {
+  function getRowById(rowId: string) {
+    return data.find(row => String(row.id) === rowId)
+  }
+
+  function calculateDraftTotal(rowId: string, row: StudentRow, subjectKey: string) {
+    const subject = subjectKey ? subjectMap[subjectKey] : undefined
+    const totalCol = subject?.Total
+    if (!totalCol) return null
+
+    const componentCols = [subject.CQ, subject.MCQ, subject.Practical].filter(Boolean) as string[]
+    if (componentCols.length === 0) return null
+
+    const draft = editChanges.current[rowId] ?? {}
+    const hasComponentDraft = componentCols.some(col => Object.prototype.hasOwnProperty.call(draft, col))
+    if (!hasComponentDraft) return null
+
+    let sum = 0
+    let hasValue = false
+    componentCols.forEach(col => {
+      const raw = Object.prototype.hasOwnProperty.call(draft, col) ? draft[col] : row[col]
+      if (raw !== null && raw !== undefined && raw !== '') {
+        const numeric = Number(raw)
+        if (Number.isFinite(numeric)) {
+          sum += numeric
+          hasValue = true
+        }
+      }
+    })
+
+    return hasValue ? sum : null
+  }
+
+  function syncDraftTotal(rowId: string, row: StudentRow, subjectKey: string) {
+    const subject = subjectKey ? subjectMap[subjectKey] : undefined
+    const totalCol = subject?.Total
+    if (!totalCol) return null
+
+    const totalValue = calculateDraftTotal(rowId, row, subjectKey)
     if (!editChanges.current[rowId]) editChanges.current[rowId] = {}
-    editChanges.current[rowId][col] = value === '' ? null : Number(value)
+
+    if (totalValue === null) delete editChanges.current[rowId][totalCol]
+    else editChanges.current[rowId][totalCol] = totalValue
+
+    if (Object.keys(editChanges.current[rowId]).length === 0) {
+      delete editChanges.current[rowId]
+    }
+
+    return totalValue
+  }
+
+  function handleEdit(rowId: string, col: string, value: string) {
+    const row = getRowById(rowId)
+    if (!row) return
+
+    const parsedValue = value === '' ? null : Number(value)
+    if (value !== '' && !Number.isFinite(parsedValue)) return
+
+    if (!editChanges.current[rowId]) editChanges.current[rowId] = {}
+
+    if (parsedValue === row[col] || (parsedValue === null && (row[col] === null || row[col] === undefined || row[col] === ''))) {
+      delete editChanges.current[rowId][col]
+    } else {
+      editChanges.current[rowId][col] = parsedValue
+    }
+
+    const totalValue = syncDraftTotal(rowId, row, filterSubject)
     
+    const totalCol = filterSubject ? subjectMap[filterSubject]?.Total : undefined
+    const nextRow: StudentRow = { ...row, [col]: parsedValue }
+    if (totalCol && totalValue !== null) {
+      nextRow[totalCol] = totalValue
+    }
+
+    setData(prev => prev.map(r => String(r.id) === rowId ? nextRow : r))
+
     // Set status to pending (orange)
     setSavingRows(prev => ({ ...prev, [rowId]: 'pending' }))
 
@@ -347,6 +426,9 @@ export default function ExamPanelPage() {
   }
 
   async function saveRow(rowId: string) {
+    const row = getRowById(rowId)
+    if (!row) return
+    syncDraftTotal(rowId, row, filterSubject)
     if (!editChanges.current[rowId]) return
     setSavingRows(prev => ({ ...prev, [rowId]: 'saving' }))
     
@@ -381,6 +463,12 @@ export default function ExamPanelPage() {
     setStatus(`💾 Saving changes for ${rowIds.length} students...`)
     let done = 0
     for (const rid of rowIds) {
+      const row = getRowById(rid)
+      if (row) syncDraftTotal(rid, row, filterSubject)
+      if (!editChanges.current[rid]) {
+        setSavingRows(prev => ({ ...prev, [rid]: 'pending' }))
+        continue
+      }
       setSavingRows(prev => ({ ...prev, [rid]: 'saving' }))
       const { error } = await supabase.from('fmhs_exam_data').update(editChanges.current[rid]).eq('id', rid)
       if (!error) {
@@ -563,10 +651,19 @@ export default function ExamPanelPage() {
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px 20px' }}>
         
         {/* TAB NAVIGATION */}
-        <div style={{ display: 'flex', gap: '8px', background: '#fff', padding: '6px', borderRadius: '16px', border: '1px solid #e2e8f0', width: 'fit-content', marginBottom: '32px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', gap: '8px', background: '#fff', padding: '6px', borderRadius: '16px', border: '1px solid #e2e8f0', width: 'fit-content', marginBottom: '32px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', flexWrap: 'wrap' }}>
            <button onClick={() => setActiveTab('overview')} style={tabStyle('overview')}>🏠 Overview</button>
            <button onClick={() => setActiveTab('setup')} style={tabStyle('setup')}>⚙️ Setup & Configuration</button>
            <button onClick={() => setActiveTab('marks')} style={tabStyle('marks')}>✍️ Mark Entry</button>
+           
+           <div style={{ width: '1px', height: '24px', background: '#e2e8f0', alignSelf: 'center', margin: '0 4px' }}></div>
+           
+           <button onClick={() => navigate(`/total-average/${id}`)} style={tabStyle('')}>📈 Total & Average</button>
+           <button onClick={() => navigate(`/subject-gpa/${id}`)} style={tabStyle('')}>🧪 Subject GPA</button>
+           <button onClick={() => navigate(`/gpa-final/${id}`)} style={tabStyle('')}>🎯 GPA Final</button>
+           
+           <div style={{ width: '1px', height: '24px', background: '#e2e8f0', alignSelf: 'center', margin: '0 4px' }}></div>
+           
            <button onClick={() => setActiveTab('reports')} style={tabStyle('reports')}>📊 Final Reports</button>
            <button onClick={() => setActiveTab('optional')} style={tabStyle('optional')}>🛠️ Optional</button>
         </div>
@@ -752,15 +849,32 @@ export default function ExamPanelPage() {
                             <th style={{ padding: '16px', textAlign: 'left', fontWeight: 900, textTransform: 'uppercase', fontSize: '11px', color: '#64748b' }}>IID</th>
                           </>
                         )}
-                        {filterSubject ? (
-                          <>
-                            {subjectMap[filterSubject].CQ && <th style={{ padding: '16px', textAlign: 'center' }}>CQ</th>}
-                            {subjectMap[filterSubject].MCQ && <th style={{ padding: '16px', textAlign: 'center' }}>MCQ</th>}
-                            {subjectMap[filterSubject].Practical && <th style={{ padding: '16px', textAlign: 'center' }}>PRAC</th>}
-                            <th style={{ padding: '16px', textAlign: 'center', background: '#eef2ff' }}>TOTAL</th>
-                            <th style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>ACTION</th>
-                          </>
-                        ) : (
+                        {filterSubject ? (() => {
+                          const rule = subjectRules.find(r => r.subject_name === filterSubject);
+                          return (
+                            <>
+                              {subjectMap[filterSubject].CQ && (
+                                <th style={{ padding: '16px', textAlign: 'center', fontSize: '11px' }}>
+                                  CQ <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 800 }}>P: {rule?.pass_cq}</div>
+                                </th>
+                              )}
+                              {subjectMap[filterSubject].MCQ && (
+                                <th style={{ padding: '16px', textAlign: 'center', fontSize: '11px' }}>
+                                  MCQ <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 800 }}>P: {rule?.pass_mcq}</div>
+                                </th>
+                              )}
+                              {subjectMap[filterSubject].Practical && (
+                                <th style={{ padding: '16px', textAlign: 'center', fontSize: '11px' }}>
+                                  PRAC <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 800 }}>P: {rule?.pass_practical}</div>
+                                </th>
+                              )}
+                              <th style={{ padding: '16px', textAlign: 'center', background: '#eef2ff', fontSize: '11px' }}>
+                                TOTAL <div style={{ fontSize: '9px', color: '#4f46e5', fontWeight: 800 }}>P: {rule?.pass_total}</div>
+                              </th>
+                              <th style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>ACTION</th>
+                            </>
+                          );
+                        })() : (
                           Object.keys(subjectMap).map(s => <th key={s} style={{ padding: '16px', textAlign: 'center', minWidth: '100px', fontWeight: 900, textTransform: 'uppercase', fontSize: '11px', color: '#64748b' }}>{s}</th>)
                         )}
                       </tr>
@@ -944,9 +1058,6 @@ export default function ExamPanelPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                   {[
-                    { title: 'Total & Average', path: `/total-average/${id}`, icon: '📈', desc: 'Calculate combined totals and class averages.' },
-                    { title: 'Subject GPA View', path: `/subject-gpa/${id}`, icon: '🧪', desc: 'Detailed grade breakdown per subject.' },
-                    { title: 'Final GPA Manager', path: `/gpa-final/${id}`, icon: '🎯', desc: 'Override or manually adjust final GPAs.' },
                     { title: 'Result Processor', path: `/process-results/${id}`, icon: '⚡', desc: 'Alternative result processing engine.' },
                     { title: 'Detailed Result View', path: `/result-view/${id}`, icon: '🔍', desc: 'Inspect raw data for individual students.' },
                     { title: 'General Summary', path: `/summary`, icon: '📋', desc: 'High-level statistical overview.' },

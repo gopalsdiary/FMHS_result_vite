@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 
@@ -8,7 +8,12 @@ const SECTIONS = ['6A','6B','6C','7A','7B','7C','8A','8B','8C','9A','9B','10A','
 interface ResultRow { [key: string]: unknown }
 
 export default function ProcessResultsPage() {
+  const { examId } = useParams()
   const navigate = useNavigate()
+  const hasExamParam = examId !== undefined
+  const parsedExamId = hasExamParam ? Number(examId) : null
+  const invalidExamParam = hasExamParam && !Number.isFinite(parsedExamId)
+  const activeExamId = !invalidExamParam && hasExamParam ? parsedExamId : null
   const [section, setSection] = useState('')
   const [rows, setRows] = useState<ResultRow[]>([])
   const [columns, setColumns] = useState<string[]>([])
@@ -23,13 +28,19 @@ export default function ProcessResultsPage() {
 
   const loadData = useCallback(async () => {
     if (!section) { setStatus('Please select a section'); return }
+    if (invalidExamParam) { setStatus(`Invalid exam id in URL: ${examId}`); return }
     setLoading(true); setStatus('Loading…')
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('fmhs_exam_data')
       .select('*')
       .eq('section', section)
-      .order('roll', { ascending: true })
+
+    if (activeExamId !== null) {
+      query = query.eq('exam_id', activeExamId)
+    }
+
+    const { data, error } = await query.order('roll', { ascending: true })
 
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const list = data ?? []
@@ -41,12 +52,15 @@ export default function ProcessResultsPage() {
       const subjectCols = keys.filter(k => !fixed.includes(k))
       setColumns([...fixed, ...subjectCols])
     }
-    setStatus(`${list.length} records loaded`)
+    setStatus(activeExamId !== null ? `${list.length} records loaded for exam ${activeExamId}` : `${list.length} records loaded`)
     setLoading(false)
-  }, [section])
+  }, [section, activeExamId, invalidExamParam, examId])
 
   return (
-    <PageShell title="Process Results — Full View">
+    <PageShell
+      title={activeExamId !== null ? `Process Results — Full View (Exam ${activeExamId})` : 'Process Results — Full View'}
+      backHref={activeExamId !== null ? `/exam-panel/${activeExamId}` : '/dashboard'}
+    >
       {() => (
         <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
           <div className="card" style={{ marginBottom: '20px' }}>

@@ -40,6 +40,16 @@ export default function TeacherGradeEntryPage() {
   
   const editRef = useRef<Record<string, Record<string, any>>>({})
 
+  function calculateSubjectTotal(row: StudentRow, edits: Record<string, any>) {
+    if (!rule) return 0
+    const base = `*${rule.subject_name}`
+    const getVal = (key: string) => Object.prototype.hasOwnProperty.call(edits, key) ? edits[key] : row[key]
+    const cq = Number(getVal(`${base}_CQ`)) || 0
+    const mcq = Number(getVal(`${base}_MCQ`)) || 0
+    const practical = Number(getVal(`${base}_Practical`)) || 0
+    return cq + mcq + practical
+  }
+
   useEffect(() => { loadContext() }, [assignId])
 
   async function loadContext() {
@@ -87,9 +97,16 @@ export default function TeacherGradeEntryPage() {
       try {
         const parsed = JSON.parse(localData)
         editRef.current = parsed
+        const base = rule ? `*${rule.subject_name}` : ''
         studentRows.forEach((row: any) => {
           if (parsed[row.id]) Object.assign(row, parsed[row.id])
+          if (base && parsed[row.id]) {
+            const total = calculateSubjectTotal(row as StudentRow, parsed[row.id])
+            parsed[row.id][`${base}_Total`] = total
+            row[`${base}_Total`] = total
+          }
         })
+        localStorage.setItem(localKey, JSON.stringify(parsed))
         setSavingRows(Object.keys(parsed).reduce((acc, rid) => ({ ...acc, [rid]: 'pending' }), {}))
       } catch (e) { console.error('Local restore error', e) }
     }
@@ -103,12 +120,7 @@ export default function TeacherGradeEntryPage() {
     const base = `*${rule.subject_name}`
     const row = data[ri]
     const pending = editRef.current[Number(row.id)] || {}
-    const getVal = (k: string) => pending[k] !== undefined ? pending[k] : row[k]
-    
-    const cq = Number(getVal(`${base}_CQ`)) || 0
-    const mcq = Number(getVal(`${base}_MCQ`)) || 0
-    const practical = Number(getVal(`${base}_Practical`)) || 0
-    const total = cq + mcq + practical
+    const total = calculateSubjectTotal(row, pending)
     
     editRef.current[Number(row.id)] = { ...editRef.current[Number(row.id)], [`${base}_Total`]: total }
     const newData = [...data]
@@ -120,10 +132,10 @@ export default function TeacherGradeEntryPage() {
     if (!editRef.current[rowId]) editRef.current[rowId] = {}
     editRef.current[rowId][col] = value === '' ? null : Number(value)
     setSavingRows(prev => ({ ...prev, [rowId]: 'pending' }))
-    
+    recalcTotal(ri)
+
     const localKey = `unsaved_marks_${assignId}`
     localStorage.setItem(localKey, JSON.stringify(editRef.current))
-    recalcTotal(ri)
   }
 
   async function saveRow(rowId: number) {
@@ -267,9 +279,9 @@ export default function TeacherGradeEntryPage() {
                     </>
                   )}
                   {comps.map(c => (
-                    <th key={c.key} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>
-                       {c.label}
-                       <div style={{ fontSize: '9px', opacity: 0.7 }}>Pass: {c.pass}</div>
+                    <th key={c.key} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '11px', fontWeight: 900 }}>
+                       {c.label.toUpperCase()}
+                       <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 800, marginTop: '2px' }}>P: {c.pass}</div>
                     </th>
                   ))}
                   <th style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>ACTION</th>

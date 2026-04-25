@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 
 interface StudentRow extends Record<string, unknown> {
+  id: number
+  exam_id: number | null
   iid: string
   class: string | null
   section: string | null
@@ -23,14 +25,17 @@ function parseNum(v: unknown): number {
 }
 
 export default function TotalAveragePage() {
+  const { examId } = useParams()
   const navigate = useNavigate()
+  const parsedExamId = examId ? Number(examId) : null
+  const activeExamId = examId && Number.isFinite(parsedExamId ?? NaN) ? parsedExamId : null
   const [students, setStudents] = useState<StudentRow[]>([])
   const [subjectCols, setSubjectCols] = useState<string[]>([]) // *Subject_Total column names
   const [loading, setLoading] = useState(false)
   const [calculating, setCalculating] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [rowSaving, setRowSaving] = useState<Record<string, boolean>>({})
-  const [rowSaved, setRowSaved] = useState<Record<string, boolean>>({})
+  const [rowSaving, setRowSaving] = useState<Record<number, boolean>>({})
+  const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
   const [status, setStatus] = useState('')
 
   useEffect(() => {
@@ -40,27 +45,41 @@ export default function TotalAveragePage() {
   }, [navigate])
 
   // Detect subject Total columns from first row
-  async function detectSubjectCols(): Promise<string[]> {
-    const { data } = await supabase.from('fmhs_exam_data').select('*').limit(1)
+  async function detectSubjectCols(examFilter: number | null): Promise<string[]> {
+    let query = supabase.from('fmhs_exam_data').select('*').limit(1)
+    if (examFilter !== null) {
+      query = query.eq('exam_id', examFilter)
+    }
+
+    const { data } = await query
     if (!data?.length) return []
     const keys = Object.keys(data[0])
     return keys.filter(k => /\*?.+_Total$/i.test(k))
   }
 
   const loadAll = useCallback(async () => {
-    setLoading(true); setStatus('Loading all students…')
-    const cols = await detectSubjectCols()
+    if (examId && activeExamId === null) {
+      setLoading(false)
+      setStatus(`Invalid exam id in URL: ${examId}`)
+      return
+    }
+
+    setLoading(true); setStatus(activeExamId !== null ? `Loading students for exam ${activeExamId}…` : 'Loading all students…')
+    const cols = await detectSubjectCols(activeExamId)
     setSubjectCols(cols)
 
     const selectCols = [
-      'iid', 'class', 'section', 'roll',
+      'id', 'exam_id', 'iid', 'class', 'section', 'roll',
       'total_mark', 'average_mark', 'count_absent',
       ...cols.map(c => `"${c}"`)
     ].join(', ')
 
-    const { data, error } = await supabase
-      .from('fmhs_exam_data')
-      .select(selectCols)
+    let query = supabase.from('fmhs_exam_data').select(selectCols)
+    if (activeExamId !== null) {
+      query = query.eq('exam_id', activeExamId)
+    }
+
+    const { data, error } = await query
       .order('class', { ascending: true })
       .order('section', { ascending: true })
       .order('roll', { ascending: true })
@@ -71,6 +90,9 @@ export default function TotalAveragePage() {
       const row = r as unknown as Record<string, unknown>
       return {
         ...row,
+        id: Number(row.id),
+        exam_id: row.exam_id as number | null,
+        iid: String(row.iid ?? ''),
         _db_total: row.total_mark as number | null,
         _db_avg: row.average_mark as number | null,
         _db_absent: row.count_absent as string | null,
@@ -78,14 +100,15 @@ export default function TotalAveragePage() {
     }) as StudentRow[]
 
     setStudents(rows)
-    setStatus(`Loaded ${rows.length} students`)
+    setStatus(activeExamId !== null ? `Loaded ${rows.length} students for exam ${activeExamId}` : `Loaded ${rows.length} students`)
     setLoading(false)
-  }, [])
+  }, [activeExamId, examId])
 
   useEffect(() => { loadAll() }, [loadAll])
 
   // Calculate totals in memory for all rows
   function calcAll(rows: StudentRow[], cols: string[]): StudentRow[] {
+    const subjectCount = cols.length
     return rows.map(student => {
       let total = 0, valid = 0
       cols.forEach(col => {
@@ -93,7 +116,7 @@ export default function TotalAveragePage() {
         if (m > 0) { total += m; valid++ }
       })
       const avg = valid > 0 ? Math.round(total / valid) : 0
-      const absent = Math.max(0, 9 - valid)
+      const absent = Math.max(0, subjectCount - valid)
       return {
         ...student,
         total_mark: total > 0 ? total : null,
@@ -105,10 +128,12 @@ export default function TotalAveragePage() {
 
   function handleCalculate() {
     setCalculating(true)
-    setStatus('Calculating totals for all students…')
+    setStatus(activeExamId !== null ? `Calculating totals for exam ${activeExamId}…` : 'Calculating totals for all students…')
     const updated = calcAll(students, subjectCols)
     setStudents(updated)
-    setStatus(`Calculated ${updated.length} students — click "Update Database" to save`)
+    setStatus(activeExamId !== null
+      ? `Calculated ${updated.length} students for exam ${activeExamId} — click "Update Database" to save`
+      : `Calculated ${updated.length} students — click "Update Database" to save`)
     setCalculating(false)
   }
 
@@ -116,12 +141,14 @@ export default function TotalAveragePage() {
     if (!window.confirm(`Update ${students.length} records to database?`)) return
     setSaving(true); setStatus('Saving to database…')
     const updates = students.map(s => ({
+      id: s.id,
+      exam_id: s.exam_id ?? activeExamId,
       iid: s.iid,
       total_mark: s.total_mark ?? null,
       average_mark: s.average_mark ?? null,
       count_absent: s.count_absent ?? null,
     }))
-    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: 'iid' })
+    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: 'id' })
     if (!error) {
       setStudents(prev => prev.map(s => ({ ...s, _db_total: s.total_mark, _db_avg: s.average_mark, _db_absent: s.count_absent })))
       setStatus(`✅ Saved ${students.length} records to database`)
@@ -131,10 +158,10 @@ export default function TotalAveragePage() {
     setSaving(false)
   }
 
-  async function saveRow(iid: string) {
-    const s = students.find(r => r.iid === iid)
+  async function saveRow(rowId: number) {
+    const s = students.find(r => r.id === rowId)
     if (!s) return
-    setRowSaving(prev => ({ ...prev, [iid]: true }))
+    setRowSaving(prev => ({ ...prev, [rowId]: true }))
     const { error } = await supabase
       .from('fmhs_exam_data')
       .update({
@@ -142,13 +169,13 @@ export default function TotalAveragePage() {
         average_mark: s.average_mark ?? null,
         count_absent: s.count_absent ?? null,
       })
-      .eq('iid', iid)
+      .eq('id', s.id)
     if (!error) {
-      setStudents(prev => prev.map(r => r.iid === iid ? { ...r, _db_total: r.total_mark, _db_avg: r.average_mark, _db_absent: r.count_absent } : r))
-      setRowSaved(prev => ({ ...prev, [iid]: true }))
-      setTimeout(() => setRowSaved(prev => ({ ...prev, [iid]: false })), 2000)
+      setStudents(prev => prev.map(r => r.id === rowId ? { ...r, _db_total: r.total_mark, _db_avg: r.average_mark, _db_absent: r.count_absent } : r))
+      setRowSaved(prev => ({ ...prev, [rowId]: true }))
+      setTimeout(() => setRowSaved(prev => ({ ...prev, [rowId]: false })), 2000)
     }
-    setRowSaving(prev => ({ ...prev, [iid]: false }))
+    setRowSaving(prev => ({ ...prev, [rowId]: false }))
   }
 
   function isDirty(s: StudentRow) {
@@ -179,7 +206,10 @@ export default function TotalAveragePage() {
   }
 
   return (
-    <PageShell title="Part 2 – Total & Average">
+    <PageShell
+      title={activeExamId !== null ? `Part 2 – Total & Average (Exam ${activeExamId})` : 'Part 2 – Total & Average'}
+      backHref={activeExamId !== null ? `/exam-panel/${activeExamId}` : '/dashboard'}
+    >
       {() => (
         <div>
           {/* Toolbar */}
@@ -227,7 +257,7 @@ export default function TotalAveragePage() {
                   {students.map((s, i) => {
                     const dirty = isDirty(s)
                     return (
-                      <tr key={s.iid} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
+                      <tr key={s.id} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.iid}</td>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.class ?? '—'}</td>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.section ?? '—'}</td>
@@ -237,15 +267,15 @@ export default function TotalAveragePage() {
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, background: '#f0f9ff' }}>{s.count_absent ?? ''}</td>
                         <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>
                           <button
-                            onClick={() => saveRow(s.iid)}
-                            disabled={rowSaving[s.iid]}
+                            onClick={() => saveRow(s.id)}
+                            disabled={rowSaving[s.id]}
                             style={{
                               fontSize: '11px', padding: '3px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer',
-                              background: rowSaved[s.iid] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
+                              background: rowSaved[s.id] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
                               color: '#fff', fontWeight: 500,
                             }}
                           >
-                            {rowSaved[s.iid] ? '✅ Saved' : rowSaving[s.iid] ? '…' : 'Update'}
+                            {rowSaved[s.id] ? '✅ Saved' : rowSaving[s.id] ? '…' : 'Update'}
                           </button>
                         </td>
                         {subjectCols.map(col => (

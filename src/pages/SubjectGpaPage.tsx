@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 
@@ -25,6 +25,8 @@ interface SubjectComponentMap { CQ?: string; MCQ?: string; PRACTICAL?: string; T
 type SubjectType = { type: 'single'; components: SubjectComponentMap } | { type: 'combined'; subjects: { base: string; components: SubjectComponentMap }[] }
 
 interface DataRow {
+  id: number
+  exam_id: number | null
   iid: string
   cq: number; mcq: number; practical: number; total: number
   gpa: number | string | null
@@ -61,7 +63,12 @@ function isGpaDirty(row: DataRow): boolean {
 }
 
 export default function SubjectGpaPage() {
+  const { examId } = useParams()
   const navigate = useNavigate()
+  const hasExamParam = examId !== undefined
+  const parsedExamId = hasExamParam ? Number(examId) : null
+  const invalidExamParam = hasExamParam && !Number.isFinite(parsedExamId ?? NaN)
+  const activeExamId = !invalidExamParam && hasExamParam ? parsedExamId : null
   const [subjects, setSubjects] = useState<Map<string, SubjectType>>(new Map())
   const [selectedSubject, setSelectedSubject] = useState('')
   const [criteria, setCriteria] = useState<GradingCriteria>(defaultCriteria)
@@ -119,8 +126,22 @@ export default function SubjectGpaPage() {
 
   const loadSubjectData = useCallback(async (subject: string) => {
     if (!subject) return
+    if (invalidExamParam) {
+      setStatus(`Invalid exam id in URL: ${examId}`)
+      setData([])
+      setDisplayCols(null)
+      setRowSaved({})
+      setLoading(false)
+      return
+    }
+
     setLoading(true); setStatus('Loading…')
-    const { data: rows, error } = await supabase.from(TABLE_NAME).select('*').order(iidCol, { ascending: true })
+    let query = supabase.from(TABLE_NAME).select('*')
+    if (activeExamId !== null) {
+      query = query.eq('exam_id', activeExamId)
+    }
+
+    const { data: rows, error } = await query.order(iidCol, { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
 
     const subjInfo = subjects.get(subject)!
@@ -139,6 +160,8 @@ export default function SubjectGpaPage() {
         const hasAny = cq > 0 || mcq > 0 || practical > 0 || total > 0 || (typeof gpaRaw === 'string' && gpaRaw.trim().toUpperCase() === 'F')
         if (!hasAny) return
         parsed.push({
+          id: Number(row.id),
+          exam_id: row.exam_id as number | null,
           iid: String(row[iidCol] ?? ''), cq, mcq, practical, total,
           gpa: gpaRaw as string | null, _db_gpa: gpaRaw as string | null,
           originalRow: row as Record<string, unknown>,
@@ -160,6 +183,8 @@ export default function SubjectGpaPage() {
         const hasGpa = (typeof gpaRaw === 'string' && gpaRaw.trim().toUpperCase() === 'F') || Number(gpaRaw) > 0
         if (!hasGpa && t1 <= 0 && t2 <= 0) return
         parsed.push({
+          id: Number(row.id),
+          exam_id: row.exam_id as number | null,
           iid: String(row[iidCol] ?? ''), cq: 0, mcq: 0, practical: 0, total: convertedTotal,
           gpa: gpaRaw as string | null, _db_gpa: gpaRaw as string | null,
           originalRow: row as Record<string, unknown>,
@@ -169,9 +194,9 @@ export default function SubjectGpaPage() {
 
     setData(parsed)
     setRowSaved({})
-    setStatus(`Loaded ${parsed.length} records`)
+    setStatus(activeExamId !== null ? `Loaded ${parsed.length} records for exam ${activeExamId}` : `Loaded ${parsed.length} records`)
     setLoading(false)
-  }, [subjects, iidCol])
+  }, [subjects, iidCol, activeExamId, invalidExamParam, examId])
 
   useEffect(() => {
     if (selectedSubject) loadSubjectData(selectedSubject)
@@ -204,11 +229,15 @@ export default function SubjectGpaPage() {
 
   async function bulkUpdate() {
     if (!window.confirm(`Update ${data.length} records to database?`)) return
+    if (invalidExamParam) {
+      setStatus(`Invalid exam id in URL: ${examId}`)
+      return
+    }
     setStatus('Bulk updating…')
     const subjInfo = subjects.get(selectedSubject)
     if (!subjInfo) return
     const updates = data.map(row => {
-      const u: Record<string, unknown> = { iid: row.iid }
+      const u: Record<string, unknown> = { id: row.id, exam_id: row.exam_id ?? activeExamId, iid: row.iid }
       if (subjInfo.type === 'single') {
         const c = subjInfo.components
         if (c.TOTAL) u[c.TOTAL] = row.total || 0
@@ -219,7 +248,7 @@ export default function SubjectGpaPage() {
       }
       return u
     })
-    const { error } = await supabase.from(TABLE_NAME).upsert(updates, { onConflict: iidCol })
+    const { error } = await supabase.from(TABLE_NAME).upsert(updates, { onConflict: 'id' })
     if (!error) {
       setData(prev => prev.map(r => ({ ...r, _db_gpa: r.gpa })))
       setStatus(`✅ Bulk update completed: ${data.length} rows updated successfully!`)
@@ -228,10 +257,14 @@ export default function SubjectGpaPage() {
     }
   }
 
-  async function updateSingleRow(index: number) {
-    const row = data[index]
+  async function updateSingleRow(rowId: number) {
+    if (invalidExamParam) {
+      setStatus(`Invalid exam id in URL: ${examId}`)
+      return
+    }
+    const row = data.find(item => item.id === rowId)
     const subjInfo = subjects.get(selectedSubject)
-    if (!subjInfo) return
+    if (!subjInfo || !row) return
     const u: Record<string, unknown> = {}
     if (subjInfo.type === 'single') {
       const c = subjInfo.components
@@ -241,11 +274,11 @@ export default function SubjectGpaPage() {
       const fp = (subjInfo as Extract<SubjectType, { type: 'combined' }>).subjects.find(s => /1st/i.test(s.base)) ?? subjInfo.subjects[0]
       if (fp?.components.GPA) u[fp.components.GPA] = row.gpa === 'F' ? 'F' : (row.gpa == null ? null : Number(row.gpa))
     }
-    const { error } = await supabase.from(TABLE_NAME).update(u).eq(iidCol, row.iid)
+    const { error } = await supabase.from(TABLE_NAME).update(u).eq('id', row.id)
     if (!error) {
-      setData(prev => prev.map((r, i) => i === index ? { ...r, _db_gpa: r.gpa } : r))
-      setRowSaved(prev => ({ ...prev, [index]: true }))
-      setTimeout(() => setRowSaved(prev => ({ ...prev, [index]: false })), 2000)
+      setData(prev => prev.map(r => r.id === rowId ? { ...r, _db_gpa: r.gpa } : r))
+      setRowSaved(prev => ({ ...prev, [rowId]: true }))
+      setTimeout(() => setRowSaved(prev => ({ ...prev, [rowId]: false })), 2000)
       setStatus('Row updated successfully')
     }
   }
@@ -255,7 +288,10 @@ export default function SubjectGpaPage() {
   const thBase: React.CSSProperties = { padding: '6px 8px', background: '#f0f3f6', border: '1px solid #d0d7de', fontWeight: 600, fontSize: '12px', textAlign: 'center', verticalAlign: 'middle' }
 
   return (
-    <PageShell title="Part 3 – Subject GPA">
+    <PageShell
+      title={activeExamId !== null ? `Part 3 – Subject GPA (Exam ${activeExamId})` : 'Part 3 – Subject GPA'}
+      backHref={activeExamId !== null ? `/exam-panel/${activeExamId}` : '/dashboard'}
+    >
       {() => (
         <div>
           <p style={{ fontSize: '14px', color: '#6a737d', marginBottom: '14px' }}>
@@ -349,7 +385,7 @@ export default function SubjectGpaPage() {
                       const dirty = isGpaDirty(row)
                       const gpaDisplay = row.gpa === null ? '' : row.gpa === 'F' ? 'F' : Number(row.gpa).toFixed(2)
                       return (
-                        <tr key={row.iid} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
+                        <tr key={row.id} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
                           <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.iid}</td>
                           {!displayCols.isCombined && displayCols.cqCol && (
                             <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.cq || ''}</td>
@@ -368,16 +404,16 @@ export default function SubjectGpaPage() {
                           </td>
                           <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>
                             <button
-                              onClick={() => updateSingleRow(i)}
+                              onClick={() => updateSingleRow(row.id)}
                               style={{
                                 fontSize: '11px', padding: '3px 10px', border: '1px solid', borderRadius: '4px',
                                 cursor: 'pointer', fontWeight: 500,
-                                background: rowSaved[i] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
-                                borderColor: rowSaved[i] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
+                                background: rowSaved[row.id] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
+                                borderColor: rowSaved[row.id] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
                                 color: '#fff',
                               }}
                             >
-                              {rowSaved[i] ? '✅ Updated' : 'Update'}
+                              {rowSaved[row.id] ? '✅ Updated' : 'Update'}
                             </button>
                           </td>
                         </tr>

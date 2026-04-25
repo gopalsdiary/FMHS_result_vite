@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 
 interface SubjectMap { Total?: string; GPA?: string }
 
 interface StudentRow extends Record<string, unknown> {
+  id: number
+  exam_id: number | null
   iid: string
   class: string | null
   section: string | null
@@ -39,14 +41,20 @@ function isDirty(s: StudentRow): boolean {
 }
 
 export default function GpaFinalPage() {
+  const { examId } = useParams()
   const navigate = useNavigate()
+  const hasExamParam = examId !== undefined
+  const parsedExamId = hasExamParam ? Number(examId) : null
+  const invalidExamParam = hasExamParam && !Number.isFinite(parsedExamId)
+  const activeExamId = !invalidExamParam && hasExamParam ? parsedExamId : null
   const [students, setStudents] = useState<StudentRow[]>([])
   const [detectedSubjects, setDetectedSubjects] = useState<string[]>([])
   const [subjectMap, setSubjectMap] = useState<Record<string, SubjectMap>>({})
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
-  const [rowSaving, setRowSaving] = useState<Record<string, boolean>>({})
-  const [rowSaved, setRowSaved] = useState<Record<string, boolean>>({})
+  const [rowSaving, setRowSaving] = useState<Record<number, boolean>>({})
+  const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
+  const [subjectRules, setSubjectRules] = useState<any[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -55,10 +63,25 @@ export default function GpaFinalPage() {
   }, [navigate])
 
   const loadAll = useCallback(async () => {
-    setLoading(true); setStatus('Loading all students…')
+    if (invalidExamParam) {
+      setLoading(false)
+      setStatus(`Invalid exam id in URL: ${examId}`)
+      return
+    }
+
+    setLoading(true); setStatus(activeExamId !== null ? `Loading students for exam ${activeExamId}…` : 'Loading all students…')
+    
+    // Load rules for pass marks
+    const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', activeExamId)
+    setSubjectRules(rules || [])
 
     // Detect subjects from table schema
-    const { data: sample } = await supabase.from('fmhs_exam_data').select('*').limit(1)
+    let sampleQuery = supabase.from('fmhs_exam_data').select('*').limit(1)
+    if (activeExamId !== null) {
+      sampleQuery = sampleQuery.eq('exam_id', activeExamId)
+    }
+
+    const { data: sample } = await sampleQuery
     const compRe = /(.+?)(?:_|\s)(Total|GPA)$/i
     const smap: Record<string, SubjectMap> = {}
     if (sample?.length) {
@@ -79,7 +102,7 @@ export default function GpaFinalPage() {
     setSubjectMap(smap)
 
     // Build select: core cols + all subject GPA and Total cols
-    const coreCols = 'iid, class, section, roll, total_mark, average_mark, count_absent, gpa_final, class_rank, remark'
+    const coreCols = 'id, exam_id, iid, class, section, roll, total_mark, average_mark, count_absent, gpa_final, class_rank, remark'
     const subjCols = subjects.flatMap(s => {
       const cols: string[] = []
       if (smap[s].GPA) cols.push(`"${smap[s].GPA}"`)
@@ -88,9 +111,15 @@ export default function GpaFinalPage() {
     }).join(', ')
     const selectStr = subjCols ? `${coreCols}, ${subjCols}` : coreCols
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('fmhs_exam_data')
       .select(selectStr)
+
+    if (activeExamId !== null) {
+      query = query.eq('exam_id', activeExamId)
+    }
+
+    const { data, error } = await query
       .order('class', { ascending: false })
       .order('section', { ascending: false })
       .order('roll', { ascending: false })
@@ -101,6 +130,8 @@ export default function GpaFinalPage() {
       const row = r as unknown as Record<string, unknown>
       return {
         ...row,
+        id: Number(row.id),
+        exam_id: row.exam_id as number | null,
         _db_gpa: row.gpa_final as string | number | null,
         _db_rank: row.class_rank as number | null,
         _db_remark: row.remark as string | null,
@@ -108,9 +139,9 @@ export default function GpaFinalPage() {
     }) as StudentRow[]
 
     setStudents(rows)
-    setStatus(`Loaded ${rows.length} students`)
+    setStatus(activeExamId !== null ? `Loaded ${rows.length} students for exam ${activeExamId}` : `Loaded ${rows.length} students`)
     setLoading(false)
-  }, [])
+  }, [activeExamId, examId, invalidExamParam])
 
   useEffect(() => { loadAll() }, [loadAll])
 
@@ -169,7 +200,7 @@ export default function GpaFinalPage() {
   function calcClassRanks(rows: StudentRow[]): StudentRow[] {
     const groups: Record<string, StudentRow[]> = {}
     rows.forEach(s => {
-      const key = `${s.class}_${s.section}`
+      const key = `${s.exam_id ?? 'all'}_${s.class}_${s.section}`
       groups[key] = groups[key] ?? []
       groups[key].push(s)
     })
@@ -192,12 +223,12 @@ export default function GpaFinalPage() {
         return (a.roll ?? 999999) - (b.roll ?? 999999)
       })
       eligible.forEach((s, rank) => {
-        const idx = result.findIndex(r => r.iid === s.iid)
+        const idx = result.findIndex(r => r.id === s.id)
         if (idx >= 0) result[idx] = { ...result[idx], class_rank: rank + 1 }
       })
       group.forEach(s => {
-        if (!eligible.find(e => e.iid === s.iid)) {
-          const idx = result.findIndex(r => r.iid === s.iid)
+        if (!eligible.find(e => e.id === s.id)) {
+          const idx = result.findIndex(r => r.id === s.id)
           if (idx >= 0) result[idx] = { ...result[idx], class_rank: null }
         }
       })
@@ -213,15 +244,21 @@ export default function GpaFinalPage() {
 
   async function handleUpdateDatabase() {
     if (!window.confirm('Are you sure you want to update the database with GPA Final, Class Rank and Remark?')) return
+    if (invalidExamParam) {
+      setStatus(`Invalid exam id in URL: ${examId}`)
+      return
+    }
     setStatus('Updating database…')
     const recalculated = calcClassRanks(updateCalculations(students))
     const updates = recalculated.map(s => ({
+      id: s.id,
+      exam_id: s.exam_id ?? activeExamId,
       iid: s.iid,
       gpa_final: s.gpa_final === null ? null : parseFloat(String(s.gpa_final)),
       class_rank: s.class_rank ?? null,
       remark: s.remark ?? null,
     }))
-    const { error } = await supabase.from('fmhs_exam_data').upsert(updates)
+    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: 'id' })
     if (!error) {
       setStudents(recalculated.map(s => ({
         ...s,
@@ -235,24 +272,24 @@ export default function GpaFinalPage() {
     }
   }
 
-  async function saveRow(iid: string) {
-    const s = students.find(r => r.iid === iid)
+  async function saveRow(rowId: number) {
+    const s = students.find(r => r.id === rowId)
     if (!s) return
-    setRowSaving(prev => ({ ...prev, [iid]: true }))
+    setRowSaving(prev => ({ ...prev, [rowId]: true }))
     if (window.confirm(`Save to database?\n\nGPA Final: ${s.gpa_final ?? ''}\nClass Rank: ${s.class_rank ?? ''}\nRemark: ${s.remark ?? ''}`)) {
       const { error } = await supabase.from('fmhs_exam_data').update({
         gpa_final: s.gpa_final === null ? null : parseFloat(String(s.gpa_final)),
         class_rank: s.class_rank ?? null,
         remark: s.remark ?? null,
-      }).eq('iid', iid)
+      }).eq('id', s.id)
       if (!error) {
-        setStudents(prev => prev.map(r => r.iid === iid ? { ...r, _db_gpa: r.gpa_final, _db_rank: r.class_rank, _db_remark: r.remark } : r))
-        setRowSaved(prev => ({ ...prev, [iid]: true }))
-        setTimeout(() => setRowSaved(prev => ({ ...prev, [iid]: false })), 2000)
-        setStatus(`Row ${iid} saved successfully!`)
+        setStudents(prev => prev.map(r => r.id === rowId ? { ...r, _db_gpa: r.gpa_final, _db_rank: r.class_rank, _db_remark: r.remark } : r))
+        setRowSaved(prev => ({ ...prev, [rowId]: true }))
+        setTimeout(() => setRowSaved(prev => ({ ...prev, [rowId]: false })), 2000)
+        setStatus(`Row ${s.iid} saved successfully!`)
       }
     }
-    setRowSaving(prev => ({ ...prev, [iid]: false }))
+    setRowSaving(prev => ({ ...prev, [rowId]: false }))
   }
 
   const thHoriz: React.CSSProperties = {
@@ -268,7 +305,10 @@ export default function GpaFinalPage() {
   }
 
   return (
-    <PageShell title="Part 4 – GPA Finalization">
+    <PageShell
+      title={activeExamId !== null ? `Part 4 – GPA Finalization (Exam ${activeExamId})` : 'Part 4 – GPA Finalization'}
+      backHref={activeExamId !== null ? `/exam-panel/${activeExamId}` : '/dashboard'}
+    >
       {() => (
         <div>
           {/* Toolbar */}
@@ -313,7 +353,15 @@ export default function GpaFinalPage() {
                       <th style={thHoriz}>Count Absent</th>
                       {detectedSubjects.map(subject => {
                         const gpaCol = subjectMap[subject]?.GPA
-                        return gpaCol ? <th key={subject} style={thVert}>{gpaCol}</th> : null
+                        const rule = subjectRules.find(r => r.subject_name === subject)
+                        return gpaCol ? (
+                          <th key={subject} style={thVert}>
+                            {gpaCol}
+                            <div style={{ fontSize: '9px', opacity: 0.6, fontWeight: 800, marginTop: '2px', color: '#ef4444' }}>
+                              P: {rule?.pass_total ?? '--'}
+                            </div>
+                          </th>
+                        ) : null
                       })}
                     </tr>
                   </thead>
@@ -322,22 +370,22 @@ export default function GpaFinalPage() {
                       const dirty = isDirty(s)
                       const gpaDisplay = s.gpa_final == null ? '' : String(s.gpa_final)
                       return (
-                        <tr key={s.iid} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
+                        <tr key={s.id} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
                           <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.iid}</td>
                           <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>
                             <button
-                              onClick={() => saveRow(s.iid)}
-                              disabled={rowSaving[s.iid]}
+                              onClick={() => saveRow(s.id)}
+                              disabled={rowSaving[s.id]}
                               style={{
                                 fontSize: '10px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer',
                                 border: '1px solid',
-                                background: rowSaved[s.iid] ? '#1a7f37' : 'transparent',
-                                borderColor: rowSaved[s.iid] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
-                                color: rowSaved[s.iid] ? '#fff' : dirty ? '#ff8a00' : '#0366d6',
+                                background: rowSaved[s.id] ? '#1a7f37' : dirty ? '#ff8a00' : 'transparent',
+                                borderColor: rowSaved[s.id] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
+                                color: rowSaved[s.id] ? '#fff' : dirty ? '#ff8a00' : '#0366d6',
                                 fontWeight: 500,
                               }}
                             >
-                              {rowSaved[s.iid] ? '✅ Saved' : '📊 Update'}
+                              {rowSaved[s.id] ? '✅ Saved' : '📊 Update'}
                             </button>
                           </td>
                           <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, color: '#0366d6' }}>{gpaDisplay}</td>
