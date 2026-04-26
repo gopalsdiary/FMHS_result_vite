@@ -63,16 +63,18 @@ export default function TeacherGradeEntryPage() {
 
     // Load ALL assignments for switcher
     const { data: allAssigns } = await supabase
-      .from('FMHS_exam_teacher_assignments')
+      .from('FMHS_exam_teacher_selection')
       .select('*, exams:FMHS_exams_names(exam_name, year, is_live, teacher_entry_enabled)')
-      .eq('teacher_email', user.email)
+      .eq('teacher_email_id', user.email)
+      .not('exam_id', 'is', null)
     
     if (allAssigns) setMyAssignments(allAssigns as any[])
 
     const { data: assign } = await supabase
-      .from('FMHS_exam_teacher_assignments')
+      .from('FMHS_exam_teacher_selection')
       .select('*, exams:FMHS_exams_names(exam_name, year, is_live, teacher_entry_enabled)')
-      .eq('id', assignId)
+      .eq('subject_code', assignId)
+      .eq('exam_id', examId)
       .single()
 
     if (!assign) { setStatus('Assignment not found'); setLoading(false); return }
@@ -80,8 +82,11 @@ export default function TeacherGradeEntryPage() {
 
     const { data: rData } = await supabase
       .from('FMHS_exam_subjects').select('*')
-      .eq('exam_id', examId).eq('subject_code', assign.subject_code).single()
+      .eq('exam_id', examId).eq('subject_code', String(assign.subject_code)).single()
     if (rData) setRule(rData)
+
+    // Also try to get the subject name from FMHS_subject_map for display
+    const subjectName = (assign as any).subject_name ?? rData?.subject_name ?? ''
 
     const { data: rows } = await supabase
       .from('fmhs_exam_data').select('*')
@@ -234,7 +239,7 @@ export default function TeacherGradeEntryPage() {
           <div>
              <select value={assignId} onChange={(e) => navigate(`/teacher-entry/${examId}/${e.target.value}`)} style={{ border: 'none', background: 'transparent', fontSize: '1.2rem', fontWeight: 900, color: '#0f172a', cursor: 'pointer', outline: 'none' }}>
                 {myAssignments.map(a => (
-                  <option key={a.id} value={a.id}>{a.exams.exam_name} - {a.subject_code} (Class {a.class} {a.section})</option>
+                  <option key={(a as any).subject_code} value={(a as any).subject_code}>{(a as any).exams?.exam_name} - {(a as any).subject_name} (Class {a.class} {a.section})</option>
                 ))}
              </select>
              <p style={{ margin: 0, fontSize: '11px', color: '#ec4899', fontWeight: 800 }}>CLASS {assignment.class} • SECTION {assignment.section} • {rule.subject_name}</p>

@@ -92,7 +92,7 @@ export default function ExamManagerPage() {
     
     // Also delete subject rules and teacher assignments
     await supabase.from('FMHS_exam_subjects').delete().eq('exam_id', id)
-    await supabase.from('FMHS_exam_teacher_assignments').delete().eq('exam_id', id)
+    await supabase.from('FMHS_exam_teacher_selection').delete().eq('exam_id', id)
     
     const { error } = await supabase.from('FMHS_exams_names').delete().eq('id', id)
     if (error) {

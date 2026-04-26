@@ -232,20 +232,20 @@ export async function loadExamSubjectContext(examId: number) {
 
   if (error) throw error
 
-  let classRows: ExamClassAssignment[] = []
-  const { data: assignmentRows, error: assignmentError } = await supabase
-    .from('FMHS_exam_class_subjects')
-    .select('subject_code, class, is_fourth_subject, exclude_from_rank')
-    .eq('exam_id', examId)
-
-  if (!assignmentError && assignmentRows) {
-    classRows = assignmentRows.map(row => ({
-      subject_code: String(row.subject_code ?? '').trim(),
-      class: Number(row.class) || 0,
-      is_fourth_subject: Boolean(row.is_fourth_subject),
-      exclude_from_rank: Boolean(row.exclude_from_rank),
-    }))
-  }
+  const classRows: ExamClassAssignment[] = []
+  rules?.forEach(rule => {
+    const clsList = (rule.exam_class || []) as any[]
+    clsList.forEach(c => {
+      if (c.selected) {
+        classRows.push({
+          subject_code: String(rule.subject_code ?? '').trim(),
+          class: Number(c.class) || 0,
+          is_fourth_subject: Boolean(c.is_fourth_subject),
+          exclude_from_rank: Boolean(c.exclude_from_rank),
+        })
+      }
+    })
+  })
 
   const normalizedRules = (rules ?? []) as ExamSubjectRule[]
   return {

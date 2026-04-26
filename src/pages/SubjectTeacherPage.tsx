@@ -22,7 +22,7 @@ export default function SubjectTeacherPage() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from('FMHS_exam_subject_selection').select('*').order('class').order('section')
+    const { data, error } = await supabase.from('FMHS_exam_teacher_selection').select('*').order('class').order('section')
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     setAssignments((data ?? []) as SubjectAssignment[])
     setLoading(false)
@@ -30,8 +30,8 @@ export default function SubjectTeacherPage() {
 
   async function save() {
     const { error } = editId
-      ? await supabase.from('FMHS_exam_subject_selection').update(form).eq('subject_code', editId)
-      : await supabase.from('FMHS_exam_subject_selection').insert(form)
+      ? await supabase.from('FMHS_exam_teacher_selection').update(form).eq('subject_code', editId)
+      : await supabase.from('FMHS_exam_teacher_selection').insert(form)
     if (error) { setStatus('Error: ' + error.message); return }
     setStatus(editId ? 'Updated' : 'Added'); setEditId(null)
     setForm({ teacher_email_id: '', subject_name: '', class: '', section: '' })
@@ -40,7 +40,7 @@ export default function SubjectTeacherPage() {
 
   async function del(id: number) {
     if (!confirm('Remove this assignment?')) return
-    const { error } = await supabase.from('FMHS_exam_subject_selection').delete().eq('subject_code', id)
+    const { error } = await supabase.from('FMHS_exam_teacher_selection').delete().eq('subject_code', id)
     if (error) setStatus('Error: ' + error.message)
     else load()
   }

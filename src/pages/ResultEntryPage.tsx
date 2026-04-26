@@ -75,7 +75,7 @@ export default function ResultEntryPage() {
   const draftStorageKey = buildResultEntryDraftKey('teacher', userEmail, cls, section, subject)
 
   async function loadSubjectsFromDB(email: string) {
-    const { data } = await supabase.from('FMHS_exam_subject_selection').select('subject_name, class, section').eq('teacher_email_id', email)
+    const { data } = await supabase.from('FMHS_exam_teacher_selection').select('subject_name, class, section').eq('teacher_email_id', email)
     if (data?.length) {
       const classSet = new Set(data.map(r => String(r.class)))
       setCls(Array.from(classSet)[0] ?? '')

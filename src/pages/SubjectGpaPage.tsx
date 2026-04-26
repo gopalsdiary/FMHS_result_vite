@@ -116,17 +116,33 @@ export default function SubjectGpaPage() {
     })
 
     const processed = new Map<string, SubjectType>()
-    raw.forEach((components, base) => {
-      if (combinedMode && /bangla.*(?:1st|2nd)/i.test(base)) {
-        const key = 'Bangla 1st+2nd Paper'
-        if (!processed.has(key)) processed.set(key, { type: 'combined', subjects: [] })
-        ;(processed.get(key) as Extract<SubjectType, { type: 'combined' }>).subjects.push({ base, components })
-      } else if (combinedMode && /english.*(?:1st|2nd)/i.test(base)) {
-        const key = 'English 1st+2nd Paper'
-        if (!processed.has(key)) processed.set(key, { type: 'combined', subjects: [] })
-        ;(processed.get(key) as Extract<SubjectType, { type: 'combined' }>).subjects.push({ base, components })
-      } else {
-        processed.set(base, { type: 'single', components })
+    const paired = new Set<string>()
+
+    // Sort bases to ensure consistent grouping
+    const sortedBases = Array.from(raw.keys()).sort()
+
+    sortedBases.forEach(base => {
+      if (paired.has(base)) return
+
+      if (combinedMode && /1st/i.test(base)) {
+        const baseWithout1st = base.replace(/1st/i, '').trim()
+        const secondPaperBase = sortedBases.find(b => b !== base && b.replace(/2nd/i, '').trim() === baseWithout1st)
+        
+        if (secondPaperBase) {
+          const key = base.replace(/1st/i, '1st+2nd').trim()
+          processed.set(key, { type: 'combined', subjects: [
+            { base, components: raw.get(base)! },
+            { base: secondPaperBase, components: raw.get(secondPaperBase)! }
+          ]})
+          paired.add(base)
+          paired.add(secondPaperBase)
+          return
+        }
+      }
+      
+      // If not paired yet and not a "2nd" paper that belongs to a pair
+      if (!paired.has(base)) {
+        processed.set(base, { type: 'single', components: raw.get(base)! })
       }
     })
 

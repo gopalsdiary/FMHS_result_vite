@@ -4,11 +4,12 @@ import { supabase } from '@/services/supabaseClient'
 import { handleLogout } from '@/utils/authHelper'
 
 interface Assignment {
-  id: number
+  subject_code: number
   exam_id: number
   class: number
   section: string
-  subject_code: string
+  subject_name: string
+  teacher_name_en: string
   exams: { exam_name: string; year: number; is_live: boolean; teacher_entry_enabled: boolean }
 }
 
@@ -28,9 +29,10 @@ export default function TeacherDashboardPage() {
     setUserEmail(user.email ?? '')
 
     const { data, error } = await supabase
-      .from('FMHS_exam_teacher_assignments')
+      .from('FMHS_exam_teacher_selection')
       .select('*, exams:FMHS_exams_names(exam_name, year, is_live, teacher_entry_enabled)')
-      .eq('teacher_email', user.email)
+      .eq('teacher_email_id', user.email)
+      .not('exam_id', 'is', null)
     
     if (error) console.error(error)
     else setAssignments(data as any[])
@@ -72,7 +74,7 @@ export default function TeacherDashboardPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
           {assignments.map(a => (
-            <Link key={a.id} to={`/teacher-entry/${a.exam_id}/${a.id}`} style={{ textDecoration: 'none' }}>
+            <Link key={a.subject_code} to={`/teacher-entry/${a.exam_id}/${a.subject_code}`} style={{ textDecoration: 'none' }}>
               <div style={{ 
                 background: '#fff', border: '1px solid #e2e8f0', borderRadius: '28px', padding: '32px',
                 transition: 'all 0.3s', position: 'relative', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
@@ -97,7 +99,7 @@ export default function TeacherDashboardPage() {
                 </div>
 
                 <h3 style={{ margin: '0 0 8px 0', fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>{a.exams.exam_name}</h3>
-                <div style={{ fontSize: '18px', fontWeight: 800, color: '#ec4899', marginBottom: '20px' }}>{a.subject_code}</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#ec4899', marginBottom: '20px' }}>{a.subject_name}</div>
 
                 <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
                   <div style={{ flex: 1, background: '#f8fafc', padding: '12px', borderRadius: '16px', textAlign: 'center', border: '1px solid #f1f5f9' }}>

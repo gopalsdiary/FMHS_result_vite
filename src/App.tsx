@@ -39,6 +39,7 @@ import SubjectSetupPage from './pages/SubjectSetupPage'
 import SubjectTeacherPage from './pages/SubjectTeacherPage'
 import ClassSubjectPage from './pages/ClassSubjectPage'
 import TeacherSetupPage from './pages/TeacherSetupPage'
+import SubjectMapPage from './pages/SubjectMapPage'
 import ResultEntryPage from './pages/ResultEntryPage'
 import ResultEntryAdminPage from './pages/ResultEntryAdminPage'
 import ResultTableColmAddPage from './pages/ResultTableColmAddPage'
@@ -70,7 +71,7 @@ export default function App() {
         <Route path="/gpa-final/:examId?" element={<GpaFinalPage />} />
         <Route path="/exam-panel/:id" element={<ExamPanelPage />} />
         <Route path="/exam-subjects/:id" element={<SubjectRulesPage />} />
-        <Route path="/exam-teachers/:id" element={<TeacherAssignmentPage />} />
+        <Route path="/exam-teachers/:id" element={<TeacherSetupPage />} />
         <Route path="/teacher-entry/:examId/:assignId" element={<TeacherGradeEntryPage />} />
         <Route path="/result-list/:examId?" element={<ResultListPage />} />
         <Route path="/fail-report/:examId?" element={<FailReportPage />} />
@@ -93,7 +94,8 @@ export default function App() {
         <Route path="/subject-setup" element={<SubjectSetupPage />} />
         <Route path="/subject-teacher" element={<SubjectTeacherPage />} />
         <Route path="/class-subject" element={<ClassSubjectPage />} />
-        <Route path="/teacher-setup" element={<TeacherSetupPage />} />
+        <Route path="/teacher-setup/:id?" element={<TeacherSetupPage />} />
+        <Route path="/subject-map" element={<SubjectMapPage />} />
         <Route path="/result-entry" element={<ResultEntryPage />} />
         <Route path="/result-entry-admin" element={<ResultEntryAdminPage />} />
         <Route path="/result-table" element={<ResultTableColmAddPage />} />
