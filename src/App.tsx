@@ -10,7 +10,6 @@ import TeacherDashboardPage from './pages/TeacherDashboardPage'
 
 // Result workflow
 import PrintResultsPage from './pages/PrintResultsPage'
-import TotalAveragePage from './pages/TotalAveragePage'
 import ExamManagerPage from './pages/ExamManagerPage'
 import ExamPanelPage from './pages/ExamPanelPage'
 import SubjectRulesPage from './pages/SubjectRulesPage'
@@ -66,7 +65,6 @@ export default function App() {
 
         {/* Result workflow */}
         <Route path="/print-results/:examId?" element={<PrintResultsPage />} />
-        <Route path="/total-average/:examId?" element={<TotalAveragePage />} />
         <Route path="/exam-manager" element={<ExamManagerPage />} />
         <Route path="/subject-gpa/:examId?" element={<SubjectGpaPage />} />
         <Route path="/gpa-final/:examId?" element={<GpaFinalPage />} />

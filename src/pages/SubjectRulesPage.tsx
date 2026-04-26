@@ -111,11 +111,31 @@ export default function SubjectRulesPage() {
       exclude_from_rank: c.exclude_from_rank
     }))
 
-    const { error } = editId
-      ? await supabase.from('FMHS_exam_subjects').update(payload).eq('id', editId)
-      : await supabase.from('FMHS_exam_subjects').insert([payload])
+    const { error, data: savedData } = editId
+      ? await supabase.from('FMHS_exam_subjects').update(payload).eq('id', editId).select()
+      : await supabase.from('FMHS_exam_subjects').insert([payload]).select()
 
     if (error) { alert(error.message); setProcessing(false); return }
+
+    // Sync to FMHS_exam_class_subjects table
+    const subjectCode = newSub.subject_code
+    const examId = Number(id)
+    
+    // 1. Delete old entries for this subject in this exam
+    await supabase.from('FMHS_exam_class_subjects').delete().eq('exam_id', examId).eq('subject_code', subjectCode)
+
+    // 2. Insert new entries
+    const assignmentRows = classesData.filter(c => c.selected).map(c => ({
+      exam_id: examId,
+      subject_code: subjectCode,
+      class: c.class,
+      is_fourth_subject: c.is_fourth_subject,
+      exclude_from_rank: c.exclude_from_rank
+    }))
+
+    if (assignmentRows.length > 0) {
+      await supabase.from('FMHS_exam_class_subjects').insert(assignmentRows)
+    }
 
     if (!editId) await addColumnsToTable(newSub)
 
@@ -170,9 +190,19 @@ export default function SubjectRulesPage() {
 
   async function deleteRule(rid: number, name: string) {
     if (!confirm(`Remove "${name}"?`)) return
+    
+    // Get subject_code before deleting the rule
+    const { data: rule } = await supabase.from('FMHS_exam_subjects').select('subject_code').eq('id', rid).single()
+    
     const { error } = await supabase.from('FMHS_exam_subjects').delete().eq('id', rid)
-    if (error) alert(error.message)
-    else loadData()
+    if (error) { alert(error.message); return }
+
+    if (rule?.subject_code) {
+      await supabase.from('FMHS_exam_class_subjects').delete().eq('exam_id', id).eq('subject_code', rule.subject_code)
+    }
+    
+    loadData()
+    loadClassAssignments()
   }
 
   // ─── Class-Subject Assignment CRUD ────────────────────────────────────────

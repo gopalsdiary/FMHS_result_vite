@@ -13,7 +13,9 @@ import {
   subjectMatchesOptional,
 } from '@/services/examResultContext'
 
-interface SubjectMap { Total?: string; GPA?: string }
+
+// ── Types ───────────────────────────────────────────────────────────────────
+interface SubjectCols { Total?: string; GPA?: string; Total2nd?: string } // Total2nd: 2nd paper total col for combined subjects
 
 interface ClassSubjectInfo {
   subject_code: string
@@ -36,46 +38,44 @@ interface StudentRow extends Record<string, unknown> {
   class_rank: number | null
   remark: string | null
   optional_subject?: string | null
-  _rank_total?: number | null // total marks excluding exclude_from_rank subjects (for ranking only)
-  // DB snapshots
+  _rank_total?: number | null
   _db_gpa: string | number | null
   _db_rank: number | null
   _db_remark: string | null
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function extractFailCount(remark: string | null): number {
-  if (!remark) return 0
-  const m = remark.match(/fail:\s*(\d+)/i)
+  const m = remark?.match(/fail:\s*(\d+)/i)
   return m ? parseInt(m[1]) : 0
 }
 
 function isDirty(s: StudentRow): boolean {
-  const normG = (v: string | number | null) => (v == null || v === '') ? null : Number(v)
-  const gMatch = Math.abs((normG(s.gpa_final) ?? -999) - (normG(s._db_gpa) ?? -999)) < 0.001
-    && (normG(s.gpa_final) == null) === (normG(s._db_gpa) == null)
-  const rMatch = (s.class_rank == null && s._db_rank == null) || Number(s.class_rank) === Number(s._db_rank)
-  const remark = (s.remark ?? '').trim()
-  const dbRemark = (s._db_remark ?? '').trim()
-  return !gMatch || !rMatch || remark !== dbRemark
+  const n = (v: string | number | null) => (v == null || v === '') ? null : Number(v)
+  const gOk = Math.abs((n(s.gpa_final) ?? -999) - (n(s._db_gpa) ?? -999)) < 0.001
+    && (n(s.gpa_final) == null) === (n(s._db_gpa) == null)
+  const rOk = (s.class_rank == null && s._db_rank == null) || Number(s.class_rank) === Number(s._db_rank)
+  return !gOk || !rOk || (s.remark ?? '').trim() !== (s._db_remark ?? '').trim()
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function GpaFinalPage() {
   const { examId } = useParams()
   const navigate = useNavigate()
-  const hasExamParam = examId !== undefined
-  const parsedExamId = hasExamParam ? Number(examId) : null
-  const invalidExamParam = hasExamParam && !Number.isFinite(parsedExamId)
-  const activeExamId = !invalidExamParam && hasExamParam ? parsedExamId : null
+  const parsedExamId = examId !== undefined ? Number(examId) : null
+  const invalidExamParam = examId !== undefined && !Number.isFinite(parsedExamId)
+  const activeExamId = !invalidExamParam && examId !== undefined ? parsedExamId : null
+
   const [students, setStudents] = useState<StudentRow[]>([])
-  const [detectedSubjects, setDetectedSubjects] = useState<string[]>([])
-  const [subjectMap, setSubjectMap] = useState<Record<string, SubjectMap>>({})
+  const [subjectCols, setSubjectCols] = useState<{ key: string; label: string; cols: SubjectCols }[]>([])
+  const [subjectColMap, setSubjectColMap] = useState<Record<string, SubjectCols>>({})
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [rowSaving, setRowSaving] = useState<Record<number, boolean>>({})
   const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
   const [subjectRules, setSubjectRules] = useState<any[]>([])
   const [classSubjectInfo, setClassSubjectInfo] = useState<ClassSubjectInfo[]>([])
-  const [optionalSubjectMap, setOptionalSubjectMap] = useState<Record<string, string>>({}) // iid -> optional_subject
+  const [optionalSubjectMap, setOptionalSubjectMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -84,14 +84,11 @@ export default function GpaFinalPage() {
   }, [navigate])
 
   const loadAll = useCallback(async () => {
-    if (invalidExamParam) {
-      setLoading(false)
-      setStatus(`Invalid exam id in URL: ${examId}`)
-      return
-    }
+    if (invalidExamParam) { setStatus(`Invalid exam id: ${examId}`); return }
+    setLoading(true)
+    setStatus(activeExamId !== null ? `Loading exam ${activeExamId}…` : 'Loading…')
 
-    setLoading(true); setStatus(activeExamId !== null ? `Loading students for exam ${activeExamId}…` : 'Loading all students…')
-    
+    // 1. Load subject rules + class assignments + optional subjects
     const examConfig = activeExamId !== null
       ? await loadExamSubjectContext(activeExamId)
       : { rules: [], classAssignments: [] as ClassSubjectInfo[] }
@@ -99,192 +96,283 @@ export default function GpaFinalPage() {
     setClassSubjectInfo(examConfig.classAssignments || [])
     setOptionalSubjectMap(activeExamId !== null ? await loadOptionalSubjectMapForExam(activeExamId) : {})
 
-    // Detect subjects from table schema
-    let sampleQuery = supabase.from('fmhs_exam_data').select('*').limit(1)
-    if (activeExamId !== null) {
-      sampleQuery = sampleQuery.eq('exam_id', activeExamId)
-    }
+    // 2. Detect subject columns from DB schema (only Total + GPA cols)
+    let sampleQ = supabase.from('fmhs_exam_data').select('*').limit(1)
+    if (activeExamId !== null) sampleQ = sampleQ.eq('exam_id', activeExamId)
+    const { data: sample } = await sampleQ
 
-    const { data: sample } = await sampleQuery
-    const compRe = /(.+?)(?:_|\s)(Total|GPA)$/i
-    const smap: Record<string, SubjectMap> = {}
+    // raw column map: key = stripped base name (no leading *)
+    const rawMap: Record<string, SubjectCols> = {}
     if (sample?.length) {
-      Object.keys(sample[0]).forEach(k => {
-        const m = k.match(compRe)
-        if (m && k.startsWith('*')) {
-          const base = m[1].trim()
-          const comp = m[2].toLowerCase() === 'total' ? 'Total' : 'GPA'
-          smap[base] = smap[base] ?? {}
-          ;(smap[base] as Record<string, string>)[comp] = k
-        }
+      Object.keys(sample[0]).forEach(col => {
+        const m = col.match(/^(\*?.+?)_(Total|GPA)$/i)
+        if (!m || !col.startsWith('*')) return
+        const base = m[1].trim() // includes leading *
+        const comp = m[2].toLowerCase() === 'total' ? 'Total' : 'GPA'
+        rawMap[base] = rawMap[base] ?? {}
+        ;(rawMap[base] as any)[comp] = col
       })
     }
-    const subjects = Object.keys(smap).sort((a, b) =>
-      a.replace(/^\*+\s*/, '').localeCompare(b.replace(/^\*+\s*/, ''))
-    )
-    setDetectedSubjects(subjects)
-    setSubjectMap(smap)
 
-    // Build select: core cols + all subject GPA and Total cols
-    const coreCols = 'id, exam_id, iid, class, section, roll, total_mark, average_mark, count_absent, gpa_final, class_rank, remark'
-    const subjCols = subjects.flatMap(s => {
-      const cols: string[] = []
-      if (smap[s].GPA) cols.push(`"${smap[s].GPA}"`)
-      if (smap[s].Total) cols.push(`"${smap[s].Total}"`)
-      return cols
-    }).join(', ')
-    const selectStr = subjCols ? `${coreCols}, ${subjCols}` : coreCols
+    // Build ordered list: combined subjects (1st+2nd paper) grouped under one entry
+    // IMPORTANT: Always process 1st paper before 2nd to ensure correct pairing
+    const processedBases = new Set<string>()
+    const colEntries: { key: string; label: string; cols: SubjectCols }[] = []
+    const colMapFlat: Record<string, SubjectCols> = {}
 
-    const rows = await fetchAllRows<Record<string, unknown>>(async (from, to) => {
-      let query = supabase.from('fmhs_exam_data').select(selectStr)
-      if (activeExamId !== null) {
-        query = query.eq('exam_id', activeExamId)
+    // Sort so 1st paper always comes before 2nd paper
+    const sortedBases = Object.keys(rawMap).sort((a, b) => {
+      const aIs1st = /1st/i.test(a), bIs1st = /1st/i.test(b)
+      const aIs2nd = /2nd/i.test(a), bIs2nd = /2nd/i.test(b)
+      // 1st paper before 2nd paper for same subject
+      const aBase = a.replace(/\s*(1st|2nd)\s*/i, '').toLowerCase()
+      const bBase = b.replace(/\s*(1st|2nd)\s*/i, '').toLowerCase()
+      if (aBase === bBase) {
+        if (aIs1st && bIs2nd) return -1
+        if (aIs2nd && bIs1st) return 1
       }
-      const res = await query
-        .order('class', { ascending: false })
-        .order('section', { ascending: false })
-        .order('roll', { ascending: false })
-        .range(from, to)
-      return res as any
+      return a.localeCompare(b)
     })
 
+    sortedBases.forEach(base => {
+      if (processedBases.has(base)) return
+      const label = base.replace(/^\*+\s*/, '')
 
-
-    const mappedRows = rows.map(r => {
-
-      const row = r as unknown as Record<string, unknown>
-      return {
-        ...row,
-        id: Number(row.id),
-        exam_id: row.exam_id as number | null,
-        _db_gpa: row.gpa_final as string | number | null,
-        _db_rank: row.class_rank as number | null,
-        _db_remark: row.remark as string | null,
+      // Check for 1st/2nd paper pairing (only from 1st paper side)
+      const is1st = /1st/i.test(label)
+      if (is1st) {
+        const pairLabel = label.replace(/1st/i, '2nd')
+        const pairBase = sortedBases.find(b => b.replace(/^\*+\s*/, '').toLowerCase() === pairLabel.toLowerCase())
+        if (pairBase && rawMap[pairBase]) {
+          // Combined entry:
+          // - GPA comes from 1st paper GPA col (SubjectGpaPage stores combined GPA there)
+          // - Total2nd = 2nd paper Total col (for sum calculation)
+          const combined: SubjectCols = {
+            Total: rawMap[base].Total,       // 1st paper total col
+            GPA: rawMap[base].GPA,           // combined GPA col (stored in 1st paper by SubjectGpaPage)
+            Total2nd: rawMap[pairBase].Total, // 2nd paper total col
+          }
+          const entryKey = label.replace(/\s*1st\s*/i, ' 1st+2nd ')
+          colEntries.push({ key: entryKey, label: entryKey, cols: combined })
+          colMapFlat[base] = rawMap[base]
+          colMapFlat[pairBase] = rawMap[pairBase]
+          processedBases.add(base)
+          processedBases.add(pairBase)
+          return
+        }
       }
-    }) as StudentRow[]
+      // Skip standalone 2nd paper (should have been paired above)
+      if (/2nd/i.test(label)) {
+        const pairLabel = label.replace(/2nd/i, '1st')
+        const pairExists = sortedBases.some(b => b.replace(/^\*+\s*/, '').toLowerCase() === pairLabel.toLowerCase())
+        if (pairExists) {
+          // This 2nd paper should have been handled when 1st paper was processed
+          // but if it wasn't (shouldn't happen after sorting fix), skip it
+          processedBases.add(base)
+          return
+        }
+      }
 
-    setStudents(mappedRows)
-    setStatus(activeExamId !== null ? `Loaded ${mappedRows.length} students for exam ${activeExamId}` : `Loaded ${mappedRows.length} students`)
+      processedBases.add(base)
+      colEntries.push({ key: base, label, cols: rawMap[base] })
+      colMapFlat[base] = rawMap[base]
+    })
+
+    setSubjectCols(colEntries)
+    setSubjectColMap(colMapFlat)
+
+    // 3. Build select string: core + all subject Total + GPA cols
+    const coreCols = 'id,exam_id,iid,class,section,roll,total_mark,average_mark,count_absent,gpa_final,class_rank,remark'
+    const extraCols = Object.values(rawMap).flatMap(sc => {
+      const c: string[] = []
+      if (sc.Total) c.push(`"${sc.Total}"`)
+      if (sc.GPA) c.push(`"${sc.GPA}"`)
+      return c
+    }).join(',')
+    const selectStr = extraCols ? `${coreCols},${extraCols}` : coreCols
+
+    const rows = await fetchAllRows<Record<string, unknown>>(async (from, to) => {
+      let q = supabase.from('fmhs_exam_data').select(selectStr)
+      if (activeExamId !== null) q = q.eq('exam_id', activeExamId)
+      return q.order('class', { ascending: false })
+              .order('section', { ascending: true })
+              .order('roll', { ascending: true })
+              .range(from, to) as any
+    })
+
+    const mapped = rows.map(r => ({
+      ...r,
+      id: Number(r.id),
+      exam_id: r.exam_id as number | null,
+      _db_gpa: r.gpa_final as string | number | null,
+      _db_rank: r.class_rank as number | null,
+      _db_remark: r.remark as string | null,
+    })) as StudentRow[]
+
+    setStudents(mapped)
+    setStatus(`Loaded ${mapped.length} students`)
     setLoading(false)
   }, [activeExamId, examId, invalidExamParam])
 
   useEffect(() => { loadAll() }, [loadAll])
 
-  function updateCalculations(rows: StudentRow[]): StudentRow[] {
-    const subjectLookup = buildSubjectLookup(subjectRules as any[])
+  // ── Core calculation ────────────────────────────────────────────────────────
+  // GPA Final is derived from EXISTING subject GPA columns (already saved by SubjectGpaPage)
+  // Iterates over subjectCols (already correctly paired 1st+2nd paper) — avoids double counting
+  // 4th subject: GPA - 2, NOT counted in divisor, absent doesn't count
+  // Excluded subjects: not counted in total, GPA, rank
+  function calcStudent(student: StudentRow): Partial<StudentRow> {
+    const studentClass = Number(student.class) || 0
+    const studentIid = String(student.iid ?? '')
+    const studentOptSub = optionalSubjectMap[studentIid] || ''
+
     const classFlagsByClass = buildClassSubjectFlags(classSubjectInfo)
+    const classFlags = classFlagsByClass[studentClass] ?? {
+      subjectCodes: new Set<string>(),
+      fourthSubjectCodes: new Set<string>(),
+      excludeFromRankCodes: new Set<string>(),
+    }
+    const hasAssignments = classFlags.subjectCodes.size > 0
+    const subjectLookup = buildSubjectLookup(subjectRules)
 
-    return rows.map(student => {
-      const studentClass = Number(student.class) || 0
-      const studentIid = String(student.iid ?? '')
-      const studentOptionalSubject = optionalSubjectMap[studentIid] || ''
+    let totalMarks = 0
+    let rankTotalMarks = 0
+    let validSubjects = 0
+    let attendedMain = 0
+    let expectedMain = 0
+    let gpaSum = 0
+    let gpaMainCount = 0
+    let failCount = 0
 
-      // Get class-specific subject assignments
-      const classAssignments = classFlagsByClass[studentClass] ?? {
-        subjectCodes: new Set<string>(),
-        fourthSubjectCodes: new Set<string>(),
-        excludeFromRankCodes: new Set<string>(),
+    // ── Determine this student's effective 4th subject code ─────────────────
+    // Priority 1: match student_database.optional_subject against 4th subject candidates
+    // Priority 2: if student has no optional_subject → use the subject(s) marked
+    //             as 4th in Subject Rules for this class (fallback)
+    const classFourthCodes = classFlags.fourthSubjectCodes // Set<string>
+    let studentFourthCode: string | null = null
+
+    if (studentOptSub && classFourthCodes.size > 0) {
+      // Student has optional_subject recorded → find which 4th candidate it matches
+      for (const rule of subjectRules) {
+        const c = normalizeSubjectValue(rule.subject_code)
+        if (classFourthCodes.has(c) && subjectMatchesOptional(studentOptSub, rule)) {
+          studentFourthCode = c
+          break
+        }
       }
-      const hasAssignments = classAssignments.subjectCodes.size > 0
-      const hasRuleData = subjectRules.length > 0
+    }
 
-      // Determine which detected subjects belong to this class
-      // A subject belongs to a class if its subject_code is in assignedCodes,
-      // or if no class assignments exist at all (fallback: include all)
-      let totalMarks = 0, validSubjects = 0
-      let rankTotalMarks = 0 // total marks excluding exclude_from_rank subjects (for ranking)
-      let attendedSubjects = 0 // for absent count (excludes 4th subject from count)
-      let failCount = 0, gpaSum = 0, gpaSubjectsCount = 0
-      let expectedMainSubjects = 0 // total subjects this class should have (per student)
+    if (!studentFourthCode && classFourthCodes.size > 0) {
+      // Fallback: student_database empty → Subject Rules' 4th subject applies.
+      // If multiple 4th subjects in class (e.g. Agriculture + Home Science),
+      // and student has no recorded choice, we cannot determine → treat first one as theirs.
+      // This mirrors the physical scenario where the student attends one subject.
+      studentFourthCode = [...classFourthCodes][0]
+    }
 
-      detectedSubjects.forEach(subject => {
-        const totalCol = subjectMap[subject]?.Total
-        const gpaCol = subjectMap[subject]?.GPA
+    // Iterate over subjectCols — already de-duplicated and paired (1st+2nd = one entry)
+    subjectCols.forEach(sc => {
+      const gpaCol = sc.cols.GPA
+      const totalCol = sc.cols.Total
+      const total2ndCol = sc.cols.Total2nd // only for combined 1st+2nd subjects
 
-        // Find the subject_code for this subject column
-        const subjectCleanName = subject.replace(/^\*+\s*/, '')
-        const subjectRule = hasRuleData ? resolveSubjectRule(subjectLookup, subjectCleanName) : undefined
-        if (hasRuleData && !subjectRule) return
-        const subjectCode = normalizeSubjectValue(subjectRule?.subject_code ?? subjectCleanName)
+      if (!gpaCol) return // no GPA col → skip
 
-        // If class assignments exist, skip subjects not assigned to this class
-        if (hasAssignments && !classAssignments.subjectCodes.has(subjectCode)) return
+      // Find the subject rule for this entry
+      // For combined subjects, label is like "Bangla  1st+2nd Paper" — resolve by 1st paper label
+      const resolveLabel = sc.label.replace(/1st\+2nd/i, '1st')
+      const rule = resolveSubjectRule(subjectLookup, resolveLabel)
+      if (!rule) return // no matching rule → skip
 
-        // Check if this is a 4th subject for this class
-        const isClassFourthSubject = classAssignments.fourthSubjectCodes.has(subjectCode)
-        // Check if excluded from rank
-        const isExcludedFromRank = classAssignments.excludeFromRankCodes.has(subjectCode)
+      const code = normalizeSubjectValue(rule.subject_code)
 
-        // Check if this subject matches the student's optional_subject (for 4th subject GPA-2 rule)
-        const isStudentFourthSubject = isClassFourthSubject && subjectRule && subjectMatchesOptional(studentOptionalSubject, subjectRule)
+      // Skip if not assigned to this class
+      if (hasAssignments && !classFlags.subjectCodes.has(code)) return
 
+      const isExcluded = classFlags.excludeFromRankCodes.has(code)
+      const isClassFourth = classFourthCodes.has(code)
+      // isStudentFourth: this subject IS the student's effective 4th subject
+      // (matched from student_database, or fallback to Subject Rules' 4th subject)
+      const isStudentFourth = isClassFourth && code === studentFourthCode
 
-        // If it's not excluded from rank and not this student's 4th subject, it is a main subject
-        if (!isExcludedFromRank && !isStudentFourthSubject) {
-          expectedMainSubjects++
-        }
+      // ── FIX 1: Skip other students' optional subjects entirely ─────────────
+      // Class 9 may have "Agriculture" + "Home Science" both as 4th subject.
+      // Student chose "Agriculture" → "Home Science" MUST be skipped for them.
+      // Without this: "Home Science" inflates expectedMain → wrong absent + GPA.
+      if (isClassFourth && !isStudentFourth) return
 
-        if (totalCol) {
-          const marks = parseFloat(String(student[totalCol] ?? 0)) || 0
-          if (marks > 0) {
-            // For ranking: exclude_from_rank subjects don't count towards total and avg
-            if (!isExcludedFromRank) {
-              totalMarks += marks
-              rankTotalMarks += marks
-              validSubjects++
-              // For absent count: 4th subject doesn't count as "attended"
-              if (!isStudentFourthSubject) {
-                attendedSubjects++
-              }
-            }
-          }
-        }
+      const t1 = totalCol ? Number(student[totalCol]) || 0 : 0
+      const t2 = total2ndCol ? Number(student[total2ndCol]) || 0 : 0
+      const subjectTotal = t1 + t2
 
-        if (gpaCol && !isExcludedFromRank) {
-          const val = String(student[gpaCol] ?? '').trim()
-          if (val === 'F') {
-            if (!isStudentFourthSubject) failCount++ // Fail in 4th subject doesn't count as total fail
-          } else if (val && val !== '0' && val !== '0.00' && !isNaN(parseFloat(val))) {
-            let g = parseFloat(val)
-            if (isStudentFourthSubject) {
-              g = Math.max(0, g - 2)
-              gpaSum += g
-            } else {
-              gpaSum += g
-              gpaSubjectsCount++
-            }
-          }
-        }
-      })
+      const rawGpa = student[gpaCol]
+      const gpaStr = String(rawGpa ?? '').trim()
+      const isFail = gpaStr.toUpperCase() === 'F'
+      const gpaNum = isFail ? 0 : (parseFloat(gpaStr) || 0)
+      const hasGpa = isFail || gpaNum > 0
 
-      // Calculate expected subject count for this class
-      let totalSubjectCount = hasAssignments ? expectedMainSubjects : detectedSubjects.length
+      // Absent = total marks = 0 (CQ + MCQ + Practical = 0)
+      // Even if GPA = F but no marks → absent
+      const attended = subjectTotal > 0
 
-      const countAbsent = Math.max(0, totalSubjectCount - attendedSubjects)
-      const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
-      const remark = failCount > 0 ? `fail: ${failCount}` : ''
-
-      let gpaFinal: string | number | null = null
-      if ((failCount + countAbsent) > 0) {
-        gpaFinal = null
-      } else if (gpaSubjectsCount > 0) {
-        // Divide by total expected subjects (not hardcoded 9)
-        const divisor = totalSubjectCount > 0 ? totalSubjectCount : gpaSubjectsCount
-        const raw = Math.min(5, gpaSum / divisor)
-        gpaFinal = isNaN(raw) ? null : parseFloat(raw.toFixed(2))
+      // Accumulate display total (all subjects, including excluded & 4th)
+      if (subjectTotal > 0) {
+        totalMarks += subjectTotal
+        validSubjects++
+        // ── FIX 3: rankTotalMarks excludes "exclude_from_rank" subjects ──────
+        if (!isExcluded) rankTotalMarks += subjectTotal
       }
 
-      return {
-        ...student,
-        total_mark: totalMarks || null,
-        average_mark: avgCalc || null,
-        count_absent: countAbsent || null,
-        gpa_final: gpaFinal,
-        remark: remark || null,
-        optional_subject: studentOptionalSubject || null,
-        _rank_total: rankTotalMarks || null,
+      if (isStudentFourth) {
+        // ── 4th / Optional Subject Rules ──────────────────────────────────────
+        // • NOT counted in expectedMain → doesn't affect absent count or divisor
+        // • NOT in attendedMain → absent in 4th never penalises Final GPA
+        // • F in 4th does NOT null GPA Final (not in failCount)
+        // • If passed: bonus = max(0, GPA - 2) added to gpaSum
+        if (hasGpa && !isFail && gpaNum > 0) {
+          gpaSum += Math.max(0, gpaNum - 2)
+        }
+      } else if (!isExcluded) {
+        // ── Regular Main Subject ───────────────────────────────────────────────
+        expectedMain++
+        if (attended) attendedMain++
+        if (hasGpa) {
+          gpaMainCount++
+          if (isFail) failCount++
+          else gpaSum += gpaNum
+        }
       }
+      // Excluded-from-rank: marks in totalMarks, not in GPA/rank/absent.
     })
+
+    const countAbsent = Math.max(0, expectedMain - attendedMain)
+    const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
+
+    const failRem = failCount > 0 ? `fail: ${failCount}` : ''
+    const absRem = countAbsent > 0 ? `absent: ${countAbsent}` : ''
+    const remark = [failRem, absRem].filter(Boolean).join(', ')
+
+    let gpaFinal: number | null = null
+    if (failCount === 0 && countAbsent === 0 && gpaMainCount > 0) {
+      // Divisor = expected main subjects (NOT gpaMainCount, to handle absent correctly)
+      const divisor = expectedMain > 0 ? expectedMain : gpaMainCount
+      const raw = Math.min(5, gpaSum / divisor)
+      gpaFinal = isNaN(raw) ? null : parseFloat(raw.toFixed(2))
+    }
+
+    return {
+      total_mark: totalMarks || null,
+      average_mark: avgCalc || null,
+      count_absent: countAbsent || null,
+      gpa_final: gpaFinal,
+      remark: remark || null,
+      optional_subject: studentOptSub || null,
+      _rank_total: rankTotalMarks || null,
+    }
+  }
+
+  function updateCalculations(rows: StudentRow[]): StudentRow[] {
+    return rows.map(s => ({ ...s, ...calcStudent(s) }))
   }
 
   function calcClassRanks(rows: StudentRow[]): StudentRow[] {
@@ -297,28 +385,22 @@ export default function GpaFinalPage() {
 
     const result = [...rows]
     Object.values(groups).forEach(group => {
-      const eligible = group.filter(s => (s.total_mark ?? 0) > 0 && !(s.count_absent && s.count_absent > 0))
+      const eligible = group.filter(s =>
+        (s.total_mark ?? 0) > 0 && !(s.count_absent && Number(s.count_absent) > 0) && s.gpa_final != null
+      )
       eligible.sort((a, b) => {
-        const gA = a.gpa_final != null ? Number(a.gpa_final) : null
-        const gB = b.gpa_final != null ? Number(b.gpa_final) : null
-        // Use _rank_total (excludes exclude_from_rank subjects) for tie-breaking
+        const gA = Number(a.gpa_final), gB = Number(b.gpa_final)
+        if (Math.abs(gA - gB) > 0.001) return gB - gA
         const rA = a._rank_total ?? a.total_mark ?? 0
         const rB = b._rank_total ?? b.total_mark ?? 0
-        if (gA !== null && gB !== null) {
-          if (Math.abs(gA - gB) > 0.001) return gB - gA
-          if (rB !== rA) return rB - rA
-          return (a.roll ?? 999999) - (b.roll ?? 999999)
-        }
-        if (gA !== null) return -1; if (gB !== null) return 1
-        const fA = extractFailCount(a.remark), fB = extractFailCount(b.remark)
-        if (fA !== fB) return fA - fB
-        if (rB !== rA) return rB - rA
+        if (rB !== rA) return (rB as number) - (rA as number)
         return (a.roll ?? 999999) - (b.roll ?? 999999)
       })
       eligible.forEach((s, rank) => {
         const idx = result.findIndex(r => r.id === s.id)
         if (idx >= 0) result[idx] = { ...result[idx], class_rank: rank + 1 }
       })
+      // Students not eligible get null rank
       group.forEach(s => {
         if (!eligible.find(e => e.id === s.id)) {
           const idx = result.findIndex(r => r.id === s.id)
@@ -332,33 +414,30 @@ export default function GpaFinalPage() {
   function handleUpdateCalculations() {
     const updated = calcClassRanks(updateCalculations(students))
     setStudents(updated)
-    setStatus('Calculations updated successfully! — click "Update Database" to save')
+    setStatus('Calculations updated — click "Update Database" to save')
   }
 
-  async function handleUpdateDatabase() {
-    if (!window.confirm('Are you sure you want to update the database with GPA Final, Class Rank and Remark?')) return
-    if (invalidExamParam) {
-      setStatus(`Invalid exam id in URL: ${examId}`)
-      return
-    }
-    setStatus('Updating database…')
-    const recalculated = calcClassRanks(updateCalculations(students))
-    const updates = recalculated.map(s => ({
-      id: s.id,
-      exam_id: s.exam_id ?? activeExamId,
-      iid: s.iid,
+  function buildUpdatePayload(s: StudentRow) {
+    const u: any = {
+      total_mark: s.total_mark ?? null,
+      average_mark: s.average_mark ?? null,
+      count_absent: s.count_absent === null ? null : String(s.count_absent),
       gpa_final: s.gpa_final === null ? null : parseFloat(String(s.gpa_final)),
       class_rank: s.class_rank ?? null,
       remark: s.remark ?? null,
-    }))
+    }
+    return u
+  }
+
+  async function handleUpdateDatabase() {
+    if (!window.confirm('Update database with GPA Final, Class Rank, Remark, Total, Average, Count Absent?')) return
+    if (invalidExamParam) { setStatus(`Invalid exam id: ${examId}`); return }
+    setStatus('Updating database…')
+    const recalculated = calcClassRanks(updateCalculations(students))
+    const updates = recalculated.map(s => ({ id: s.id, exam_id: s.exam_id ?? activeExamId, iid: s.iid, ...buildUpdatePayload(s) }))
     const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: 'id' })
     if (!error) {
-      setStudents(recalculated.map(s => ({
-        ...s,
-        _db_gpa: s.gpa_final,
-        _db_rank: s.class_rank,
-        _db_remark: s.remark,
-      })))
+      setStudents(recalculated.map(s => ({ ...s, _db_gpa: s.gpa_final, _db_rank: s.class_rank, _db_remark: s.remark })))
       setStatus('Database updated successfully!')
     } else {
       setStatus('Error: ' + error.message)
@@ -369,37 +448,36 @@ export default function GpaFinalPage() {
     const s = students.find(r => r.id === rowId)
     if (!s) return
     setRowSaving(prev => ({ ...prev, [rowId]: true }))
-    if (window.confirm(`Save to database?\n\nGPA Final: ${s.gpa_final ?? ''}\nClass Rank: ${s.class_rank ?? ''}\nRemark: ${s.remark ?? ''}`)) {
-      const { error } = await supabase.from('fmhs_exam_data').update({
-        gpa_final: s.gpa_final === null ? null : parseFloat(String(s.gpa_final)),
-        class_rank: s.class_rank ?? null,
-        remark: s.remark ?? null,
-      }).eq('id', s.id)
+    if (window.confirm(`Save?\n\nGPA Final: ${s.gpa_final ?? ''}\nClass Rank: ${s.class_rank ?? ''}\nRemark: ${s.remark ?? ''}`)) {
+      const { error } = await supabase.from('fmhs_exam_data').update({ id: s.id, ...buildUpdatePayload(s) }).eq('id', s.id)
       if (!error) {
         setStudents(prev => prev.map(r => r.id === rowId ? { ...r, _db_gpa: r.gpa_final, _db_rank: r.class_rank, _db_remark: r.remark } : r))
         setRowSaved(prev => ({ ...prev, [rowId]: true }))
         setTimeout(() => setRowSaved(prev => ({ ...prev, [rowId]: false })), 2000)
-        setStatus(`Row ${s.iid} saved successfully!`)
+        setStatus(`Row ${s.iid} saved!`)
+      } else {
+        setStatus('Error: ' + error.message)
       }
     }
     setRowSaving(prev => ({ ...prev, [rowId]: false }))
   }
 
-  const thHoriz: React.CSSProperties = {
+  // ── Styles ────────────────────────────────────────────────────────────────
+  const thH: React.CSSProperties = {
     padding: '6px 8px', background: '#f0f3f6', border: '1px solid #d0d7de',
-    fontWeight: 600, fontSize: '12.5px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap',
+    fontWeight: 600, fontSize: '12px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap',
   }
-  const thVert: React.CSSProperties = {
+  const thV: React.CSSProperties = {
     writingMode: 'vertical-rl', textOrientation: 'mixed', verticalAlign: 'bottom',
-    height: '120px', minWidth: '50px', padding: '8px 4px',
+    height: '130px', minWidth: '52px', padding: '8px 4px',
     background: '#f0f3f6', border: '1px solid #d0d7de',
-    fontWeight: 600, fontSize: '12.5px', textAlign: 'center', whiteSpace: 'nowrap',
-    borderBottom: '2px solid #d0d7de',
+    fontWeight: 600, fontSize: '11px', textAlign: 'center',
   }
+  const td: React.CSSProperties = { padding: '5px 6px', border: '1px solid #d0d7de', textAlign: 'center', fontSize: '13px' }
 
   return (
     <PageShell
-      title={activeExamId !== null ? `Part 4 – GPA Finalization (Exam ${activeExamId})` : 'Part 4 – GPA Finalization'}
+      title={activeExamId !== null ? `GPA Final (Exam ${activeExamId})` : 'GPA Final'}
       backHref={activeExamId !== null ? `/exam-panel/${activeExamId}` : '/dashboard'}
     >
       {() => (
@@ -407,99 +485,101 @@ export default function GpaFinalPage() {
           {/* Toolbar */}
           <div className="card" style={{ marginBottom: '14px' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-              <button className="btn btn-primary" onClick={loadAll} disabled={loading}>
-                📊 Refresh Data
-              </button>
+              <button className="btn btn-primary" onClick={loadAll} disabled={loading}>📊 Refresh</button>
               <button className="btn btn-success" onClick={handleUpdateCalculations} disabled={loading || students.length === 0}>
-                🔄 Update Calculations
+                🔄 Calculate All
               </button>
-              <button
-                className="btn btn-outline"
-                onClick={handleUpdateDatabase}
-                disabled={loading || students.length === 0}
-              >
+              <button className="btn btn-outline" onClick={handleUpdateDatabase} disabled={loading || students.length === 0}>
                 💾 Update Database
               </button>
-              {status && <span style={{ marginLeft: 'auto', fontSize: '13px', fontWeight: 500, color: status.startsWith('Error') ? '#d73a49' : status.includes('successfully') ? '#1a7f37' : '#555' }}>{status}</span>}
+              <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6a737d', background: '#f8f9fa', padding: '6px 10px', borderRadius: '4px', border: '1px solid #d0d7de' }}>
+                💡 Subject GPA must be calculated first in <strong>Subject GPA</strong> page. This page reads those GPAs to compute Final GPA.
+              </div>
             </div>
+            {status && (
+              <div style={{ marginTop: '8px', fontSize: '13px', fontWeight: 500, color: status.startsWith('Error') ? '#d73a49' : status.includes('success') ? '#1a7f37' : '#555' }}>
+                {status}
+              </div>
+            )}
           </div>
 
           {loading && <div className="spinner" />}
 
           {!loading && students.length > 0 && (
             <div style={{ background: '#fff', border: '1px solid #d0d7de', borderRadius: '6px' }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid #d0d7de', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 600, fontSize: '1.1rem', color: '#24292f' }}>Grade View</span>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #d0d7de', background: '#f8fafc', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 600, color: '#24292f' }}>Result Sheet</span>
                 <span style={{ fontSize: '13px', color: '#6a737d' }}>{students.length} students</span>
               </div>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse', fontSize: '13.5px', width: '100%', background: '#fff' }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: '13px', width: '100%' }}>
                   <thead>
                     <tr>
-                      <th style={thHoriz}>IID</th>
-                      <th style={{ ...thHoriz, minWidth: '110px' }}>Action</th>
-                      <th style={thHoriz}>GPA Final</th>
-                      <th style={thHoriz}>Class Rank</th>
-                      <th style={thHoriz}>Remark</th>
-                      <th style={thHoriz}>Total Marks</th>
-                      <th style={thHoriz}>Average</th>
-                      <th style={thHoriz}>Count Absent</th>
-                      {detectedSubjects.map(subject => {
-                        const gpaCol = subjectMap[subject]?.GPA
-                        const rule = resolveSubjectRule(subjectRules as any[], subject)
-                        return gpaCol ? (
-                          <th key={subject} style={thVert}>
-                            {gpaCol}
-                            <div style={{ fontSize: '9px', opacity: 0.6, fontWeight: 800, marginTop: '2px', color: '#ef4444' }}>
-                              P: {rule?.pass_total ?? '--'}
+                      <th style={thH}>IID</th>
+                      <th style={{ ...thH, minWidth: '80px' }}>Action</th>
+                      <th style={{ ...thH, background: '#e6f3ff' }}>GPA Final</th>
+                      <th style={thH}>Rank</th>
+                      <th style={thH}>Remark</th>
+                      <th style={{ ...thH, background: '#e6ffe6' }}>Total</th>
+                      <th style={{ ...thH, background: '#e6ffe6' }}>Avg</th>
+                      <th style={{ ...thH, background: '#fff0e6' }}>Absent</th>
+                      {subjectCols.map(sc => {
+                        const rule = resolveSubjectRule(subjectRules as any[], sc.label)
+                        return (
+                          <th key={sc.key} style={thV}>
+                            <div>{sc.label}</div>
+                            <div style={{ fontSize: '9px', color: '#ef4444', opacity: 0.8 }}>
+                              P:{rule?.pass_total ?? '-'}
                             </div>
                           </th>
-                        ) : null
+                        )
                       })}
                     </tr>
                   </thead>
                   <tbody>
                     {students.map((s, i) => {
                       const dirty = isDirty(s)
-                      const gpaDisplay = s.gpa_final == null ? '' : String(s.gpa_final)
                       return (
-                        <tr key={s.id} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.iid}</td>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>
+                        <tr key={s.id} style={{ background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                          <td style={td}>{s.iid}</td>
+                          <td style={td}>
                             <button
                               onClick={() => saveRow(s.id)}
                               disabled={rowSaving[s.id]}
                               style={{
-                                fontSize: '10px', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer',
+                                fontSize: '10px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer',
                                 border: '1px solid',
                                 background: rowSaved[s.id] ? '#1a7f37' : dirty ? '#ff8a00' : 'transparent',
                                 borderColor: rowSaved[s.id] ? '#1a7f37' : dirty ? '#ff8a00' : '#0366d6',
-                                color: rowSaved[s.id] ? '#fff' : dirty ? '#ff8a00' : '#0366d6',
-                                fontWeight: 500,
+                                color: rowSaved[s.id] ? '#fff' : dirty ? '#fff' : '#0366d6',
+                                fontWeight: 600,
                               }}
                             >
-                              {rowSaved[s.id] ? '✅ Saved' : '📊 Update'}
+                              {rowSaved[s.id] ? '✅' : dirty ? '💾 Save' : 'Save'}
                             </button>
                           </td>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, color: '#0366d6' }}>{gpaDisplay}</td>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600 }}>{s.class_rank ?? ''}</td>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{s.remark ?? ''}</td>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, background: '#f0f9ff' }}>{s.total_mark ?? ''}</td>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, background: '#f0f9ff' }}>{s.average_mark ?? ''}</td>
-                          <td style={{ padding: '5px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 600, background: '#f0f9ff' }}>{s.count_absent && s.count_absent > 0 ? s.count_absent : ''}</td>
-                          {detectedSubjects.map(subject => {
-                            const gpaCol = subjectMap[subject]?.GPA
-                            if (!gpaCol) return null
-                            const raw = s[gpaCol]
-                            const rawStr = (raw === null || raw === undefined) ? '' : String(raw).trim()
-                            const isF = rawStr.toUpperCase() === 'F'
-                            const num = isF ? 0 : parseFloat(rawStr)
-                            let display = ''
-                            if (isF) display = 'F'
-                            else if (!isNaN(num) && num > 0) display = num.toFixed(1)
+                          <td style={{ ...td, fontWeight: 700, color: '#0366d6', background: '#f0f7ff' }}>
+                            {s.gpa_final ?? ''}
+                          </td>
+                          <td style={{ ...td, fontWeight: 700 }}>{s.class_rank ?? ''}</td>
+                          <td style={{ ...td, fontSize: '11px', color: s.remark ? '#d73a49' : undefined }}>
+                            {s.remark ?? ''}
+                          </td>
+                          <td style={{ ...td, background: '#f0fff0', fontWeight: 600 }}>{s.total_mark ?? ''}</td>
+                          <td style={{ ...td, background: '#f0fff0', fontWeight: 600 }}>{s.average_mark ?? ''}</td>
+                          <td style={{ ...td, background: '#fff8f0', fontWeight: 600, color: (s.count_absent && Number(s.count_absent) > 0) ? '#d73a49' : undefined }}>
+                            {s.count_absent && Number(s.count_absent) > 0 ? s.count_absent : ''}
+                          </td>
+                          {subjectCols.map(sc => {
+                            const gVal = sc.cols.GPA ? String(s[sc.cols.GPA] ?? '').trim() : ''
+                            const tVal = sc.cols.Total ? s[sc.cols.Total] : ''
+                            const isF = gVal.toUpperCase() === 'F'
                             return (
-                              <td key={subject} style={{ padding: '5px 4px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 500 }}>
-                                {display}
+                              <td key={sc.key} style={{ ...td, minWidth: '52px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 600 }}>{tVal || ''}</div>
+                                <div style={{ fontSize: '11px', fontWeight: 700, color: isF ? '#d73a49' : '#ff6600' }}>
+                                  {gVal || ''}
+                                </div>
                               </td>
                             )
                           })}
@@ -513,7 +593,9 @@ export default function GpaFinalPage() {
           )}
 
           {!loading && students.length === 0 && (
-            <div className="card" style={{ textAlign: 'center', color: '#6a737d', padding: '40px' }}>No data loaded</div>
+            <div className="card" style={{ textAlign: 'center', color: '#6a737d', padding: '40px' }}>
+              No data loaded
+            </div>
           )}
         </div>
       )}

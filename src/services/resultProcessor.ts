@@ -70,95 +70,90 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
 
   onProgress?.(`Processing ${students.length} students...`)
   
-  const updates = students.map(student => {
-    const update: any = { id: student.id }
-    const studentClass = Number(student.class) || 0
-    const studentIid = String(student.iid ?? '')
-    const studentOptionalSubject = optMap[studentIid] || ''
+    const updates = students.map(student => {
+      const update: any = { id: student.id }
+      const studentClass = Number(student.class) || 0
+      const studentIid = String(student.iid ?? '')
+      const studentOptionalSubject = optMap[studentIid] || ''
 
-    // Get class-specific assignments
-    const classAssignments = classSubjectInfo[studentClass] ?? {
-      subjectCodes: new Set<string>(),
-      fourthSubjectCodes: new Set<string>(),
-      excludeFromRankCodes: new Set<string>(),
-    }
-    const hasAssignments = classAssignments.subjectCodes.size > 0
-    const assignedCodes = classAssignments.subjectCodes
-    const fourthSubjectCodes = classAssignments.fourthSubjectCodes
-    const excludeFromRankCodes = classAssignments.excludeFromRankCodes
-
-    let totalGPA = 0
-    let gpaSubjectsCount = 0
-    let totalMarks = 0
-    let validSubjects = 0
-    let attendedSubjects = 0 // excludes 4th subject
-    let failCount = 0
-    let expectedMainSubjects = 0
-
-    rules.forEach(rule => {
-      // If class assignments exist, skip subjects not assigned to this class
-      const subjectCode = normalizeSubjectValue(rule.subject_code)
-      if (hasAssignments && !assignedCodes.has(subjectCode)) return
-
-      const isClassFourthSubject = fourthSubjectCodes.has(subjectCode)
-      const isExcludedFromRank = excludeFromRankCodes.has(subjectCode)
-      
-      // It is ONLY this student's 4th subject if it matches their optional_subject
-      const isStudentFourthSubject = isClassFourthSubject && subjectMatchesOptional(studentOptionalSubject, rule)
-
-      // If it's not excluded from rank, and NOT this student's 4th subject, it is a main subject for them
-      if (!isExcludedFromRank && !isStudentFourthSubject) {
-        expectedMainSubjects++
+      // Get class-specific assignments
+      const classAssignments = classSubjectInfo[studentClass] ?? {
+        subjectCodes: new Set<string>(),
+        fourthSubjectCodes: new Set<string>(),
+        excludeFromRankCodes: new Set<string>(),
       }
+      const hasAssignments = classAssignments.subjectCodes.size > 0
+      const assignedCodes = classAssignments.subjectCodes
+      const fourthSubjectCodes = classAssignments.fourthSubjectCodes
+      const excludeFromRankCodes = classAssignments.excludeFromRankCodes
 
-      const base = `*${rule.subject_name}`
-      const cq = Number(student[`${base}_CQ`]) || 0
-      const mcq = Number(student[`${base}_MCQ`]) || 0
-      const prac = Number(student[`${base}_Practical`]) || 0
-      const total = cq + mcq + prac
+      let totalGPA = 0
+      let gpaSubjectsCount = 0
+      let totalMarks = 0
+      let validSubjects = 0
+      let attendedMainSubjects = 0 
+      let failCount = 0
+      let expectedMainSubjects = 0
 
-      // Check for failure in individual components
-      const isFailed = (rule.pass_cq > 0 && cq < rule.pass_cq) ||
-                       (rule.pass_mcq > 0 && mcq < rule.pass_mcq) ||
-                       (rule.pass_practical > 0 && prac < rule.pass_practical) ||
-                       (total < rule.pass_total)
-
-      const { gpa, grade } = getGrade(total, rule.full_marks)
-      
-      update[`${base}_Total`] = total
-      update[`${base}_GPA`] = isFailed ? 'F' : grade
-
-      if (total > 0) {
-        if (!isExcludedFromRank) {
-          totalMarks += total
-          validSubjects++
-          if (!isStudentFourthSubject) attendedSubjects++
-        }
-      }
-
-      // GPA calculation with 4th subject handling
-      if (!isExcludedFromRank) {
-        let effectiveGpa = isFailed ? 0 : gpa
-        if (isStudentFourthSubject && effectiveGpa > 0) {
-          effectiveGpa = Math.max(0, effectiveGpa - 2)
-        }
-        totalGPA += effectiveGpa
+      rules.forEach(rule => {
+        const subjectCode = normalizeSubjectValue(rule.subject_code)
         
-        // If it's the 4th subject, it shouldn't increase the divisor for GPA average calculation
-        // Wait! In Bangladesh, the 4th subject GPA is ADDED, but the subject is NOT counted in the divisor!
-        // The divisor is ONLY the main subjects!
-        if (!isStudentFourthSubject) {
-          gpaSubjectsCount++
-          if (effectiveGpa <= 0) failCount++ // Fail in 4th subject doesn't count as total fail
+        // Skip if not assigned to this class
+        if (hasAssignments && !assignedCodes.has(subjectCode)) return
+
+        const isClassFourth = fourthSubjectCodes.has(subjectCode)
+        const isExcluded = excludeFromRankCodes.has(subjectCode)
+        const isStudentFourth = isClassFourth && subjectMatchesOptional(studentOptionalSubject, rule)
+
+        // It is an expected main subject if it's assigned to class, not excluded, and not the student's 4th subject
+        if (!isExcluded && !isStudentFourth) {
+          expectedMainSubjects++
         }
-      }
-    })
 
-    // Calculate expected subject count for this class
-    let totalSubjectCount = hasAssignments ? expectedMainSubjects : rules.length
+        const base = `*${rule.subject_name.trim()}`
+        const cq = Number(student[`${base}_CQ`]) || 0
+        const mcq = Number(student[`${base}_MCQ`]) || 0
+        const prac = Number(student[`${base}_Practical`]) || 0
+        const total = cq + mcq + prac
 
-    const countAbsent = Math.max(0, totalSubjectCount - attendedSubjects)
-    const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
+        // Check for failure in individual components
+        const isFailed = (rule.pass_cq > 0 && cq < rule.pass_cq) ||
+                         (rule.pass_mcq > 0 && mcq < rule.pass_mcq) ||
+                         (rule.pass_practical > 0 && prac < rule.pass_practical) ||
+                         (total < rule.pass_total)
+
+        const { gpa, grade } = getGrade(total, rule.full_marks)
+        
+        update[`${base}_Total`] = total
+        update[`${base}_GPA`] = isFailed ? 'F' : grade
+
+        if (total > 0) {
+          if (!isExcluded) {
+            totalMarks += total
+            validSubjects++
+            if (!isStudentFourth) {
+              attendedMainSubjects++
+            }
+          }
+        }
+
+        // GPA calculation with 4th subject handling
+        if (!isExcluded) {
+          let effectiveGpa = isFailed ? 0 : gpa
+          if (isStudentFourth && effectiveGpa > 0) {
+            effectiveGpa = Math.max(0, effectiveGpa - 2)
+          }
+          totalGPA += effectiveGpa
+          
+          if (!isStudentFourth) {
+            gpaSubjectsCount++
+            if (effectiveGpa <= 0) failCount++
+          }
+        }
+      })
+
+      const countAbsent = Math.max(0, expectedMainSubjects - attendedMainSubjects)
+      const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
 
     let gpaFinal: string | number | null = null
     if ((failCount + countAbsent) > 0) {

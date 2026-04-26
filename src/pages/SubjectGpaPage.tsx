@@ -80,6 +80,7 @@ export default function SubjectGpaPage() {
   const [loading, setLoading] = useState(false)
   const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
   const [subjectRules, setSubjectRules] = useState<any[]>([])
+  const [combinedMode, setCombinedMode] = useState(true) // true = 1st+2nd together, false = separate
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -87,6 +88,9 @@ export default function SubjectGpaPage() {
       initSubjects()
     })
   }, [navigate])
+
+  // Re-run initSubjects when combinedMode changes
+  useEffect(() => { initSubjects() }, [combinedMode])
 
   async function initSubjects() {
     setStatus('Loading subjects…')
@@ -113,11 +117,11 @@ export default function SubjectGpaPage() {
 
     const processed = new Map<string, SubjectType>()
     raw.forEach((components, base) => {
-      if (/bangla.*(?:1st|2nd)/i.test(base)) {
+      if (combinedMode && /bangla.*(?:1st|2nd)/i.test(base)) {
         const key = 'Bangla 1st+2nd Paper'
         if (!processed.has(key)) processed.set(key, { type: 'combined', subjects: [] })
         ;(processed.get(key) as Extract<SubjectType, { type: 'combined' }>).subjects.push({ base, components })
-      } else if (/english.*(?:1st|2nd)/i.test(base)) {
+      } else if (combinedMode && /english.*(?:1st|2nd)/i.test(base)) {
         const key = 'English 1st+2nd Paper'
         if (!processed.has(key)) processed.set(key, { type: 'combined', subjects: [] })
         ;(processed.get(key) as Extract<SubjectType, { type: 'combined' }>).subjects.push({ base, components })
@@ -329,9 +333,33 @@ export default function SubjectGpaPage() {
             Subject-wise GPA Calculation — সাবজেক্ট অনুযায়ী GPA গণনা ও আপডেট
           </p>
 
-          {/* Subject Selection */}
+          {/* Subject Selection + Mode Toggle */}
           <div className="card" style={{ marginBottom: '14px', background: '#f8fbff' }}>
-            <div style={{ fontWeight: 600, marginBottom: '10px', color: '#495057' }}>📚 Subject Selection</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ fontWeight: 600, color: '#495057' }}>📚 Subject Selection</div>
+              {/* Combined / Separate toggle for 1st+2nd paper subjects */}
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px' }}>
+                <span style={{ color: '#555', fontWeight: 500 }}>১ম+২য় পত্র মোড:</span>
+                <button
+                  onClick={() => { setCombinedMode(true); setSelectedSubject(''); setData([]) }}
+                  style={{
+                    padding: '3px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                    border: '1px solid', borderColor: combinedMode ? '#0366d6' : '#ced4da',
+                    background: combinedMode ? '#0366d6' : '#fff',
+                    color: combinedMode ? '#fff' : '#555',
+                  }}
+                >একসাথে</button>
+                <button
+                  onClick={() => { setCombinedMode(false); setSelectedSubject(''); setData([]) }}
+                  style={{
+                    padding: '3px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                    border: '1px solid', borderColor: !combinedMode ? '#0366d6' : '#ced4da',
+                    background: !combinedMode ? '#0366d6' : '#fff',
+                    color: !combinedMode ? '#fff' : '#555',
+                  }}
+                >আলাদা আলাদা</button>
+              </div>
+            </div>
             <div>
               <label style={{ display: 'block', fontSize: '12px', color: '#555', marginBottom: '4px' }}>Select Subject</label>
               <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)} style={{ minWidth: '250px' }}>

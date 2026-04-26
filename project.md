@@ -55,9 +55,11 @@ Language: TypeScript ; English ;
 - [ ] **Automated Backups**: Weekly snapshots of results for disaster recovery.
 - [ ] **Performance Analytics**: Visual charts to track class performance trends over years.
 
+Mark Entry → Subject GPA → GPA Final (সব ধাপে ধাপে করতে হবে)
+
+"FMHS_exam_subjects"   এ Add New Subject যোগ করার সময় exam_class টেবিলে কোন ক্লাসের বিষয় সেটি সেভ রাখবে। এর উপর ভিত্তি করে /total-average/ এ Count Absent হিসাব করবে। 
 ---
-একটা বিষয় খেয়াল কর, প্রজেক্টে একটি জিনিট যুক্ত করা হয় নি। 
-6,7,8 এর বিষয় একই বা ভিন্ন ভিন্ন হতে পারে। আবার ৯,১০ এর ভিন্ন । ১১,১২ ক্লাসের ভিন্ন। 
+ 6,7,8 এর বিষয় একই বা ভিন্ন ভিন্ন হতে পারে। আবার ৯,১০ এর ভিন্ন । ১১,১২ ক্লাসের ভিন্ন। 
 -----------------
 ডাটাবেস এ তো অনেকগুলো বিষয় থাকবে। সেক্ষেত্রে কোন ক্লাসের কোন কোন বিষয় আছে সেটি সিলেক্ট করে নিদিষ্ট করা যাবে। 
 সেটির উপর ভিত্তি করে /total-average/* ; /subject-gpa/*; /gpa-final/* এ আপডেট করতে হবে।  
@@ -68,9 +70,11 @@ Language: TypeScript ; English ;
 -------------------------- 
 ৪র্থ বিষয় student_database টেবিলের optional_subject column এর থেকে মেচিং করিয়ে নিবে। 
 
-রেজাল্ট প্রসেসিং যেহেতু ; সেহেতু নিখুতভাবে করতে হবে। 
+রেজাল্ট প্রসেসিং যেহেতু ; সেহেতু নির্ভুল ও নিখুতভাবে করতে হবে। 
 শিক্ষার্থীদের আলাদা আলাদা  optional_subject থাকতে পারে। 
 
+একসাথে → বাংলা ১ম+২য় পত্র এবং ইংরেজি ১ম+২য় পত্র একটি combined entry হিসেবে দেখাবে এবং GPA একসাথে বের হবে (combined marks দিয়ে)
+আলাদা আলাদা → প্রতিটি পত্র আলাদা আলাদা subject হিসেবে দেখাবে, প্রতিটির জন্য আলাদাভাবে GPA বের করা যাবে
 *Last Updated: 2026-04-24*
 
 

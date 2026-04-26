@@ -91,22 +91,44 @@ export function subjectMatchesOptional(
   optionalSubject: string | null | undefined,
   rule: Pick<ExamSubjectRule, 'subject_code' | 'subject_name'>,
 ): boolean {
-  const normalizedOptional = normalizeSubjectValue(optionalSubject)
-  if (!normalizedOptional) return false
+  const raw = String(optionalSubject ?? '').trim()
+  if (!raw || raw.toUpperCase() === 'NO') return false // "NO" = no optional subject
 
-  const compactOptional = compactSubjectValue(optionalSubject)
+  // Known typo corrections (without changing DB)
+  const typoMap: Record<string, string> = {
+    'HIGERMATH': 'HIGHER MATH',
+    'HIGHERMATH': 'HIGHER MATH',
+    'HIGER MATH': 'HIGHER MATH',
+    'AGRI': 'AGRICULTURE',
+    'AGR': 'AGRICULTURE',
+    'BIO': 'BIOLOGY',
+  }
+  const corrected = typoMap[raw.toUpperCase()] ?? raw
+
+  const normalizedOptional = normalizeSubjectValue(corrected)
+  const compactOptional = compactSubjectValue(corrected)
   const normalizedCode = normalizeSubjectValue(rule.subject_code)
   const normalizedName = normalizeSubjectValue(rule.subject_name)
   const compactCode = compactSubjectValue(rule.subject_code)
   const compactName = compactSubjectValue(rule.subject_name)
 
+  // Exact match
   if (normalizedOptional === normalizedCode || normalizedOptional === normalizedName) return true
   if (compactOptional === compactCode || compactOptional === compactName) return true
 
-  return normalizedName.includes(normalizedOptional)
-    || normalizedOptional.includes(normalizedName)
-    || compactName.includes(compactOptional)
-    || compactOptional.includes(compactName)
+  // Partial containment match (e.g. "AGRICULTURE" matches "Bangladesh Agriculture Studies")
+  if (normalizedName.includes(normalizedOptional) || normalizedOptional.includes(normalizedName)) return true
+  if (compactName.includes(compactOptional) || compactOptional.includes(compactName)) return true
+
+  // Keyword match: split optional into words, check if ALL words appear in subject name
+  const optWords = normalizedOptional.split(' ').filter(w => w.length > 2)
+  if (optWords.length > 0 && optWords.every(w => normalizedName.includes(w))) return true
+
+  // Vowel-stripped compact comparison for deeper typo tolerance
+  const stripVowels = (s: string) => s.replace(/[aeiou]/gi, '')
+  if (stripVowels(compactOptional) === stripVowels(compactName) && compactOptional.length > 3) return true
+
+  return false
 }
 
 function addAssignments(

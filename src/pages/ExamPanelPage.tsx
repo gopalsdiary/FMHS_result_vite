@@ -636,7 +636,7 @@ export default function ExamPanelPage() {
            
            <div style={{ width: '1px', height: '24px', background: '#e2e8f0', alignSelf: 'center', margin: '0 4px' }}></div>
            
-           <button onClick={() => navigate(`/total-average/${id}`)} style={tabStyle('')}>📈 Total & Average</button>
+
            <button onClick={() => navigate(`/subject-gpa/${id}`)} style={tabStyle('')}>🧪 Subject GPA</button>
            <button onClick={() => navigate(`/gpa-final/${id}`)} style={tabStyle('')}>🎯 GPA Final</button>
            
