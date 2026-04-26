@@ -41,10 +41,10 @@ export default function ExamPanelPage() {
   const [status, setStatus] = useState('')
   const [activeTab, setActiveTab] = useState<'overview' | 'setup' | 'marks' | 'reports' | 'optional'>('overview')
   
-  const [idCol, setIdCol] = useState('iid')
+  const [showDetails, setShowDetails] = useState(false)
   const [data, setData] = useState<StudentRow[]>([])
   const [subjectMap, setSubjectMap] = useState<Record<string, SubjectComp>>({})
-  const [fixedCols, setFixedCols] = useState<string[]>(['roll'])
+  const [fixedCols] = useState<string[]>(['roll'])
   const editChanges = useRef<Record<string, any>>({})
 
   // Filters / Import state
@@ -820,7 +820,8 @@ export default function ExamPanelPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                       <tr>
-                        {fixedCols.map(c => <th key={c} style={{ padding: '16px', textAlign: 'left', fontWeight: 900, textTransform: 'uppercase', fontSize: '11px', color: '#64748b' }}>{c}</th>)}
+                        {fixedCols.map((c: string) => <th key={c} style={{ padding: '16px', textAlign: 'left', fontWeight: 900, textTransform: 'uppercase', fontSize: '11px', color: '#64748b' }}>{c}</th>)}
+
                         {showDetails && (
                           <>
                             <th style={{ padding: '16px', textAlign: 'left', fontWeight: 900, textTransform: 'uppercase', fontSize: '11px', color: '#64748b' }}>STUDENT NAME</th>
@@ -860,7 +861,7 @@ export default function ExamPanelPage() {
                     <tbody>
                       {data.map(row => (
                         <tr key={String(row.id)} style={{ borderBottom: '1px solid #f1f5f9', transition: '0.1s' }}>
-                          {fixedCols.map(c => <td key={c} style={{ padding: '16px', fontWeight: 900 }}>{String(row[c] ?? '-')}</td>)}
+                          {fixedCols.map((c: string) => <td key={c} style={{ padding: '16px', fontWeight: 900 }}>{String(row[c] ?? '-')}</td>)}
                           {showDetails && (
                             <>
                               <td style={{ padding: '16px', fontWeight: 600 }}>{String(row.student_name_en ?? '-')}</td>

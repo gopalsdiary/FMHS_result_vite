@@ -68,8 +68,9 @@ export default function SubjectRulesPage() {
 
   async function loadClassAssignments() {
     const { data, error } = await supabase.from('FMHS_exam_class_subjects').select('*').eq('exam_id', id).order('class', { ascending: true })
-    if (error) setStatus('Error: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else setClassAssignments(data || [])
+
   }
 
 
@@ -78,8 +79,9 @@ export default function SubjectRulesPage() {
     const { data: examData } = await supabase.from('FMHS_exams_names').select('exam_name').eq('id', id).single()
     if (examData) setExamName(examData.exam_name)
     const { data, error } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', id).order('subject_code', { ascending: true })
-    if (error) setStatus('Error: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else setRules(data || [])
+
     setLoading(false)
   }
 
@@ -96,7 +98,7 @@ export default function SubjectRulesPage() {
     e.preventDefault()
     if (!newSub.subject_code || !newSub.subject_name) return
     setProcessing(true)
-    setStatus(editId ? 'Updating subject...' : 'Creating subject...')
+
 
     const payload = { ...newSub, exam_id: id, exam_class: [] as any[] }
     const classesData = newSub.classes
@@ -117,8 +119,9 @@ export default function SubjectRulesPage() {
 
     if (!editId) await addColumnsToTable(newSub)
 
-    setStatus(editId ? '✅ Subject updated!' : '✅ Subject created!')
+    alert(editId ? '✅ Subject updated!' : '✅ Subject created!')
     setProcessing(false)
+
     setEditId(null)
     setIsModalOpen(false)
     loadData()
@@ -175,9 +178,10 @@ export default function SubjectRulesPage() {
   // ─── Class-Subject Assignment CRUD ────────────────────────────────────────
   async function saveClassAssignment() {
     if (!classAssignmentForm.subject_code || !classAssignmentForm.class) {
-      setStatus('⚠️ Subject code and class are required')
+      alert('⚠️ Subject code and class are required')
       return
     }
+
     setProcessing(true)
     const payload = {
       exam_id: Number(id),
@@ -187,8 +191,9 @@ export default function SubjectRulesPage() {
       exclude_from_rank: classAssignmentForm.exclude_from_rank,
     }
     const { error } = await supabase.from('FMHS_exam_class_subjects').insert([payload])
-    if (error) { setStatus('Error: ' + error.message); setProcessing(false); return }
-    setStatus('✅ Class-subject assignment added')
+    if (error) { alert('Error: ' + error.message); setProcessing(false); return }
+    alert('✅ Class-subject assignment added')
+
     setClassAssignmentForm({ subject_code: '', class: '', is_fourth_subject: false, exclude_from_rank: false })
     setProcessing(false)
     loadClassAssignments()
@@ -196,21 +201,23 @@ export default function SubjectRulesPage() {
 
   async function updateClassAssignment(assignId: number, field: 'is_fourth_subject' | 'exclude_from_rank', value: boolean) {
     const { error } = await supabase.from('FMHS_exam_class_subjects').update({ [field]: value }).eq('id', assignId)
-    if (error) { setStatus('Error: ' + error.message); return }
+    if (error) { alert('Error: ' + error.message); return }
     setClassAssignments(prev => prev.map(a => a.id === assignId ? { ...a, [field]: value } : a))
+
   }
 
   async function deleteClassAssignment(assignId: number) {
     if (!confirm('Remove this class-subject assignment?')) return
     const { error } = await supabase.from('FMHS_exam_class_subjects').delete().eq('id', assignId)
-    if (error) setStatus('Error: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else loadClassAssignments()
+
   }
 
   async function autoAssignAllClasses() {
     if (!confirm('Auto-assign all subjects to classes 6–12? This will create assignments for every subject in every class. You can then toggle 4th subject / exclude from rank per class.')) return
     setProcessing(true)
-    setStatus('Auto-assigning...')
+
     const classes = [6, 7, 8, 9, 10, 11, 12]
     const rows: { exam_id: number; subject_code: string; class: number; is_fourth_subject: boolean; exclude_from_rank: boolean }[] = []
     for (const rule of rules) {
@@ -227,11 +234,13 @@ export default function SubjectRulesPage() {
         }
       }
     }
-    if (rows.length === 0) { setStatus('All assignments already exist'); setProcessing(false); return }
+    if (rows.length === 0) { alert('All assignments already exist'); setProcessing(false); return }
+
     const { error } = await supabase.from('FMHS_exam_class_subjects').insert(rows)
-    if (error) { setStatus('Error: ' + error.message); setProcessing(false); return }
-    setStatus(`✅ Created ${rows.length} class-subject assignments`)
+    if (error) { alert('Error: ' + error.message); setProcessing(false); return }
+    alert(`✅ Created ${rows.length} class-subject assignments`)
     setProcessing(false)
+
     loadClassAssignments()
   }
 
