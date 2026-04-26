@@ -42,7 +42,7 @@ export function getGrade(total: number, fullMarks: number = 100): { gpa: number,
  */
 export async function processExamResults(examId: number, onProgress?: (msg: string) => void) {
   onProgress?.('Fetching subject rules...')
-  const { rules, classAssignments } = await loadExamSubjectContext(examId)
+  const { rules, classAssignments, classConfigs } = await loadExamSubjectContext(examId)
   if (!rules || rules.length === 0) throw new Error('No subject rules found for this exam.')
   const classSubjectInfo = buildClassSubjectFlags(classAssignments)
 
@@ -70,96 +70,106 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
 
   onProgress?.(`Processing ${students.length} students...`)
   
-    const updates = students.map(student => {
-      const update: any = { id: student.id }
-      const studentClass = Number(student.class) || 0
-      const studentIid = String(student.iid ?? '')
-      const studentOptionalSubject = optMap[studentIid] || ''
+  const updates = students.map(student => {
+    const update: any = { id: student.id }
+    const studentClass = Number(student.class) || 0
+    const studentIid = String(student.iid ?? '')
+    const studentOptionalSubject = optMap[studentIid] || ''
 
-      // Get class-specific assignments
-      const classAssignments = classSubjectInfo[studentClass] ?? {
-        subjectCodes: new Set<string>(),
-        fourthSubjectCodes: new Set<string>(),
-        excludeFromRankCodes: new Set<string>(),
+    // Get class-specific assignments
+    const classAssignments = classSubjectInfo[studentClass] ?? {
+      subjectCodes: new Set<string>(),
+      fourthSubjectCodes: new Set<string>(),
+      excludeFromRankCodes: new Set<string>(),
+    }
+    const assignedCodes = classAssignments.subjectCodes
+    const fourthSubjectCodes = classAssignments.fourthSubjectCodes
+    const excludeFromRankCodes = classAssignments.excludeFromRankCodes
+
+    let totalGPA = 0
+    let gpaSubjectsCount = 0
+    let totalMarks = 0
+    let validSubjects = 0
+    let attendedMainSubjects = 0 
+    let failCount = 0
+    let expectedMainSubjects = 0
+
+    rules.forEach(rule => {
+      const subjectCode = normalizeSubjectValue(rule.subject_code)
+      
+      // 1. Verify if this SPECIFIC rule applies to the student's class and section
+      const classConfig = (rule as any).exam_class?.find((c: any) => Number(c.class) === studentClass && c.selected)
+      if (!classConfig) return
+
+      // 2. Section/Group Filtering: 
+      // If the rule specifies sections, only apply to those. If empty, apply to all.
+      const restrictedSections = classConfig.sections || []
+      if (restrictedSections.length > 0 && !restrictedSections.includes(student.section)) {
+        return // This subject doesn't belong to this student's section/group
       }
-      const hasAssignments = classAssignments.subjectCodes.size > 0
-      const assignedCodes = classAssignments.subjectCodes
-      const fourthSubjectCodes = classAssignments.fourthSubjectCodes
-      const excludeFromRankCodes = classAssignments.excludeFromRankCodes
 
-      let totalGPA = 0
-      let gpaSubjectsCount = 0
-      let totalMarks = 0
-      let validSubjects = 0
-      let attendedMainSubjects = 0 
-      let failCount = 0
-      let expectedMainSubjects = 0
+      const isClassFourth = fourthSubjectCodes.has(subjectCode)
+      const isExcluded = excludeFromRankCodes.has(subjectCode)
+      const isStudentFourth = isClassFourth && subjectMatchesOptional(studentOptionalSubject, rule)
 
-      rules.forEach(rule => {
-        const subjectCode = normalizeSubjectValue(rule.subject_code)
-        
-        // Skip if not assigned to this class
-        if (hasAssignments && !assignedCodes.has(subjectCode)) return
+      // It is an expected main subject if it's assigned to class, not excluded, and not the student's 4th subject
+      if (!isExcluded && !isStudentFourth) {
+        expectedMainSubjects++
+      }
 
-        const isClassFourth = fourthSubjectCodes.has(subjectCode)
-        const isExcluded = excludeFromRankCodes.has(subjectCode)
-        const isStudentFourth = isClassFourth && subjectMatchesOptional(studentOptionalSubject, rule)
+      const base = `*${rule.subject_name.trim()}`
+      const cq = Number(student[`${base}_CQ`]) || 0
+      const mcq = Number(student[`${base}_MCQ`]) || 0
+      const prac = Number(student[`${base}_Practical`]) || 0
+      const total = cq + mcq + prac
 
-        // It is an expected main subject if it's assigned to class, not excluded, and not the student's 4th subject
-        if (!isExcluded && !isStudentFourth) {
-          expectedMainSubjects++
-        }
+      // Check for failure in individual components
+      const isFailed = (rule.pass_cq > 0 && cq < rule.pass_cq) ||
+                       (rule.pass_mcq > 0 && mcq < rule.pass_mcq) ||
+                       (rule.pass_practical > 0 && prac < rule.pass_practical) ||
+                       (total < rule.pass_total)
 
-        const base = `*${rule.subject_name.trim()}`
-        const cq = Number(student[`${base}_CQ`]) || 0
-        const mcq = Number(student[`${base}_MCQ`]) || 0
-        const prac = Number(student[`${base}_Practical`]) || 0
-        const total = cq + mcq + prac
+      const { gpa, grade } = getGrade(total, rule.full_marks)
+      
+      update[`${base}_Total`] = total
+      update[`${base}_GPA`] = isFailed ? 'F' : grade
 
-        // Check for failure in individual components
-        const isFailed = (rule.pass_cq > 0 && cq < rule.pass_cq) ||
-                         (rule.pass_mcq > 0 && mcq < rule.pass_mcq) ||
-                         (rule.pass_practical > 0 && prac < rule.pass_practical) ||
-                         (total < rule.pass_total)
-
-        const { gpa, grade } = getGrade(total, rule.full_marks)
-        
-        update[`${base}_Total`] = total
-        update[`${base}_GPA`] = isFailed ? 'F' : grade
-
-        if (total > 0) {
-          if (!isExcluded) {
-            totalMarks += total
-            validSubjects++
-            if (!isStudentFourth) {
-              attendedMainSubjects++
-            }
-          }
-        }
-
-        // GPA calculation with 4th subject handling
+      if (total > 0) {
         if (!isExcluded) {
-          let effectiveGpa = isFailed ? 0 : gpa
-          if (isStudentFourth && effectiveGpa > 0) {
-            effectiveGpa = Math.max(0, effectiveGpa - 2)
-          }
-          totalGPA += effectiveGpa
-          
+          totalMarks += total
+          validSubjects++
           if (!isStudentFourth) {
-            gpaSubjectsCount++
-            if (effectiveGpa <= 0) failCount++
+            attendedMainSubjects++
           }
         }
-      })
+      }
 
-      const countAbsent = Math.max(0, expectedMainSubjects - attendedMainSubjects)
-      const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
+      // GPA calculation with 4th subject handling
+      if (!isExcluded) {
+        let effectiveGpa = isFailed ? 0 : gpa
+        if (isStudentFourth && effectiveGpa > 0) {
+          effectiveGpa = Math.max(0, effectiveGpa - 2)
+        }
+        totalGPA += effectiveGpa
+        
+        if (!isStudentFourth) {
+          gpaSubjectsCount++
+          if (effectiveGpa <= 0) failCount++
+        }
+      }
+    })
+
+    const countAbsent = Math.max(0, expectedMainSubjects - attendedMainSubjects)
+    const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
 
     let gpaFinal: string | number | null = null
     if ((failCount + countAbsent) > 0) {
       gpaFinal = null
     } else if (gpaSubjectsCount > 0) {
-      const divisor = totalSubjectCount > 0 ? totalSubjectCount : gpaSubjectsCount
+      // Use manual divisor if provided, otherwise fallback to dynamic count
+      const manualDivisor = classConfigs[studentClass]
+      const divisor = (manualDivisor && manualDivisor > 0) ? manualDivisor : gpaSubjectsCount
+      
       const raw = Math.min(5, totalGPA / divisor)
       gpaFinal = isNaN(raw) ? null : parseFloat(raw.toFixed(2))
     }
@@ -175,11 +185,9 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
   })
 
   onProgress?.('Saving results to database...')
-  // Bulk update (Supabase handles this via array of objects with primary keys)
   const { error } = await supabase.from('fmhs_exam_data').upsert(updates)
   if (error) throw error
 
   onProgress?.('✅ All results processed successfully!')
   return updates.length
 }
-

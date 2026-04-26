@@ -21,6 +21,7 @@ interface ClassSubjectRule {
   class: number
   subject_code: string
   subject_name: string
+  sections: string[]
 }
 
 export default function TeacherSetupPage() {
@@ -30,7 +31,7 @@ export default function TeacherSetupPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([])
   const [examSubjects, setExamSubjects] = useState<ExamSubject[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
-  const [classRules, setClassRules] = useState<ClassSubjectRule[]>([])
+  const [classRulesForMatrix, setClassRulesForMatrix] = useState<ClassSubjectRule[]>([])
   const [sectionsByClass, setSectionsByClass] = useState<Record<number, string[]>>({})
   
   const [enrolledClasses, setEnrolledClasses] = useState<number[]>([])
@@ -79,18 +80,19 @@ export default function TeacherSetupPage() {
     
     const parsedRules: ClassSubjectRule[] = []
     rulesData?.forEach(r => {
-      const clsList = r.exam_class as any[]
+      const clsList = (r.exam_class || []) as any[]
       clsList?.forEach(c => {
         if (c.selected) {
           parsedRules.push({
             class: Number(c.class),
             subject_code: String(r.subject_code),
-            subject_name: r.subject_name
+            subject_name: r.subject_name,
+            sections: c.sections || []
           })
         }
       })
     })
-    setClassRules(parsedRules)
+    setClassRulesForMatrix(parsedRules)
 
     // 4. Sections for each class (from enrolled students)
     const { data: enrolledData } = await supabase
@@ -189,12 +191,12 @@ export default function TeacherSetupPage() {
     loadAll()
   }
 
-  const uniqueClasses = classRules.length > 0 
-    ? [...new Set(classRules.map(r => r.class))].sort((a, b) => a - b)
+  const uniqueClasses = classRulesForMatrix.length > 0 
+    ? [...new Set(classRulesForMatrix.map(r => r.class))].sort((a, b) => a - b)
     : enrolledClasses
 
-  const uniqueSubjects = classRules.length > 0
-    ? examSubjects.filter(s => classRules.some(r => String(r.subject_code) === String(s.subject_code)))
+  const uniqueSubjects = classRulesForMatrix.length > 0
+    ? examSubjects.filter(s => classRulesForMatrix.some(r => String(r.subject_code) === String(s.subject_code)))
     : examSubjects
 
   if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}><div className="spinner" /></div>
@@ -251,8 +253,14 @@ export default function TeacherSetupPage() {
                       <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em' }}>CODE: {sub.subject_code}</div>
                     </td>
                     {uniqueClasses.map(cls => {
-                      const isMapped = classRules.some(r => r.class === cls && String(r.subject_code) === String(sub.subject_code))
-                      const sections = sectionsByClass[cls] || []
+                      const ruleConfig = classRulesForMatrix.find(r => r.class === cls && String(r.subject_code) === String(sub.subject_code))
+                      const isMapped = !!ruleConfig
+                      
+                      // Filter sections based on rule restrictions
+                      let sections = sectionsByClass[cls] || []
+                      if (ruleConfig?.sections?.length > 0) {
+                        sections = sections.filter(s => ruleConfig.sections.includes(s))
+                      }
                       
                       return (
                         <td key={cls} style={{ ...tdStyle, background: isMapped ? 'transparent' : '#fcfcfc' }}>

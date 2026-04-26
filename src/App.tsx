@@ -39,7 +39,6 @@ import SubjectSetupPage from './pages/SubjectSetupPage'
 import SubjectTeacherPage from './pages/SubjectTeacherPage'
 import ClassSubjectPage from './pages/ClassSubjectPage'
 import TeacherSetupPage from './pages/TeacherSetupPage'
-import SubjectMapPage from './pages/SubjectMapPage'
 import ResultEntryPage from './pages/ResultEntryPage'
 import ResultEntryAdminPage from './pages/ResultEntryAdminPage'
 import ResultTableColmAddPage from './pages/ResultTableColmAddPage'
@@ -95,14 +94,13 @@ export default function App() {
         <Route path="/subject-teacher" element={<SubjectTeacherPage />} />
         <Route path="/class-subject" element={<ClassSubjectPage />} />
         <Route path="/teacher-setup/:id?" element={<TeacherSetupPage />} />
-        <Route path="/subject-map" element={<SubjectMapPage />} />
         <Route path="/result-entry" element={<ResultEntryPage />} />
         <Route path="/result-entry-admin" element={<ResultEntryAdminPage />} />
         <Route path="/result-table" element={<ResultTableColmAddPage />} />
 
         {/* Reports */}
-        <Route path="/sms" element={<SmsPage />} />
-        <Route path="/sms-full" element={<SmsFullPage />} />
+        <Route path="/sms/:examId?" element={<SmsPage />} />
+        <Route path="/sms-full/:examId?" element={<SmsFullPage />} />
         <Route path="/summary" element={<SummaryPage />} />
 
         {/* Catch-all */}

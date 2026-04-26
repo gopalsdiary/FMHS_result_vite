@@ -10,6 +10,13 @@ interface Exam {
   is_live: boolean
   teacher_entry_enabled: boolean
   created_at: string
+  class_6: number
+  class_7: number
+  class_8: number
+  class_9: number
+  class_10: number
+  class_11: number
+  class_12: number
 }
 
 export default function ExamManagerPage() {
@@ -21,6 +28,9 @@ export default function ExamManagerPage() {
   // Form state
   const [newName, setNewName] = useState('')
   const [newYear, setNewYear] = useState(new Date().getFullYear())
+  const [classCounts, setClassCounts] = useState<Record<number, number>>({
+    6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0
+  })
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -51,7 +61,17 @@ export default function ExamManagerPage() {
     
     setStatus('Creating...')
     const { error } = await supabase.from('FMHS_exams_names').insert([
-      { exam_name: newName.trim(), year: newYear }
+      { 
+        exam_name: newName.trim(), 
+        year: newYear,
+        class_6: classCounts[6],
+        class_7: classCounts[7],
+        class_8: classCounts[8],
+        class_9: classCounts[9],
+        class_10: classCounts[10],
+        class_11: classCounts[11],
+        class_12: classCounts[12],
+      }
     ])
 
     if (error) {
@@ -133,9 +153,30 @@ export default function ExamManagerPage() {
                   required
                 />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ height: '42px', padding: '0 24px' }}>
-                + Create Exam
-              </button>
+              <div style={{ width: '100%', marginTop: '8px' }}>
+                <label style={{ display: 'block', marginBottom: '12px', fontSize: '14px', fontWeight: 800, color: '#475569' }}>Total Subjects for GPA (Per Class)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px' }}>
+                  {[6, 7, 8, 9, 10, 11, 12].map(c => (
+                    <div key={c}>
+                      <div style={{ fontSize: '11px', fontWeight: 900, color: '#94a3b8', textAlign: 'center', marginBottom: '4px' }}>Class {c}</div>
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        style={{ textAlign: 'center', borderRadius: '10px', fontSize: '13px', fontWeight: 800 }}
+                        value={classCounts[c]}
+                        onChange={e => setClassCounts({ ...classCounts, [c]: Number(e.target.value) })}
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                <button type="submit" className="btn btn-primary" style={{ padding: '12px 32px', borderRadius: '14px', fontWeight: 900 }}>
+                  + Create New Examination
+                </button>
+              </div>
             </form>
             {status && <p style={{ marginTop: '12px', fontSize: '14px', color: status.startsWith('Error') ? '#ef4444' : '#10b981' }}>{status}</p>}
           </div>

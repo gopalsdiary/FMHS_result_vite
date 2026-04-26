@@ -224,13 +224,27 @@ export async function fetchAllRows<T>(
 }
 
 export async function loadExamSubjectContext(examId: number) {
-  const { data: rules, error } = await supabase
+  const { data: rules, error: rErr } = await supabase
     .from('FMHS_exam_subjects')
     .select('*')
     .eq('exam_id', examId)
     .order('subject_code', { ascending: true })
 
-  if (error) throw error
+  // Load Class Configs (Total Subject Counts) from the main exam table
+  const { data: examData, error: eErr } = await supabase
+    .from('FMHS_exams_names')
+    .select('class_6, class_7, class_8, class_9, class_10, class_11, class_12')
+    .eq('id', examId)
+    .single()
+
+  if (eErr) throw eErr
+
+  const classConfigs: Record<number, number> = {}
+  if (examData) {
+    for (let i = 6; i <= 12; i++) {
+      classConfigs[i] = (examData as any)[`class_${i}`] || 0
+    }
+  }
 
   const classRows: ExamClassAssignment[] = []
   rules?.forEach(rule => {
@@ -251,6 +265,7 @@ export async function loadExamSubjectContext(examId: number) {
   return {
     rules: normalizedRules,
     classAssignments: buildClassSubjectAssignments(normalizedRules, classRows),
+    classConfigs,
   }
 }
 

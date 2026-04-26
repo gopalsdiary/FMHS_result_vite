@@ -80,13 +80,17 @@ export default function TeacherGradeEntryPage() {
     if (!assign) { setStatus('Assignment not found'); setLoading(false); return }
     setAssignment(assign as any)
 
-    const { data: rData } = await supabase
+    const { data: rList } = await supabase
       .from('FMHS_exam_subjects').select('*')
-      .eq('exam_id', examId).eq('subject_code', String(assign.subject_code)).single()
-    if (rData) setRule(rData)
+      .eq('exam_id', examId).eq('subject_code', String(assign.subject_code))
+    
+    // Find the rule that is specifically assigned to this class
+    const correctRule = rList?.find(r => 
+      (r.exam_class as any[])?.some(c => Number(c.class) === Number(assign.class) && c.selected)
+    )
+    if (correctRule) setRule(correctRule)
 
-    // Also try to get the subject name from FMHS_subject_map for display
-    const subjectName = (assign as any).subject_name ?? rData?.subject_name ?? ''
+    const subjectName = correctRule?.subject_name ?? (assign as any).subject_name ?? ''
 
     const { data: rows } = await supabase
       .from('fmhs_exam_data').select('*')

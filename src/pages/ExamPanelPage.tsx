@@ -11,6 +11,13 @@ interface Exam {
   year: number
   is_live: boolean
   teacher_entry_enabled: boolean
+  class_6: number
+  class_7: number
+  class_8: number
+  class_9: number
+  class_10: number
+  class_11: number
+  class_12: number
 }
 
 interface SubjectComp { CQ?: string; MCQ?: string; Practical?: string; Total?: string; GPA?: string }
@@ -40,6 +47,8 @@ export default function ExamPanelPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('')
   const [activeTab, setActiveTab] = useState<'overview' | 'setup' | 'marks' | 'reports' | 'optional'>('overview')
+  const [isEditingCounts, setIsEditingCounts] = useState(false)
+  const [draftCounts, setDraftCounts] = useState<Record<number, number>>({})
   
   const [showDetails, setShowDetails] = useState(false)
   const [data, setData] = useState<StudentRow[]>([])
@@ -248,7 +257,12 @@ export default function ExamPanelPage() {
 
   async function loadExamData() {
     const { data: ex } = await supabase.from('FMHS_exams_names').select('*').eq('id', id).single()
-    if (ex) setExam(ex)
+    if (ex) {
+      setExam(ex)
+      const counts: Record<number, number> = {}
+      for (let i = 6; i <= 12; i++) counts[i] = (ex as any)[`class_${i}`] || 0
+      setDraftCounts(counts)
+    }
     
     const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', id)
     setSubjectRules(rules || [])
@@ -521,6 +535,29 @@ export default function ExamPanelPage() {
     else loadExamData()
   }
 
+  async function saveClassCounts() {
+    setStatus('💾 Saving configuration...')
+    const { error } = await supabase.from('FMHS_exams_names').update({
+      class_6: draftCounts[6],
+      class_7: draftCounts[7],
+      class_8: draftCounts[8],
+      class_9: draftCounts[9],
+      class_10: draftCounts[10],
+      class_11: draftCounts[11],
+      class_12: draftCounts[12],
+    }).eq('id', id)
+
+    if (error) {
+      alert(error.message)
+      setStatus('❌ Save failed.')
+    } else {
+      setStatus('✅ Configuration saved successfully!')
+      setIsEditingCounts(false)
+      loadExamData()
+      setTimeout(() => setStatus(''), 3000)
+    }
+  }
+
   async function importStudents() {
     if (!exam || !gridClass || !sourceYear) { alert('Please select class and year.'); return }
     setStatus(`🔍 Scanning database for ${sourceYear} session...`)
@@ -734,6 +771,41 @@ export default function ExamPanelPage() {
                     <h3 style={{ margin: '0 0 12px 0', fontWeight: 900 }}>3. Teacher Access</h3>
                     <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Grant access to teachers for specific classes and subjects.</p>
                     <button onClick={() => navigate(`/exam-teachers/${id}`)} style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 700, color: '#1e293b' }}>CONFIGURE ACCESS PERMISSIONS</button>
+                  </div>
+
+                  <div style={{ background: '#fff', padding: '32px', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', gridColumn: '1 / -1' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <h3 style={{ margin: 0, fontWeight: 900 }}>📚 Total Subjects Configuration (GPA Divisors)</h3>
+                      {!isEditingCounts ? (
+                        <button onClick={() => setIsEditingCounts(true)} style={{ padding: '8px 20px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 800, color: '#4f46e5', cursor: 'pointer' }}>✏️ Edit Settings</button>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => { setIsEditingCounts(false); loadExamData(); }} style={{ padding: '8px 20px', borderRadius: '12px', background: '#fff', border: '1px solid #e2e8f0', fontWeight: 800, color: '#64748b', cursor: 'pointer' }}>Cancel</button>
+                          <button onClick={saveClassCounts} style={{ padding: '8px 24px', borderRadius: '12px', background: '#059669', border: 'none', fontWeight: 800, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 10px rgba(5,150,105,0.2)' }}>Save Configuration</button>
+                        </div>
+                      )}
+                    </div>
+                    <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Set the total number of subjects to divide by when calculating the final GPA for each class.</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '20px' }}>
+                      {[6, 7, 8, 9, 10, 11, 12].map(c => (
+                        <div key={c} style={{ background: isEditingCounts ? '#fff' : '#f8fafc', padding: '16px', borderRadius: '20px', border: isEditingCounts ? '2px solid #4f46e5' : '1px solid #e2e8f0', transition: '0.2s' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '8px', textAlign: 'center' }}>CLASS {c}</div>
+                          {isEditingCounts ? (
+                            <input 
+                              type="number" 
+                              className="form-control" 
+                              style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                              value={draftCounts[c] || 0}
+                              onChange={(e) => setDraftCounts({ ...draftCounts, [c]: Number(e.target.value) })}
+                            />
+                          ) : (
+                            <div style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.5rem', color: '#1e293b' }}>
+                              {exam ? (exam as any)[`class_${c}`] : 0}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1023,7 +1095,10 @@ export default function ExamPanelPage() {
                   <div style={{ fontSize: '40px', marginBottom: '16px' }}>📱</div>
                   <h3 style={{ marginBottom: '8px', fontWeight: 900 }}>SMS Gateway</h3>
                   <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>Send results directly to parents via SMS.</p>
-                  <button onClick={() => navigate(`/sms`)} style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', fontWeight: 700 }}>Send SMS</button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => navigate(`/sms`)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 700, fontSize: '12px' }}>Simple SMS</button>
+                    <button onClick={() => navigate(`/sms-full/${id}`)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#4f46e5', border: 'none', fontWeight: 800, color: '#fff', fontSize: '12px' }}>Detailed SMS</button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1041,7 +1116,7 @@ export default function ExamPanelPage() {
                     { title: 'Result Processor', path: `/process-results/${id}`, icon: '⚡', desc: 'Alternative result processing engine.' },
                     { title: 'Detailed Result View', path: `/result-view/${id}`, icon: '🔍', desc: 'Inspect raw data for individual students.' },
                     { title: 'General Summary', path: `/summary`, icon: '📋', desc: 'High-level statistical overview.' },
-                    { title: 'Full SMS Gateway', path: `/sms-full`, icon: '✉️', desc: 'Advanced messaging with full logs.' }
+                    { title: 'Full SMS Gateway', path: `/sms-full/${id}`, icon: '✉️', desc: 'Advanced messaging with full logs.' }
                   ].map(tool => (
                     <div 
                       key={tool.title} 
