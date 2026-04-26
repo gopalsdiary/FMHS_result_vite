@@ -59,7 +59,8 @@ export default function TeacherDashboardPage() {
              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{userEmail}</div>
              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Active Instructor</div>
           </div>
-          <button onClick={handleLogout} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#64748b', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>LOGOUT</button>
+          <button onClick={() => handleLogout()} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#64748b', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>LOGOUT</button>
+
         </div>
       </header>
 

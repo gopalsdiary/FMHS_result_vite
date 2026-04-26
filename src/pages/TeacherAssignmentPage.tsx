@@ -22,7 +22,7 @@ export default function TeacherAssignmentPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState('')
+
 
   const [newAssign, setNewAssign] = useState({
     teacher_email: '',
@@ -41,8 +41,9 @@ export default function TeacherAssignmentPage() {
     setSubjects(subs || [])
     if (subs && subs.length > 0 && !newAssign.subject_code) setNewAssign(prev => ({ ...prev, subject_code: subs[0].subject_code }))
     const { data, error } = await supabase.from('FMHS_exam_teacher_assignments').select('*').eq('exam_id', id).order('class', { ascending: true })
-    if (error) setStatus('Error: ' + error.message)
+    if (error) alert('Error: ' + error.message)
     else setAssignments(data || [])
+
     setLoading(false)
   }
 
@@ -50,8 +51,9 @@ export default function TeacherAssignmentPage() {
     e.preventDefault()
     if (!newAssign.teacher_email || !newAssign.subject_code) return
     const { error } = await supabase.from('FMHS_exam_teacher_assignments').insert([{ ...newAssign, exam_id: id }])
-    if (error) setStatus('Error: ' + error.message)
-    else { setStatus('✅ Assigned successfully!'); loadData() }
+    if (error) alert('Error: ' + error.message)
+    else { alert('✅ Assigned successfully!'); loadData() }
+
   }
 
   async function deleteAssignment(aid: number) {

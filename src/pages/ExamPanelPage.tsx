@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import { processExamResults } from '@/services/resultProcessor'
-import PageShell from '@/layout/PageShell'
+
+
 
 interface Exam {
   id: number
@@ -23,19 +24,14 @@ interface SubjectRule {
   pass_practical: number
   pass_total: number
   full_marks: number
+  total_cq: number
+  total_mcq: number
+  total_practical: number
 }
+
 interface StudentRow { [key: string]: unknown }
 
-function calculateGPA(total: number, full: number): { gpa: number; grade: string } {
-  const percentage = (total / full) * 100
-  if (percentage >= 80) return { gpa: 5.0, grade: 'A+' }
-  if (percentage >= 70) return { gpa: 4.0, grade: 'A' }
-  if (percentage >= 60) return { gpa: 3.5, grade: 'A-' }
-  if (percentage >= 50) return { gpa: 3.0, grade: 'B' }
-  if (percentage >= 40) return { gpa: 2.0, grade: 'C' }
-  if (percentage >= 33) return { gpa: 1.0, grade: 'D' }
-  return { gpa: 0.0, grade: 'F' }
-}
+
 
 export default function ExamPanelPage() {
   const { id } = useParams()
@@ -45,7 +41,7 @@ export default function ExamPanelPage() {
   const [status, setStatus] = useState('')
   const [activeTab, setActiveTab] = useState<'overview' | 'setup' | 'marks' | 'reports' | 'optional'>('overview')
   
-  const [showDetails, setShowDetails] = useState(false)
+  const [idCol, setIdCol] = useState('iid')
   const [data, setData] = useState<StudentRow[]>([])
   const [subjectMap, setSubjectMap] = useState<Record<string, SubjectComp>>({})
   const [fixedCols, setFixedCols] = useState<string[]>(['roll'])
@@ -71,7 +67,6 @@ export default function ExamPanelPage() {
     failCount: 0,
     topStudents: [] as StudentRow[]
   })
-  const [showOptional, setShowOptional] = useState(false)
 
   useEffect(() => {
     if (sourceYear) {
@@ -519,23 +514,6 @@ export default function ExamPanelPage() {
     setLoading(false)
   }
 
-  function processColumns(firstRow: StudentRow) {
-    const keys = Object.keys(firstRow)
-    const fixed = ['class', 'section', 'roll', 'student_name_en'].filter(k => keys.includes(k))
-    setFixedCols(fixed)
-
-    const smap: Record<string, SubjectComp> = {}
-    keys.forEach(k => {
-      const m = k.match(/^(\*?.+?)_(CQ|MCQ|Practical|Total|GPA)$/i)
-      if (m) {
-        const base = m[1].trim()
-        const comp = m[2] as keyof SubjectComp
-        smap[base] = smap[base] ?? {}
-        smap[base][comp] = k
-      }
-    })
-    setSubjectMap(smap)
-  }
 
   async function toggleStatus(field: 'is_live' | 'teacher_entry_enabled', current: boolean) {
     const { error } = await supabase.from('FMHS_exams_names').update({ [field]: !current }).eq('id', id)
@@ -1014,8 +992,9 @@ export default function ExamPanelPage() {
                       <div style={{ fontSize: '11px', color: '#4338ca', fontWeight: 800 }}>TOP PERFORMERS</div>
                       <div style={{ fontSize: '14px', marginTop: '8px' }}>
                         {summaryData.topStudents.map((s, idx) => (
-                          <div key={idx} style={{ color: '#1e293b', fontSize: '11px', fontWeight: 700 }}>#{idx+1} {String(s.student_name_en).split(' ')[0]} ({s.total_mark})</div>
+                          <div key={idx} style={{ color: '#1e293b', fontSize: '11px', fontWeight: 700 }}>#{idx+1} {String(s.student_name_en || '').split(' ')[0]} ({String(s.total_mark ?? '')})</div>
                         ))}
+
                       </div>
                     </div>
                   </div>

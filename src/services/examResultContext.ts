@@ -233,13 +233,14 @@ export async function loadExamSubjectContext(examId: number) {
 }
 
 export async function loadOptionalSubjectMapForExam(examId: number): Promise<Record<string, string>> {
-  const iidRows = await fetchAllRows<{ iid: string | number | null }>((from, to) => (
-    supabase
+  const iidRows = await fetchAllRows<{ iid: string | number | null }>(async (from, to) => {
+    const res = await supabase
       .from('fmhs_exam_data')
       .select('iid')
       .eq('exam_id', examId)
       .range(from, to)
-  ))
+    return res as any
+  })
 
   const iids = iidRows
     .map(row => String(row.iid ?? '').trim())

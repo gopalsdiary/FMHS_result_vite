@@ -13,17 +13,20 @@
     "@supabase/supabase-js": "^2.49.4",
     "html2pdf.js": "^0.14.0",
     "qrcode": "^1.5.4",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.5.3"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
     "@types/qrcode": "^1.5.5",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.14",
     "@vitejs/plugin-react": "^6.0.1",
     "typescript": "^6.0.3",
-    "vite": "^8.0.9"
+    "vite": "^8.0.10"
+  },
+  "engines": {
+    "node": ">=25.9.0"
   }
 }

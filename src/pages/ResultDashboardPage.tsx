@@ -118,7 +118,8 @@ export default function ResultDashboardPage() {
             <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>{user?.email}</div>
             <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Administrator</div>
           </div>
-          <button onClick={handleLogout} style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#ef4444', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>LOGOUT</button>
+          <button onClick={() => handleLogout()} style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#ef4444', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}>LOGOUT</button>
+
         </div>
       </nav>
 

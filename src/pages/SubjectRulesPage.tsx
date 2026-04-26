@@ -25,9 +25,13 @@ export default function SubjectRulesPage() {
   const [examName, setExamName] = useState('')
   const [rules, setRules] = useState<SubjectRule[]>([])
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState('')
   const [masterSubjects, setMasterSubjects] = useState<{ name: string, code: string }[]>([])
   const [processing, setProcessing] = useState(false)
+
+  const [classAssignments, setClassAssignments] = useState<any[]>([])
+  const [showClassAssignment, setShowClassAssignment] = useState(false)
+  const [classAssignmentForm, setClassAssignmentForm] = useState({ subject_code: '', class: '', is_fourth_subject: false, exclude_from_rank: false })
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editId, setEditId] = useState<number | null>(null)
   const [newSub, setNewSub] = useState({
@@ -47,7 +51,9 @@ export default function SubjectRulesPage() {
   useEffect(() => {
     loadData()
     loadMasterSubjects()
+    loadClassAssignments()
   }, [id])
+
 
   async function loadMasterSubjects() {
     const { data } = await supabase.from('FMHS_exam_subjects').select('subject_name, subject_code')
@@ -59,6 +65,13 @@ export default function SubjectRulesPage() {
       setMasterSubjects(Object.entries(unique).map(([name, code]) => ({ name, code })))
     }
   }
+
+  async function loadClassAssignments() {
+    const { data, error } = await supabase.from('FMHS_exam_class_subjects').select('*').eq('exam_id', id).order('class', { ascending: true })
+    if (error) setStatus('Error: ' + error.message)
+    else setClassAssignments(data || [])
+  }
+
 
   async function loadData() {
     setLoading(true)

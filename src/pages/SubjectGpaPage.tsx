@@ -40,7 +40,8 @@ interface SubjectDisplayCols {
   isCombined: boolean
 }
 
-function calculateGPA(total: number, subjectName = '', criteria: GradingCriteria, fullMarks: number = 100): number {
+function calculateGPA(total: number, criteria: GradingCriteria, fullMarks: number = 100): number {
+
   if (total <= 0) return 0
   const normalizedTotal = (total / fullMarks) * 100
   let base = 0
@@ -141,13 +142,15 @@ export default function SubjectGpaPage() {
     }
 
     setLoading(true); setStatus('Loading…')
-    const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
+    const rows = await fetchAllRows<Record<string, unknown>>(async (from, to) => {
       let pageQuery = supabase.from(TABLE_NAME).select('*')
       if (activeExamId !== null) {
         pageQuery = pageQuery.eq('exam_id', activeExamId)
       }
-      return pageQuery.order(iidCol, { ascending: true }).range(from, to)
+      const res = await pageQuery.order(iidCol, { ascending: true }).range(from, to)
+      return res as any
     })
+
 
     const subjInfo = subjects.get(subject)!
     const parsed: DataRow[] = []
@@ -247,7 +250,7 @@ export default function SubjectGpaPage() {
             const rule = resolveSubjectRule(subjectRules as any[], selectedSubject)
            if (rule) fullMarks = rule.full_marks
         }
-        gpa = calculateGPA(total, selectedSubject, criteria, fullMarks) 
+        gpa = calculateGPA(total, criteria, fullMarks) 
       }
       return { ...row, total, gpa }
     })

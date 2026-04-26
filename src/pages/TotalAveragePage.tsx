@@ -106,16 +106,17 @@ export default function TotalAveragePage() {
       ...cols.map(c => `"${c}"`)
     ].join(', ')
 
-    const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
+    const rows = await fetchAllRows<Record<string, unknown>>(async (from, to) => {
       let query = supabase.from('fmhs_exam_data').select(selectCols)
       if (activeExamId !== null) {
         query = query.eq('exam_id', activeExamId)
       }
-      return query
+      const res = await query
         .order('class', { ascending: true })
         .order('section', { ascending: true })
         .order('roll', { ascending: true })
         .range(from, to)
+      return res as any
     })
 
     const mappedRows = rows.map(r => {
@@ -170,7 +171,7 @@ export default function TotalAveragePage() {
 
         const isFourthSubject = classAssignments.fourthSubjectCodes.has(subjectCode)
         const isExcluded = classAssignments.excludeFromRankCodes.has(subjectCode)
-        const isStudentFourthSubject = isFourthSubject && subjectMatchesOptional(studentOptionalSubject, subjectRule)
+        const isStudentFourthSubject = isFourthSubject && subjectRule && subjectMatchesOptional(studentOptionalSubject, subjectRule)
         if (!isExcluded && !isStudentFourthSubject) {
           expectedMainSubjects++
         }

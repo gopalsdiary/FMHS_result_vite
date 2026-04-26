@@ -135,23 +135,23 @@ export default function GpaFinalPage() {
     }).join(', ')
     const selectStr = subjCols ? `${coreCols}, ${subjCols}` : coreCols
 
-    const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
-      let query = supabase
-        .from('fmhs_exam_data')
-        .select(selectStr)
-
+    const rows = await fetchAllRows<Record<string, unknown>>(async (from, to) => {
+      let query = supabase.from('fmhs_exam_data').select(selectStr)
       if (activeExamId !== null) {
         query = query.eq('exam_id', activeExamId)
       }
-
-      return query
+      const res = await query
         .order('class', { ascending: false })
         .order('section', { ascending: false })
         .order('roll', { ascending: false })
         .range(from, to)
+      return res as any
     })
 
+
+
     const mappedRows = rows.map(r => {
+
       const row = r as unknown as Record<string, unknown>
       return {
         ...row,
@@ -216,7 +216,8 @@ export default function GpaFinalPage() {
         const isExcludedFromRank = classAssignments.excludeFromRankCodes.has(subjectCode)
 
         // Check if this subject matches the student's optional_subject (for 4th subject GPA-2 rule)
-        const isStudentFourthSubject = isClassFourthSubject && subjectMatchesOptional(studentOptionalSubject, subjectRule)
+        const isStudentFourthSubject = isClassFourthSubject && subjectRule && subjectMatchesOptional(studentOptionalSubject, subjectRule)
+
 
         // If it's not excluded from rank and not this student's 4th subject, it is a main subject
         if (!isExcludedFromRank && !isStudentFourthSubject) {
