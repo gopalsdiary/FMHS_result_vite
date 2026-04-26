@@ -1,0 +1,70 @@
+
+> fmhs-result-vite@1.0.0 build
+> tsc -b && vite build
+
+src/pages/ExamPanelPage.tsx(5,1): error TS6133: 'PageShell' is declared but its value is never read.
+src/pages/ExamPanelPage.tsx(29,10): error TS6133: 'calculateGPA' is declared but its value is never read.
+src/pages/ExamPanelPage.tsx(74,10): error TS6133: 'showOptional' is declared but its value is never read.
+src/pages/ExamPanelPage.tsx(74,24): error TS6133: 'setShowOptional' is declared but its value is never read.
+src/pages/ExamPanelPage.tsx(244,15): error TS2339: Property 'total_cq' does not exist on type 'SubjectRule'.
+src/pages/ExamPanelPage.tsx(245,16): error TS2339: Property 'total_mcq' does not exist on type 'SubjectRule'.
+src/pages/ExamPanelPage.tsx(246,22): error TS2339: Property 'total_practical' does not exist on type 'SubjectRule'.
+src/pages/ExamPanelPage.tsx(522,12): error TS6133: 'processColumns' is declared but its value is never read.
+src/pages/ExamPanelPage.tsx(1017,158): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+src/pages/GpaFinalPage.tsx(138,62): error TS2345: Argument of type '(from: number, to: number) => PostgrestFilterBuilder<any, any, any, GenericStringError[], "fmhs_exam_data", unknown, "GET">' is not assignable to parameter of type '(from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message?: string | undefined; } | null; }>'.
+  Type 'PostgrestFilterBuilder<any, any, any, GenericStringError[], "fmhs_exam_data", unknown, "GET">' is missing the following properties from type 'Promise<{ data: Record<string, unknown>[] | null; error: { message?: string | undefined; } | null; }>': catch, finally, [Symbol.toStringTag]
+src/pages/GpaFinalPage.tsx(219,111): error TS2345: Argument of type 'ExamSubjectRule | undefined' is not assignable to parameter of type 'Pick<ExamSubjectRule, "subject_code" | "subject_name">'.
+  Type 'undefined' is not assignable to type 'Pick<ExamSubjectRule, "subject_code" | "subject_name">'.
+src/pages/ResultDashboardPage.tsx(121,19): error TS2322: Type '(redirectAfterLogin?: string | undefined, loginPath?: string) => Promise<void>' is not assignable to type 'MouseEventHandler<HTMLButtonElement>'.
+  Types of parameters 'redirectAfterLogin' and 'event' are incompatible.
+    Type 'MouseEvent<HTMLButtonElement, MouseEvent>' is not assignable to type 'string'.
+src/pages/SubjectGpaPage.tsx(43,38): error TS6133: 'subjectName' is declared but its value is never read.
+src/pages/SubjectGpaPage.tsx(144,62): error TS2345: Argument of type '(from: number, to: number) => PostgrestFilterBuilder<any, any, any, any[], "fmhs_exam_data", unknown, "GET">' is not assignable to parameter of type '(from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message?: string | undefined; } | null; }>'.
+  Type 'PostgrestFilterBuilder<any, any, any, any[], "fmhs_exam_data", unknown, "GET">' is missing the following properties from type 'Promise<{ data: Record<string, unknown>[] | null; error: { message?: string | undefined; } | null; }>': catch, finally, [Symbol.toStringTag]
+src/pages/SubjectRulesPage.tsx(28,10): error TS6133: 'status' is declared but its value is never read.
+src/pages/SubjectRulesPage.tsx(164,10): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(164,47): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(171,21): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(172,21): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(173,26): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(174,26): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(179,5): error TS2552: Cannot find name 'setClassAssignmentForm'. Did you mean 'saveClassAssignment'?
+src/pages/SubjectRulesPage.tsx(181,5): error TS2552: Cannot find name 'loadClassAssignments'. Did you mean 'saveClassAssignment'?
+src/pages/SubjectRulesPage.tsx(187,5): error TS2552: Cannot find name 'setClassAssignments'. Did you mean 'saveClassAssignment'?
+src/pages/SubjectRulesPage.tsx(187,25): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(187,42): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(194,10): error TS2552: Cannot find name 'loadClassAssignments'. Did you mean 'saveClassAssignment'?
+src/pages/SubjectRulesPage.tsx(205,26): error TS2304: Cannot find name 'classAssignments'.
+src/pages/SubjectRulesPage.tsx(205,48): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(222,5): error TS2304: Cannot find name 'loadClassAssignments'.
+src/pages/SubjectRulesPage.tsx(311,132): error TS2304: Cannot find name 'classAssignments'.
+src/pages/SubjectRulesPage.tsx(317,38): error TS2304: Cannot find name 'setShowClassAssignment'.
+src/pages/SubjectRulesPage.tsx(317,62): error TS2304: Cannot find name 'showClassAssignment'.
+src/pages/SubjectRulesPage.tsx(317,105): error TS2304: Cannot find name 'showClassAssignment'.
+src/pages/SubjectRulesPage.tsx(318,18): error TS2304: Cannot find name 'showClassAssignment'.
+src/pages/SubjectRulesPage.tsx(328,12): error TS2304: Cannot find name 'showClassAssignment'.
+src/pages/SubjectRulesPage.tsx(333,34): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(333,83): error TS2304: Cannot find name 'setClassAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(333,106): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(340,34): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(340,76): error TS2304: Cannot find name 'setClassAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(340,99): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(346,51): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(346,105): error TS2304: Cannot find name 'setClassAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(346,128): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(350,51): error TS2304: Cannot find name 'classAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(350,105): error TS2304: Cannot find name 'setClassAssignmentForm'.
+src/pages/SubjectRulesPage.tsx(350,128): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(361,12): error TS2304: Cannot find name 'classAssignments'.
+src/pages/SubjectRulesPage.tsx(375,20): error TS2304: Cannot find name 'classAssignments'.
+src/pages/SubjectRulesPage.tsx(375,41): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/pages/SubjectRulesPage.tsx(400,12): error TS2304: Cannot find name 'classAssignments'.
+src/pages/TeacherAssignmentPage.tsx(25,10): error TS6133: 'status' is declared but its value is never read.
+src/pages/TeacherDashboardPage.tsx(62,19): error TS2322: Type '(redirectAfterLogin?: string | undefined, loginPath?: string) => Promise<void>' is not assignable to type 'MouseEventHandler<HTMLButtonElement>'.
+  Types of parameters 'redirectAfterLogin' and 'event' are incompatible.
+    Type 'MouseEvent<HTMLButtonElement, MouseEvent>' is not assignable to type 'string'.
+src/pages/TotalAveragePage.tsx(109,62): error TS2345: Argument of type '(from: number, to: number) => PostgrestFilterBuilder<any, any, any, GenericStringError[], "fmhs_exam_data", unknown, "GET">' is not assignable to parameter of type '(from: number, to: number) => Promise<{ data: Record<string, unknown>[] | null; error: { message?: string | undefined; } | null; }>'.
+  Type 'PostgrestFilterBuilder<any, any, any, GenericStringError[], "fmhs_exam_data", unknown, "GET">' is missing the following properties from type 'Promise<{ data: Record<string, unknown>[] | null; error: { message?: string | undefined; } | null; }>': catch, finally, [Symbol.toStringTag]
+src/pages/TotalAveragePage.tsx(173,106): error TS2345: Argument of type 'ExamSubjectRule | undefined' is not assignable to parameter of type 'Pick<ExamSubjectRule, "subject_code" | "subject_name">'.
+  Type 'undefined' is not assignable to type 'Pick<ExamSubjectRule, "subject_code" | "subject_name">'.
+src/services/examResultContext.ts(236,85): error TS2739: Type 'PostgrestFilterBuilder<any, any, any, { iid: any; }[], "fmhs_exam_data", unknown, "GET">' is missing the following properties from type 'Promise<{ data: { iid: string | number | null; }[] | null; error: { message?: string | undefined; } | null; }>': catch, finally, [Symbol.toStringTag]

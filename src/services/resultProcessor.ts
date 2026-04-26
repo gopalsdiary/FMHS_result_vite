@@ -1,4 +1,11 @@
 import { supabase } from './supabaseClient'
+import {
+  buildClassSubjectFlags,
+  loadExamSubjectContext,
+  loadOptionalSubjectMapForExam,
+  normalizeSubjectValue,
+  subjectMatchesOptional,
+} from './examResultContext'
 
 export interface SubjectRule {
   id: number
@@ -35,40 +42,13 @@ export function getGrade(total: number, fullMarks: number = 100): { gpa: number,
  */
 export async function processExamResults(examId: number, onProgress?: (msg: string) => void) {
   onProgress?.('Fetching subject rules...')
-  const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', examId)
+  const { rules, classAssignments } = await loadExamSubjectContext(examId)
   if (!rules || rules.length === 0) throw new Error('No subject rules found for this exam.')
-
-  // Build class-subject assignments from rules
-  const classSubjectInfo: { subject_code: string; class: number; is_fourth_subject: boolean; exclude_from_rank: boolean }[] = []
-  rules.forEach(r => {
-    if (r.exam_class && Array.isArray(r.exam_class)) {
-      r.exam_class.forEach((c: any) => {
-        classSubjectInfo.push({
-          subject_code: r.subject_code,
-          class: Number(c.class),
-          is_fourth_subject: Boolean(c.is_fourth_subject),
-          exclude_from_rank: Boolean(c.exclude_from_rank)
-        })
-      })
-    }
-  })
+  const classSubjectInfo = buildClassSubjectFlags(classAssignments)
 
   // Load optional_subject from student_database
   onProgress?.('Fetching student optional subjects...')
-  const optMap: Record<string, string> = {}
-  const { data: iidRows } = await supabase.from('fmhs_exam_data').select('iid').eq('exam_id', examId)
-  if (iidRows && iidRows.length > 0) {
-    const iids = iidRows.map(r => r.iid).filter(Boolean)
-    for (let i = 0; i < iids.length; i += 500) {
-      const batch = iids.slice(i, i + 500)
-      const { data: stuData } = await supabase.from('student_database').select('iid, optional_subject').in('iid', batch)
-      if (stuData) {
-        stuData.forEach(s => {
-          if (s.optional_subject) optMap[String(s.iid)] = s.optional_subject
-        })
-      }
-    }
-  }
+  const optMap = await loadOptionalSubjectMapForExam(examId)
 
   onProgress?.('Fetching student data...')
   let students: any[] = []
@@ -97,11 +77,15 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
     const studentOptionalSubject = optMap[studentIid] || ''
 
     // Get class-specific assignments
-    const classAssignments = classSubjectInfo.filter(a => a.class === studentClass)
-    const hasAssignments = classAssignments.length > 0
-    const assignedCodes = new Set(classAssignments.map(a => a.subject_code))
-    const fourthSubjectCodes = new Set(classAssignments.filter(a => a.is_fourth_subject).map(a => a.subject_code))
-    const excludeFromRankCodes = new Set(classAssignments.filter(a => a.exclude_from_rank).map(a => a.subject_code))
+    const classAssignments = classSubjectInfo[studentClass] ?? {
+      subjectCodes: new Set<string>(),
+      fourthSubjectCodes: new Set<string>(),
+      excludeFromRankCodes: new Set<string>(),
+    }
+    const hasAssignments = classAssignments.subjectCodes.size > 0
+    const assignedCodes = classAssignments.subjectCodes
+    const fourthSubjectCodes = classAssignments.fourthSubjectCodes
+    const excludeFromRankCodes = classAssignments.excludeFromRankCodes
 
     let totalGPA = 0
     let gpaSubjectsCount = 0
@@ -113,14 +97,14 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
 
     rules.forEach(rule => {
       // If class assignments exist, skip subjects not assigned to this class
-      if (hasAssignments && !assignedCodes.has(rule.subject_code)) return
+      const subjectCode = normalizeSubjectValue(rule.subject_code)
+      if (hasAssignments && !assignedCodes.has(subjectCode)) return
 
-      const isClassFourthSubject = fourthSubjectCodes.has(rule.subject_code)
-      const isExcludedFromRank = excludeFromRankCodes.has(rule.subject_code)
+      const isClassFourthSubject = fourthSubjectCodes.has(subjectCode)
+      const isExcludedFromRank = excludeFromRankCodes.has(subjectCode)
       
       // It is ONLY this student's 4th subject if it matches their optional_subject
-      const isStudentFourthSubject = isClassFourthSubject && studentOptionalSubject &&
-        rule.subject_name.toLowerCase().includes(studentOptionalSubject.toLowerCase())
+      const isStudentFourthSubject = isClassFourthSubject && subjectMatchesOptional(studentOptionalSubject, rule)
 
       // If it's not excluded from rank, and NOT this student's 4th subject, it is a main subject for them
       if (!isExcludedFromRank && !isStudentFourthSubject) {

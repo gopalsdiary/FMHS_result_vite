@@ -2,6 +2,16 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
+import {
+  buildClassSubjectFlags,
+  buildSubjectLookup,
+  fetchAllRows,
+  loadExamSubjectContext,
+  loadOptionalSubjectMapForExam,
+  normalizeSubjectValue,
+  resolveSubjectRule,
+  subjectMatchesOptional,
+} from '@/services/examResultContext'
 
 interface StudentRow extends Record<string, unknown> {
   id: number
@@ -46,6 +56,7 @@ export default function TotalAveragePage() {
   const [status, setStatus] = useState('')
   const [classSubjectInfo, setClassSubjectInfo] = useState<ClassSubjectInfo[]>([])
   const [subjectRules, setSubjectRules] = useState<any[]>([])
+  const [optionalSubjectMap, setOptionalSubjectMap] = useState<Record<string, string>>({})
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -79,23 +90,14 @@ export default function TotalAveragePage() {
 
     // Load class-subject assignments and subject rules
     if (activeExamId !== null) {
-      const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', activeExamId)
+      const { rules, classAssignments } = await loadExamSubjectContext(activeExamId)
       setSubjectRules(rules || [])
-      
-      const classInfo: ClassSubjectInfo[] = []
-      ;(rules || []).forEach(r => {
-        if (r.exam_class && Array.isArray(r.exam_class)) {
-          r.exam_class.forEach((c: any) => {
-            classInfo.push({
-              subject_code: r.subject_code,
-              class: Number(c.class),
-              is_fourth_subject: Boolean(c.is_fourth_subject),
-              exclude_from_rank: Boolean(c.exclude_from_rank)
-            })
-          })
-        }
-      })
-      setClassSubjectInfo(classInfo)
+      setClassSubjectInfo(classAssignments)
+      setOptionalSubjectMap(await loadOptionalSubjectMapForExam(activeExamId))
+    } else {
+      setSubjectRules([])
+      setClassSubjectInfo([])
+      setOptionalSubjectMap({})
     }
 
     const selectCols = [
@@ -104,19 +106,19 @@ export default function TotalAveragePage() {
       ...cols.map(c => `"${c}"`)
     ].join(', ')
 
-    let query = supabase.from('fmhs_exam_data').select(selectCols)
-    if (activeExamId !== null) {
-      query = query.eq('exam_id', activeExamId)
-    }
+    const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
+      let query = supabase.from('fmhs_exam_data').select(selectCols)
+      if (activeExamId !== null) {
+        query = query.eq('exam_id', activeExamId)
+      }
+      return query
+        .order('class', { ascending: true })
+        .order('section', { ascending: true })
+        .order('roll', { ascending: true })
+        .range(from, to)
+    })
 
-    const { data, error } = await query
-      .order('class', { ascending: true })
-      .order('section', { ascending: true })
-      .order('roll', { ascending: true })
-
-    if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
-
-    const rows = (data ?? []).map(r => {
+    const mappedRows = rows.map(r => {
       const row = r as unknown as Record<string, unknown>
       return {
         ...row,
@@ -129,8 +131,8 @@ export default function TotalAveragePage() {
       }
     }) as StudentRow[]
 
-    setStudents(rows)
-    setStatus(activeExamId !== null ? `Loaded ${rows.length} students for exam ${activeExamId}` : `Loaded ${rows.length} students`)
+    setStudents(mappedRows)
+    setStatus(activeExamId !== null ? `Loaded ${mappedRows.length} students for exam ${activeExamId}` : `Loaded ${mappedRows.length} students`)
     setLoading(false)
   }, [activeExamId, examId])
 
@@ -138,57 +140,54 @@ export default function TotalAveragePage() {
 
   // Calculate totals in memory for all rows — class-aware
   function calcAll(rows: StudentRow[], cols: string[]): StudentRow[] {
-    // Build subject_code -> subject_name mapping from rules
-    const codeToName: Record<string, string> = {}
-    subjectRules.forEach((r: any) => { codeToName[r.subject_code] = r.subject_name })
+    const subjectLookup = buildSubjectLookup(subjectRules as any[])
+    const classFlagsByClass = buildClassSubjectFlags(classSubjectInfo)
 
     return rows.map(student => {
       const studentClass = Number(student.class) || 0
-      const classAssignments = classSubjectInfo.filter(a => a.class === studentClass)
-      const hasAssignments = classAssignments.length > 0
-      const assignedCodes = new Set(classAssignments.map(a => a.subject_code))
-      const fourthSubjectCodes = new Set(classAssignments.filter(a => a.is_fourth_subject).map(a => a.subject_code))
+      const classAssignments = classFlagsByClass[studentClass] ?? {
+        subjectCodes: new Set<string>(),
+        fourthSubjectCodes: new Set<string>(),
+        excludeFromRankCodes: new Set<string>(),
+      }
+      const hasAssignments = classAssignments.subjectCodes.size > 0
+      const hasRuleData = subjectRules.length > 0
+      const studentOptionalSubject = optionalSubjectMap[String(student.iid ?? '')] || ''
 
       let total = 0, valid = 0
       let attendedSubjects = 0 // excludes 4th subject for absent count
-      let totalSubjectCount = 0 // expected subjects for this class
+      let expectedMainSubjects = 0 // expected subjects for this student/class
 
       cols.forEach(col => {
         // Extract subject name from column like "*Bangla 1st Paper_Total"
         const subjectCleanName = col.replace(/^\*+\s*/, '').replace(/_Total$/i, '').trim()
-        // Find subject_code for this subject
-        let subjectCode = ''
-        for (const r of subjectRules) {
-          if (r.subject_name && subjectCleanName.toLowerCase() === r.subject_name.toLowerCase()) {
-            subjectCode = r.subject_code
-            break
-          }
-        }
+        const subjectRule = hasRuleData ? resolveSubjectRule(subjectLookup, subjectCleanName) : undefined
+        if (hasRuleData && !subjectRule) return
+        const subjectCode = normalizeSubjectValue(subjectRule?.subject_code ?? subjectCleanName)
 
         // If class assignments exist, skip subjects not assigned to this class
-        if (hasAssignments && subjectCode && !assignedCodes.has(subjectCode)) return
+        if (hasAssignments && !classAssignments.subjectCodes.has(subjectCode)) return
 
-        const isFourthSubject = subjectCode ? fourthSubjectCodes.has(subjectCode) : false
-
-        const isExcluded = subjectCode ? classAssignments.find(a => a.subject_code === subjectCode)?.exclude_from_rank : false
+        const isFourthSubject = classAssignments.fourthSubjectCodes.has(subjectCode)
+        const isExcluded = classAssignments.excludeFromRankCodes.has(subjectCode)
+        const isStudentFourthSubject = isFourthSubject && subjectMatchesOptional(studentOptionalSubject, subjectRule)
+        if (!isExcluded && !isStudentFourthSubject) {
+          expectedMainSubjects++
+        }
         const m = parseNum(student[col])
         if (m > 0) {
           if (!isExcluded) {
             total += m
             valid++
           }
-          if (!isFourthSubject && !isExcluded) {
+          if (!isStudentFourthSubject && !isExcluded) {
             attendedSubjects++
           }
         }
       })
 
       // Calculate expected subject count for this class
-      if (hasAssignments) {
-        totalSubjectCount = classAssignments.filter(a => !a.is_fourth_subject && !a.exclude_from_rank).length
-      } else {
-        totalSubjectCount = cols.length
-      }
+      const totalSubjectCount = hasAssignments ? expectedMainSubjects : cols.length
 
       const avg = valid > 0 ? Math.round(total / valid) : 0
       const absent = Math.max(0, totalSubjectCount - attendedSubjects)

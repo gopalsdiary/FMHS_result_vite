@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
+import { fetchAllRows, resolveSubjectRule } from '@/services/examResultContext'
 
 const TABLE_NAME = 'fmhs_exam_data'
 
@@ -140,13 +141,13 @@ export default function SubjectGpaPage() {
     }
 
     setLoading(true); setStatus('Loading…')
-    let query = supabase.from(TABLE_NAME).select('*')
-    if (activeExamId !== null) {
-      query = query.eq('exam_id', activeExamId)
-    }
-
-    const { data: rows, error } = await query.order(iidCol, { ascending: true })
-    if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
+    const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
+      let pageQuery = supabase.from(TABLE_NAME).select('*')
+      if (activeExamId !== null) {
+        pageQuery = pageQuery.eq('exam_id', activeExamId)
+      }
+      return pageQuery.order(iidCol, { ascending: true }).range(from, to)
+    })
 
     const subjInfo = subjects.get(subject)!
     const parsed: DataRow[] = []
@@ -185,8 +186,8 @@ export default function SubjectGpaPage() {
         
         let combinedFullMarks = 100 // default fallback
         if (subjectRules.length > 0) {
-          const rule1 = subjectRules.find(r => r.subject_name === subs[0].base.replace(/^\*+\s*/, ''))
-          const rule2 = subjectRules.find(r => r.subject_name === subs[1].base.replace(/^\*+\s*/, ''))
+          const rule1 = resolveSubjectRule(subjectRules as any[], subs[0].base)
+          const rule2 = resolveSubjectRule(subjectRules as any[], subs[1].base)
           if (rule1 && rule2) combinedFullMarks = rule1.full_marks + rule2.full_marks
           else combinedFullMarks = 150
         } else {
@@ -239,11 +240,11 @@ export default function SubjectGpaPage() {
         let fullMarks = 100
         if (isCombined) {
            const subs = (subjInfo as Extract<SubjectType, { type: 'combined' }>).subjects
-           const rule1 = subjectRules.find(r => r.subject_name === subs[0].base.replace(/^\*+\s*/, ''))
-           const rule2 = subjectRules.find(r => r.subject_name === subs[1].base.replace(/^\*+\s*/, ''))
+            const rule1 = resolveSubjectRule(subjectRules as any[], subs[0].base)
+            const rule2 = resolveSubjectRule(subjectRules as any[], subs[1].base)
            if (rule1 && rule2) fullMarks = rule1.full_marks + rule2.full_marks
         } else {
-           const rule = subjectRules.find(r => r.subject_name === selectedSubject.replace(/^\*+\s*/, ''))
+            const rule = resolveSubjectRule(subjectRules as any[], selectedSubject)
            if (rule) fullMarks = rule.full_marks
         }
         gpa = calculateGPA(total, selectedSubject, criteria, fullMarks) 

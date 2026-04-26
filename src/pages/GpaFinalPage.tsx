@@ -2,6 +2,16 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
+import {
+  buildClassSubjectFlags,
+  buildSubjectLookup,
+  fetchAllRows,
+  loadExamSubjectContext,
+  loadOptionalSubjectMapForExam,
+  normalizeSubjectValue,
+  resolveSubjectRule,
+  subjectMatchesOptional,
+} from '@/services/examResultContext'
 
 interface SubjectMap { Total?: string; GPA?: string }
 
@@ -82,46 +92,12 @@ export default function GpaFinalPage() {
 
     setLoading(true); setStatus(activeExamId !== null ? `Loading students for exam ${activeExamId}…` : 'Loading all students…')
     
-    // Load rules for pass marks
-    const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', activeExamId)
-    setSubjectRules(rules || [])
-
-    // Build class-subject assignments from rules
-    const classInfo: ClassSubjectInfo[] = []
-    ;(rules || []).forEach(r => {
-      if (r.exam_class && Array.isArray(r.exam_class)) {
-        r.exam_class.forEach((c: any) => {
-          classInfo.push({
-            subject_code: r.subject_code,
-            class: Number(c.class),
-            is_fourth_subject: Boolean(c.is_fourth_subject),
-            exclude_from_rank: Boolean(c.exclude_from_rank)
-          })
-        })
-      }
-    })
-    setClassSubjectInfo(classInfo)
-
-    // Load optional_subject from student_database for all students in this exam
-    const optMap: Record<string, string> = {}
-    if (activeExamId !== null) {
-      // Get all iids from exam data first
-      const { data: iidRows } = await supabase.from('fmhs_exam_data').select('iid').eq('exam_id', activeExamId)
-      if (iidRows && iidRows.length > 0) {
-        const iids = iidRows.map(r => r.iid).filter(Boolean)
-        // Batch fetch optional_subject from student_database
-        for (let i = 0; i < iids.length; i += 500) {
-          const batch = iids.slice(i, i + 500)
-          const { data: stuData } = await supabase.from('student_database').select('iid, optional_subject').in('iid', batch)
-          if (stuData) {
-            stuData.forEach(s => {
-              if (s.optional_subject) optMap[String(s.iid)] = s.optional_subject
-            })
-          }
-        }
-      }
-    }
-    setOptionalSubjectMap(optMap)
+    const examConfig = activeExamId !== null
+      ? await loadExamSubjectContext(activeExamId)
+      : { rules: [], classAssignments: [] as ClassSubjectInfo[] }
+    setSubjectRules(examConfig.rules || [])
+    setClassSubjectInfo(examConfig.classAssignments || [])
+    setOptionalSubjectMap(activeExamId !== null ? await loadOptionalSubjectMapForExam(activeExamId) : {})
 
     // Detect subjects from table schema
     let sampleQuery = supabase.from('fmhs_exam_data').select('*').limit(1)
@@ -159,22 +135,23 @@ export default function GpaFinalPage() {
     }).join(', ')
     const selectStr = subjCols ? `${coreCols}, ${subjCols}` : coreCols
 
-    let query = supabase
-      .from('fmhs_exam_data')
-      .select(selectStr)
+    const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
+      let query = supabase
+        .from('fmhs_exam_data')
+        .select(selectStr)
 
-    if (activeExamId !== null) {
-      query = query.eq('exam_id', activeExamId)
-    }
+      if (activeExamId !== null) {
+        query = query.eq('exam_id', activeExamId)
+      }
 
-    const { data, error } = await query
-      .order('class', { ascending: false })
-      .order('section', { ascending: false })
-      .order('roll', { ascending: false })
+      return query
+        .order('class', { ascending: false })
+        .order('section', { ascending: false })
+        .order('roll', { ascending: false })
+        .range(from, to)
+    })
 
-    if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
-
-    const rows = (data ?? []).map(r => {
+    const mappedRows = rows.map(r => {
       const row = r as unknown as Record<string, unknown>
       return {
         ...row,
@@ -186,35 +163,34 @@ export default function GpaFinalPage() {
       }
     }) as StudentRow[]
 
-    setStudents(rows)
-    setStatus(activeExamId !== null ? `Loaded ${rows.length} students for exam ${activeExamId}` : `Loaded ${rows.length} students`)
+    setStudents(mappedRows)
+    setStatus(activeExamId !== null ? `Loaded ${mappedRows.length} students for exam ${activeExamId}` : `Loaded ${mappedRows.length} students`)
     setLoading(false)
   }, [activeExamId, examId, invalidExamParam])
 
   useEffect(() => { loadAll() }, [loadAll])
 
   function updateCalculations(rows: StudentRow[]): StudentRow[] {
+    const subjectLookup = buildSubjectLookup(subjectRules as any[])
+    const classFlagsByClass = buildClassSubjectFlags(classSubjectInfo)
+
     return rows.map(student => {
       const studentClass = Number(student.class) || 0
       const studentIid = String(student.iid ?? '')
       const studentOptionalSubject = optionalSubjectMap[studentIid] || ''
 
       // Get class-specific subject assignments
-      const classAssignments = classSubjectInfo.filter(a => a.class === studentClass)
-      // Build a set of subject_codes assigned to this class
-      const assignedCodes = new Set(classAssignments.map(a => a.subject_code))
-      // Map subject_code -> is_fourth_subject / exclude_from_rank
-      const fourthSubjectCodes = new Set(classAssignments.filter(a => a.is_fourth_subject).map(a => a.subject_code))
-      const excludeFromRankCodes = new Set(classAssignments.filter(a => a.exclude_from_rank).map(a => a.subject_code))
-
-      // Map subject_code -> subject_name from rules
-      const codeToName: Record<string, string> = {}
-      subjectRules.forEach((r: any) => { codeToName[r.subject_code] = r.subject_name })
+      const classAssignments = classFlagsByClass[studentClass] ?? {
+        subjectCodes: new Set<string>(),
+        fourthSubjectCodes: new Set<string>(),
+        excludeFromRankCodes: new Set<string>(),
+      }
+      const hasAssignments = classAssignments.subjectCodes.size > 0
+      const hasRuleData = subjectRules.length > 0
 
       // Determine which detected subjects belong to this class
       // A subject belongs to a class if its subject_code is in assignedCodes,
       // or if no class assignments exist at all (fallback: include all)
-      const hasAssignments = classAssignments.length > 0
       let totalMarks = 0, validSubjects = 0
       let rankTotalMarks = 0 // total marks excluding exclude_from_rank subjects (for ranking)
       let attendedSubjects = 0 // for absent count (excludes 4th subject from count)
@@ -227,24 +203,20 @@ export default function GpaFinalPage() {
 
         // Find the subject_code for this subject column
         const subjectCleanName = subject.replace(/^\*+\s*/, '')
-        let subjectCode = ''
-        for (const r of subjectRules) {
-          if (r.subject_name && subjectCleanName.toLowerCase() === r.subject_name.toLowerCase()) {
-            subjectCode = r.subject_code
-            break
-          }
-        }
+        const subjectRule = hasRuleData ? resolveSubjectRule(subjectLookup, subjectCleanName) : undefined
+        if (hasRuleData && !subjectRule) return
+        const subjectCode = normalizeSubjectValue(subjectRule?.subject_code ?? subjectCleanName)
 
         // If class assignments exist, skip subjects not assigned to this class
-        if (hasAssignments && subjectCode && !assignedCodes.has(subjectCode)) return
+        if (hasAssignments && !classAssignments.subjectCodes.has(subjectCode)) return
 
         // Check if this is a 4th subject for this class
-        const isClassFourthSubject = subjectCode ? fourthSubjectCodes.has(subjectCode) : false
+        const isClassFourthSubject = classAssignments.fourthSubjectCodes.has(subjectCode)
         // Check if excluded from rank
-        const isExcludedFromRank = subjectCode ? excludeFromRankCodes.has(subjectCode) : false
+        const isExcludedFromRank = classAssignments.excludeFromRankCodes.has(subjectCode)
 
         // Check if this subject matches the student's optional_subject (for 4th subject GPA-2 rule)
-        const isStudentFourthSubject = isClassFourthSubject && studentOptionalSubject && subjectCleanName.toLowerCase().includes(studentOptionalSubject.toLowerCase())
+        const isStudentFourthSubject = isClassFourthSubject && subjectMatchesOptional(studentOptionalSubject, subjectRule)
 
         // If it's not excluded from rank and not this student's 4th subject, it is a main subject
         if (!isExcludedFromRank && !isStudentFourthSubject) {
@@ -473,7 +445,7 @@ export default function GpaFinalPage() {
                       <th style={thHoriz}>Count Absent</th>
                       {detectedSubjects.map(subject => {
                         const gpaCol = subjectMap[subject]?.GPA
-                        const rule = subjectRules.find(r => r.subject_name === subject)
+                        const rule = resolveSubjectRule(subjectRules as any[], subject)
                         return gpaCol ? (
                           <th key={subject} style={thVert}>
                             {gpaCol}
