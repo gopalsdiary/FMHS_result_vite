@@ -45,18 +45,6 @@ interface StudentRow extends Record<string, unknown> {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function extractFailCount(remark: string | null): number {
-  const m = remark?.match(/fail:\s*(\d+)/i)
-  return m ? parseInt(m[1]) : 0
-}
-
-function isDirty(s: StudentRow): boolean {
-  const n = (v: string | number | null) => (v == null || v === '') ? null : Number(v)
-  const gOk = Math.abs((n(s.gpa_final) ?? -999) - (n(s._db_gpa) ?? -999)) < 0.001
-    && (n(s.gpa_final) == null) === (n(s._db_gpa) == null)
-  const rOk = (s.class_rank == null && s._db_rank == null) || Number(s.class_rank) === Number(s._db_rank)
-  return !gOk || !rOk || (s.remark ?? '').trim() !== (s._db_remark ?? '').trim()
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function GpaFinalPage() {
@@ -68,7 +56,6 @@ export default function GpaFinalPage() {
 
   const [students, setStudents] = useState<StudentRow[]>([])
   const [subjectCols, setSubjectCols] = useState<{ key: string; label: string; cols: SubjectCols }[]>([])
-  const [subjectColMap, setSubjectColMap] = useState<Record<string, SubjectCols>>({})
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [rowSaving, setRowSaving] = useState<Record<number, boolean>>({})
@@ -169,7 +156,6 @@ export default function GpaFinalPage() {
     })
 
     setSubjectCols(colEntries)
-    setSubjectColMap(colMapFlat)
 
     const coreCols = 'id,exam_id,iid,class,section,roll,total_mark,average_mark,count_absent,gpa_final,class_rank,remark'
     const extraCols = Object.values(rawMap).flatMap(sc => {
@@ -455,8 +441,8 @@ export default function GpaFinalPage() {
                       <td style={td}>{s.count_absent || ''}</td>
                       {subjectCols.map(sc => (
                         <td key={sc.key} style={td}>
-                          <div style={{ fontWeight: 600 }}>{s[sc.cols.Total!] || ''}</div>
-                          <div style={{ fontSize: '11px', color: '#ff6600' }}>{s[sc.cols.GPA!] || ''}</div>
+                          <div style={{ fontWeight: 600 }}>{String(s[sc.cols.Total!] || '')}</div>
+                          <div style={{ fontSize: '11px', color: '#ff6600' }}>{String(s[sc.cols.GPA!] || '')}</div>
                         </td>
                       ))}
                     </tr>

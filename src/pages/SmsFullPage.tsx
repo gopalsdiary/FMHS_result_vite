@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 
@@ -27,10 +27,9 @@ interface StudentFull {
 
 export default function SmsFullPage() {
   const { examId: urlExamId } = useParams()
-  const navigate = useNavigate()
   const [exams, setExams] = useState<Exam[]>([])
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null)
-  const [examId, setExamId] = useState(urlExamId || '')
+  const [examId] = useState(urlExamId || '')
   
   const [gridClass, setGridClass] = useState('')
   const [gridSection, setGridSection] = useState('')
@@ -40,11 +39,9 @@ export default function SmsFullPage() {
   const [students, setStudents] = useState<StudentFull[]>([])
   const [subjects, setSubjects] = useState<any[]>([])
   const [phoneMap, setPhoneMap] = useState<Map<string, string>>(new Map())
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [customMsg, setCustomMsg] = useState('')
-  const [preview, setPreview] = useState('')
-  const [selectedIid, setSelectedIid] = useState('')
 
   useEffect(() => {
     loadExams()
@@ -88,7 +85,7 @@ export default function SmsFullPage() {
 
   async function loadStudents() {
     if (!examId) return
-    if (gridClass === '' && gridClass !== 'All') return
+    if (gridClass === '') return
     
     setLoading(true)
     setStatus('Loading students and contact details...')
@@ -122,15 +119,6 @@ export default function SmsFullPage() {
     const finalRows = (rows ?? []) as StudentFull[]
     setStudents(finalRows)
     setStatus(`${finalRows.length} students loaded.`)
-
-    // Auto preview first student
-    if (finalRows.length > 0) {
-      setSelectedIid(finalRows[0].iid)
-      setPreview(buildFullSms(finalRows[0]))
-    } else {
-      setPreview('')
-    }
-
     setLoading(false)
   }
 

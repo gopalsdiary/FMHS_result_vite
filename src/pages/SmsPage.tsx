@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 
@@ -27,10 +27,9 @@ interface StudentFull {
 
 export default function SmsPage() {
   const { examId: urlExamId } = useParams()
-  const navigate = useNavigate()
   const [exams, setExams] = useState<Exam[]>([])
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null)
-  const [examId, setExamId] = useState(urlExamId || '')
+  const [examId] = useState(urlExamId || '')
   
   const [gridClass, setGridClass] = useState('')
   const [gridSection, setGridSection] = useState('')
@@ -39,7 +38,7 @@ export default function SmsPage() {
   
   const [students, setStudents] = useState<StudentFull[]>([])
   const [phoneMap, setPhoneMap] = useState<Map<string, string>>(new Map())
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [customMsg, setCustomMsg] = useState('')
 
@@ -81,7 +80,7 @@ export default function SmsPage() {
 
   async function loadStudents() {
     if (!examId) return
-    if (gridClass === '' && gridClass !== 'All') return
+    if (gridClass === '') return
     
     setLoading(true)
     setStatus('Loading students and contact details...')

@@ -258,7 +258,7 @@ export default function TeacherSetupPage() {
                       
                       // Filter sections based on rule restrictions
                       let sections = sectionsByClass[cls] || []
-                      if (ruleConfig?.sections?.length > 0) {
+                      if (ruleConfig?.sections && ruleConfig.sections.length > 0) {
                         sections = sections.filter(s => ruleConfig.sections.includes(s))
                       }
                       

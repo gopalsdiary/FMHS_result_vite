@@ -82,7 +82,6 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
       fourthSubjectCodes: new Set<string>(),
       excludeFromRankCodes: new Set<string>(),
     }
-    const assignedCodes = classAssignments.subjectCodes
     const fourthSubjectCodes = classAssignments.fourthSubjectCodes
     const excludeFromRankCodes = classAssignments.excludeFromRankCodes
 

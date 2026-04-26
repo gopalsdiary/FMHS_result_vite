@@ -224,7 +224,7 @@ export async function fetchAllRows<T>(
 }
 
 export async function loadExamSubjectContext(examId: number) {
-  const { data: rules, error: rErr } = await supabase
+  const { data: rules } = await supabase
     .from('FMHS_exam_subjects')
     .select('*')
     .eq('exam_id', examId)

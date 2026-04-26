@@ -90,7 +90,6 @@ export default function TeacherGradeEntryPage() {
     )
     if (correctRule) setRule(correctRule)
 
-    const subjectName = correctRule?.subject_name ?? (assign as any).subject_name ?? ''
 
     const { data: rows } = await supabase
       .from('fmhs_exam_data').select('*')
