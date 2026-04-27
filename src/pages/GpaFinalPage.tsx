@@ -63,6 +63,8 @@ export default function GpaFinalPage() {
   const [subjectRules, setSubjectRules] = useState<any[]>([])
   const [classSubjectInfo, setClassSubjectInfo] = useState<ClassSubjectInfo[]>([])
   const [optionalSubjectMap, setOptionalSubjectMap] = useState<Record<string, string>>({})
+  const [rankMode, setRankMode] = useState<'standard' | 'fail' | 'absent'>('standard')
+  const [absentRankCount, setAbsentRankCount] = useState<number>(1)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -300,6 +302,7 @@ export default function GpaFinalPage() {
       total_mark: totalMarks || null,
       average_mark: avgCalc || null,
       count_absent: countAbsent || null,
+      fail_count: failCount,
       gpa_final: gpaFinal,
       remark: remark || null,
       optional_subject: studentOptSub || null,
@@ -323,17 +326,65 @@ export default function GpaFinalPage() {
 
     const result = [...rows]
     Object.values(groups).forEach(group => {
-      const eligible = group.filter(s =>
-        (s.total_mark ?? 0) > 0 && !(s.count_absent && Number(s.count_absent) > 0) && s.gpa_final != null
-      )
-      eligible.sort((a, b) => {
-        const gA = Number(a.gpa_final), gB = Number(b.gpa_final)
-        if (Math.abs(gA - gB) > 0.001) return gB - gA
-        const rA = a._rank_total ?? a.total_mark ?? 0
-        const rB = b._rank_total ?? b.total_mark ?? 0
-        if (rB !== rA) return (rB as number) - (rA as number)
-        return (a.roll ?? 999999) - (b.roll ?? 999999)
-      })
+      let eligible: StudentRow[] = []
+      
+      if (rankMode === 'standard') {
+        // Only passing students
+        eligible = group.filter(s =>
+          (s.total_mark ?? 0) > 0 && 
+          !(s.count_absent && Number(s.count_absent) > 0) && 
+          s.gpa_final != null
+        )
+        eligible.sort((a, b) => {
+          const gA = Number(a.gpa_final), gB = Number(b.gpa_final)
+          if (Math.abs(gA - gB) > 0.001) return gB - gA
+          const rA = a._rank_total ?? a.total_mark ?? 0
+          const rB = b._rank_total ?? b.total_mark ?? 0
+          if (rB !== rA) return (rB as number) - (rA as number)
+          return (a.roll ?? 999999) - (b.roll ?? 999999)
+        })
+      } else if (rankMode === 'fail') {
+        // UNIFIED RANK: Passing students first, then Failed/Absent students
+        const passers = group.filter(s =>
+          (s.total_mark ?? 0) > 0 && 
+          !(s.count_absent && Number(s.count_absent) > 0) && 
+          s.gpa_final != null
+        )
+        passers.sort((a, b) => {
+          const gA = Number(a.gpa_final), gB = Number(b.gpa_final)
+          if (Math.abs(gA - gB) > 0.001) return gB - gA
+          const rA = a._rank_total ?? a.total_mark ?? 0
+          const rB = b._rank_total ?? b.total_mark ?? 0
+          if (rB !== rA) return (rB as number) - (rA as number)
+          return (a.roll ?? 999999) - (b.roll ?? 999999)
+        })
+
+        const failures = group.filter(s => 
+          (s.total_mark ?? 0) > 0 && 
+          ( (s.fail_count as number ?? 0) > 0 || (Number(s.count_absent) > 0) ) &&
+          s.gpa_final == null
+        )
+        failures.sort((a, b) => {
+          // Treat Absent as Fail for combined ranking
+          const fA = (a.fail_count as number ?? 0) + Number(a.count_absent ?? 0)
+          const fB = (b.fail_count as number ?? 0) + Number(b.count_absent ?? 0)
+          if (fA !== fB) return fA - fB 
+          const rA = a._rank_total ?? a.total_mark ?? 0
+          const rB = b._rank_total ?? b.total_mark ?? 0
+          return (rB as number) - (rA as number)
+        })
+
+        eligible = [...passers, ...failures]
+      } else if (rankMode === 'absent') {
+        // Specific absent count mode (only those students)
+        eligible = group.filter(s => (s.total_mark ?? 0) > 0 && Number(s.count_absent) === absentRankCount)
+        eligible.sort((a, b) => {
+          const rA = a._rank_total ?? a.total_mark ?? 0
+          const rB = b._rank_total ?? b.total_mark ?? 0
+          return (rB as number) - (rA as number)
+        })
+      }
+
       eligible.forEach((s, rank) => {
         const idx = result.findIndex(r => r.id === s.id)
         if (idx >= 0) result[idx] = { ...result[idx], class_rank: rank + 1 }
@@ -402,12 +453,36 @@ export default function GpaFinalPage() {
       {() => (
         <div>
           <div className="card" style={{ marginBottom: '14px' }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
               <button className="btn btn-primary" onClick={loadAll} disabled={loading}>📊 Refresh</button>
               <button className="btn btn-success" onClick={handleUpdateCalculations} disabled={loading || students.length === 0}>🔄 Calculate All</button>
               <button className="btn btn-outline" onClick={handleUpdateDatabase} disabled={loading || students.length === 0}>💾 Update Database</button>
+
+              <div style={{ display: 'flex', gap: '15px', alignItems: 'center', padding: '0 10px', borderLeft: '1px solid #d0d7de' }}>
+                <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={rankMode === 'standard'} onChange={() => setRankMode('standard')} /> Standard
+                </label>
+                <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={rankMode === 'fail'} onChange={() => setRankMode('fail')} /> Fail Rank
+                </label>
+                <label style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={rankMode === 'absent'} onChange={() => setRankMode('absent')} /> Absent Rank
+                </label>
+                {rankMode === 'absent' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '12px' }}>Count:</span>
+                    <input 
+                      type="number" 
+                      min={1}
+                      value={absentRankCount} 
+                      onChange={(e) => setAbsentRankCount(Number(e.target.value))} 
+                      style={{ width: '45px', padding: '2px 4px', fontSize: '12px', border: '1px solid #d0d7de', borderRadius: '3px' }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-            {status && <div style={{ marginTop: '8px', fontSize: '13px' }}>{status}</div>}
+            {status && <div style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>{status}</div>}
           </div>
 
           {!loading && students.length > 0 && (
