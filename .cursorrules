@@ -49,8 +49,8 @@ You are an expert AI developer working on the FMHS Result Management System. Thi
 5. **Data Integrity & Import Rules**:
    - **Status Check**: During student import, EXCLUDE any student with status "TC" from `student_database`.
    - **Duplicate Prevention**: Never import the same student into the same exam twice.
-   - **Full Scan**: When loading from `fmhs_exam_data` or `student_database`, ensure the logic scans until the very last record (handle pagination/scrolling correctly).
-   - **Deletion Safety**: Prevent deletion of any exam or subject if it contains existing marks in `fmhs_exam_data`.
+   - **Full Scan**: When loading from `FMHS_exam_data` or `student_database`, ensure the logic scans until the very last record (handle pagination/scrolling correctly).
+   - **Deletion Safety**: Prevent deletion of any exam or subject if it contains existing marks in `FMHS_exam_data`.
 
 6. **Database Naming Convention**:
    - Follow the established format for mark columns: `*SubjectName_CQ`, `*SubjectName_MCQ`, `*SubjectName_Practical`, `*SubjectName_Total`, `*SubjectName_GPA`.
