@@ -81,7 +81,7 @@ export default function ResultEntryPage() {
       setCls(Array.from(classSet)[0] ?? '')
     }
 
-    const { data: sampleRows } = await supabase.from('fmhs_exam_data').select('*').limit(1)
+    const { data: sampleRows } = await supabase.from('FMHS_exam_data').select('*').limit(1)
     if (sampleRows?.length) {
       const keys = Object.keys(sampleRows[0])
       const ic = keys.find(k => /^iid$/i.test(k)) ?? 'iid'
@@ -108,7 +108,7 @@ export default function ResultEntryPage() {
     setLoading(true)
     setStatus('Loading…')
     const { data, error } = await supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('*')
       .eq('class', cls)
       .eq('section', section)
@@ -184,7 +184,7 @@ export default function ResultEntryPage() {
     }
 
     setStatus('Saving…')
-    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: iidCol })
+    const { error } = await supabase.from('FMHS_exam_data').upsert(updates, { onConflict: iidCol })
     if (error) {
       setStatus('Error: ' + error.message)
       return
@@ -290,7 +290,7 @@ export default function ResultEntryPage() {
     }
 
     setRowSaving(prev => ({ ...prev, [iid]: true }))
-    const { error } = await supabase.from('fmhs_exam_data').update(payload).eq(iidCol, iid)
+    const { error } = await supabase.from('FMHS_exam_data').update(payload).eq(iidCol, iid)
     setRowSaving(prev => ({ ...prev, [iid]: false }))
 
     if (error) {

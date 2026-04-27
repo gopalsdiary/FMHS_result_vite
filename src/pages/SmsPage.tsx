@@ -63,7 +63,7 @@ export default function SmsPage() {
   }, [examId, exams])
 
   async function loadMetadata(id: number) {
-    const { data } = await supabase.from('fmhs_exam_data').select('class, section').eq('exam_id', id)
+    const { data } = await supabase.from('FMHS_exam_data').select('class, section').eq('exam_id', id)
     if (data && data.length > 0) {
       setAvailableClasses(Array.from(new Set(data.map(r => String(r.class)))).sort((a, b) => Number(a) - Number(b)))
       setAvailableSections(Array.from(new Set(data.map(r => String(r.section)))).sort())
@@ -86,7 +86,7 @@ export default function SmsPage() {
     setStatus('Loading students and contact details...')
     
     // 1. Load exam data
-    let q = supabase.from('fmhs_exam_data').select('*').eq('exam_id', Number(examId))
+    let q = supabase.from('FMHS_exam_data').select('*').eq('exam_id', Number(examId))
     
     if (gridClass !== 'All' && gridClass !== '') {
       q = q.eq('class', Number(gridClass))

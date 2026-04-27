@@ -14,7 +14,7 @@ export default function DetailsResultPage() {
 
   useEffect(() => {
     if (!iid) { setError('No IID provided'); setLoading(false); return }
-    supabase.from('fmhs_exam_data').select('*').eq('iid', iid).limit(1).then(({ data, error: err }) => {
+    supabase.from('FMHS_exam_data').select('*').eq('iid', iid).limit(1).then(({ data, error: err }) => {
       if (err || !data?.length) { setError(err?.message ?? 'Not found'); setLoading(false); return }
       setResult(data[0] as StudentResult); setLoading(false)
     })

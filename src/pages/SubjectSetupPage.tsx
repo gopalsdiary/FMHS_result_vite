@@ -20,9 +20,9 @@ export default function SubjectSetupPage() {
 
   async function detectSubjects() {
     setLoading(true)
-    const { data, error } = await supabase.from('fmhs_exam_data').select('*').limit(1)
+    const { data, error } = await supabase.from('FMHS_exam_data').select('*').limit(1)
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
-    if (!data?.length) { setStatus('No data found in fmhs_exam_data'); setLoading(false); return }
+    if (!data?.length) { setStatus('No data found in FMHS_exam_data'); setLoading(false); return }
 
     const keys = Object.keys(data[0])
     const map = new Map<string, DetectedSubject>()
@@ -50,7 +50,7 @@ export default function SubjectSetupPage() {
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div className="card" style={{ marginBottom: '16px', background: '#fff8e1', border: '1px solid #f9a825' }}>
             <p style={{ margin: 0, fontSize: '14px', color: '#5d4037' }}>
-              ℹ️ Subject columns are auto-detected from the <strong>fmhs_exam_data</strong> table. Columns follow the pattern <code>*SubjectName_CQ</code>, <code>*SubjectName_MCQ</code>, etc. To add or remove subjects, update the database schema via SQL.
+              ℹ️ Subject columns are auto-detected from the <strong>FMHS_exam_data</strong> table. Columns follow the pattern <code>*SubjectName_CQ</code>, <code>*SubjectName_MCQ</code>, etc. To add or remove subjects, update the database schema via SQL.
             </p>
           </div>
 
@@ -93,7 +93,7 @@ export default function SubjectSetupPage() {
 
           {!loading && subjects.length === 0 && !status && (
             <div className="card" style={{ textAlign: 'center', color: '#6a737d', padding: '40px' }}>
-              No subject columns detected in fmhs_exam_data.
+              No subject columns detected in FMHS_exam_data.
             </div>
           )}
         </div>

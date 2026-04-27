@@ -32,7 +32,7 @@ export default function ProcessResultsPage() {
     setLoading(true); setStatus('Loading…')
 
     let query = supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('*')
       .eq('section', section)
 

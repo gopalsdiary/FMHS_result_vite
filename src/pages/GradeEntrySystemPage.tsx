@@ -44,7 +44,7 @@ export default function GradeEntrySystemPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true); setStatus('Loading…')
-    const { data: rows, error } = await supabase.from('fmhs_exam_data').select('*').order('class', { ascending: true })
+    const { data: rows, error } = await supabase.from('FMHS_exam_data').select('*').order('class', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const list = (rows ?? []) as StudentRow[]
     setData(list)
@@ -85,7 +85,7 @@ export default function GradeEntrySystemPage() {
   async function saveRow(iid: string, _iidCol: string) {
     const edits = editRef.current[iid]
     if (!edits || Object.keys(edits).length === 0) return
-    const { error } = await supabase.from('fmhs_exam_data').update(edits).eq('id', iid)
+    const { error } = await supabase.from('FMHS_exam_data').update(edits).eq('id', iid)
     setStatus(error ? `Error saving ${iid}: ${error.message}` : `Saved ${iid}`)
   }
 
@@ -140,7 +140,7 @@ export default function GradeEntrySystemPage() {
     for (const row of data) {
       const iid = String(row[iidCol] ?? '')
       if (editRef.current[iid]) {
-        const { error } = await supabase.from('fmhs_exam_data').update(editRef.current[iid]).eq('id', iid)
+        const { error } = await supabase.from('FMHS_exam_data').update(editRef.current[iid]).eq('id', iid)
         if (!error) { done++; delete editRef.current[iid] }
       }
     }

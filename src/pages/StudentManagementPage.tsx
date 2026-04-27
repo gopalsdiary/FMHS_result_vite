@@ -47,7 +47,7 @@ export default function StudentManagementPage() {
   async function loadStudents() {
     setLoading(true)
     const { data, error } = await supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('iid, student_name_en, father_name_en, father_mobile, roll, class, section, gpa_final, count_absent, class_rank, remark')
       .order('section', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
@@ -80,8 +80,8 @@ export default function StudentManagementPage() {
     }
 
     const { error } = isEditing
-      ? await supabase.from('fmhs_exam_data').update(payload).eq('iid', editStudent.iid)
-      : await supabase.from('fmhs_exam_data').insert(payload)
+      ? await supabase.from('FMHS_exam_data').update(payload).eq('iid', editStudent.iid)
+      : await supabase.from('FMHS_exam_data').insert(payload)
 
     if (error) { setStatus('Error: ' + error.message); return }
     setStatus(isEditing ? 'Updated student' : 'Added student')
@@ -92,7 +92,7 @@ export default function StudentManagementPage() {
 
   async function deleteStudent(iid: string) {
     if (!confirm(`Delete student ${iid}? This cannot be undone.`)) return
-    const { error } = await supabase.from('fmhs_exam_data').delete().eq('iid', iid)
+    const { error } = await supabase.from('FMHS_exam_data').delete().eq('iid', iid)
     if (error) { setStatus('Error: ' + error.message); return }
     setStatus('Deleted ' + iid)
     loadStudents()

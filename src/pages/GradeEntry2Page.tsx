@@ -24,7 +24,7 @@ export default function GradeEntry2Page() {
     if (!section) { setStatus('Please select a section'); return }
     setLoading(true); setStatus('Loading…')
     const { data, error } = await supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('iid, student_name_en, roll, total_mark, average_mark, gpa_final, remark')
       .eq('section', section)
       .order('roll', { ascending: true })
@@ -42,7 +42,7 @@ export default function GradeEntry2Page() {
 
   async function saveRow(index: number) {
     const s = students[index]
-    const { error } = await supabase.from('fmhs_exam_data')
+    const { error } = await supabase.from('FMHS_exam_data')
       .update({ total_mark: s.total_mark, average_mark: s.average_mark, gpa_final: s.gpa_final, remark: s.remark })
       .eq('iid', s.iid)
     setStatus(error ? 'Error: ' + error.message : `Saved ${s.student_name_en}`)
@@ -52,7 +52,7 @@ export default function GradeEntry2Page() {
     setStatus('Saving all…')
     let done = 0
     for (const s of students) {
-      const { error } = await supabase.from('fmhs_exam_data')
+      const { error } = await supabase.from('FMHS_exam_data')
         .update({ total_mark: s.total_mark, average_mark: s.average_mark, gpa_final: s.gpa_final, remark: s.remark })
         .eq('iid', s.iid)
       if (!error) done++

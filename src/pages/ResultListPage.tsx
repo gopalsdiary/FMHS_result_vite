@@ -45,7 +45,7 @@ export default function ResultListPage() {
 
     while (hasMore) {
       let query = supabase
-        .from('fmhs_exam_data')
+        .from('FMHS_exam_data')
         .select('iid, student_name_en, father_name_en, roll, section, class, gpa_final, remark')
       
       if (examId) query = query.eq('exam_id', examId)

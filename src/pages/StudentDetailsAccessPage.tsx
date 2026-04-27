@@ -33,7 +33,7 @@ export default function StudentDetailsAccessPage() {
 
   async function loadStudent() {
     setLoading(true)
-    const { data, error: err } = await supabase.from('fmhs_exam_data').select('*').eq('iid', iid).limit(1)
+    const { data, error: err } = await supabase.from('FMHS_exam_data').select('*').eq('iid', iid).limit(1)
     if (err || !data?.length) { setError(err?.message ?? 'Student not found'); setLoading(false); return }
     const row = data[0] as Record<string, unknown>
     const keys = Object.keys(row)

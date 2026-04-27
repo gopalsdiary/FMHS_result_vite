@@ -34,7 +34,7 @@ export default function DataListPage() {
   async function loadData() {
     setLoading(true)
     const { data, error } = await supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('iid, student_name_en, father_name_en, father_mobile, roll, section, gpa_final')
       .order('roll', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }

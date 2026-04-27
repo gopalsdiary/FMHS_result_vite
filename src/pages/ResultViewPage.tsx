@@ -23,7 +23,7 @@ export default function ResultViewPage() {
 
   async function loadData() {
     setLoading(true)
-    let query = supabase.from('fmhs_exam_data').select('*')
+    let query = supabase.from('FMHS_exam_data').select('*')
     if (section) query = query.eq('section', section)
     const { data, error } = await query.order('roll', { ascending: true })
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }

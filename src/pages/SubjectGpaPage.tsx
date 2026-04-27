@@ -4,7 +4,7 @@ import { supabase } from '@/services/supabaseClient'
 import PageShell from '@/layout/PageShell'
 import { fetchAllRows, resolveSubjectRule } from '@/services/examResultContext'
 
-const TABLE_NAME = 'fmhs_exam_data'
+const TABLE_NAME = 'FMHS_exam_data'
 
 interface GradingCriteria {
   cqPass: number; mcqPass: number; practicalPass: number; totalPass: number

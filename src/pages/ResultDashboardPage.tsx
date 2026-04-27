@@ -73,7 +73,7 @@ export default function ResultDashboardPage() {
     e.preventDefault()
     e.stopPropagation()
 
-    const { count } = await supabase.from('fmhs_exam_data').select('*', { count: 'exact', head: true }).eq('exam_id', id)
+    const { count } = await supabase.from('FMHS_exam_data').select('*', { count: 'exact', head: true }).eq('exam_id', id)
     if (count && count > 0) {
       alert(`❌ ডিলিট করা যাচ্ছে না!\n\n"${name}" পরীক্ষায় ${count} জন শিক্ষার্থীর ডাটা আছে।\nআগে সব ডাটা মুছে তারপর ডিলিট করুন।`)
       return

@@ -45,7 +45,7 @@ export default function StudentDetailsPage() {
 
   async function loadStudent() {
     setLoading(true)
-    let query = supabase.from('fmhs_exam_data').select('*').eq('iid', iid)
+    let query = supabase.from('FMHS_exam_data').select('*').eq('iid', iid)
     
     if (examId) {
       query = query.eq('exam_id', examId)

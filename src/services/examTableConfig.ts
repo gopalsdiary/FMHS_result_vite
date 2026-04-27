@@ -1,12 +1,12 @@
 /**
  * Central configuration for the exam data table.
  * Previously, the system used the hardcoded 'exam_ann25' table.
- * Now everything goes through 'fmhs_exam_data' with exam_id filtering.
+ * Now everything goes through 'FMHS_exam_data' with exam_id filtering.
  * 
  * This file provides backward-compatible column name mappings.
  */
 
-export const EXAM_TABLE = 'fmhs_exam_data'
+export const EXAM_TABLE = 'FMHS_exam_data'
 
 /**
  * Column name mapping for the new unified table.

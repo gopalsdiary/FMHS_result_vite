@@ -92,7 +92,7 @@ export default function TeacherGradeEntryPage() {
 
 
     const { data: rows } = await supabase
-      .from('fmhs_exam_data').select('*')
+      .from('FMHS_exam_data').select('*')
       .eq('exam_id', examId).eq('class', assign.class).eq('section', assign.section)
       .order('roll', { ascending: true })
 
@@ -154,7 +154,7 @@ export default function TeacherGradeEntryPage() {
     if (!editRef.current[rowId]) return
     setSavingRows(prev => ({ ...prev, [rowId]: 'saving' }))
     
-    const { error } = await supabase.from('fmhs_exam_data').update(editRef.current[rowId]).eq('id', rowId)
+    const { error } = await supabase.from('FMHS_exam_data').update(editRef.current[rowId]).eq('id', rowId)
     if (!error) {
       setSavingRows(prev => ({ ...prev, [rowId]: 'success' }))
       delete editRef.current[rowId]
@@ -185,7 +185,7 @@ export default function TeacherGradeEntryPage() {
     let done = 0
     for (const [rowId, edits] of Object.entries(editRef.current)) {
       setSavingRows(prev => ({ ...prev, [rowId]: 'saving' }))
-      const { error } = await supabase.from('fmhs_exam_data').update(edits).eq('id', rowId)
+      const { error } = await supabase.from('FMHS_exam_data').update(edits).eq('id', rowId)
       if (!error) {
         done++
         setSavingRows(prev => ({ ...prev, [rowId]: 'success' }))

@@ -64,7 +64,7 @@
 
 ## ৪. গুরুত্বপূর্ণ কারিগরি তথ্য (Technical Context)
 
-- **ডেটাবেস টেবিল:** প্রসেসিং এর জন্য `fmhs_exam_data`, `FMHS_exam_subjects`, এবং `student_database` টেবিল ব্যবহার করা হয়।
+- **ডেটাবেস টেবিল:** প্রসেসিং এর জন্য `FMHS_exam_data`, `FMHS_exam_subjects`, এবং `student_database` টেবিল ব্যবহার করা হয়।
 - **Heuristic Matching:** শিক্ষার্থীর অপশনাল বিষয় শনাক্ত করার সময় বানানে ছোটখাট ভুল (যেমন: `HIGERMATH` বনাম `HIGHER MATH`) স্বয়ংক্রিয়ভাবে সংশোধন করে নেওয়া হয়।
 - **Excluded Subjects:** কিছু বিষয় (যেমন: ক্লাস ৬-৮ এর কিছু প্র্যাকটিক্যাল বিষয়) র‍্যাঙ্কিং বা জিপিএ থেকে বাদ দেওয়া হতে পারে, যা `FMHS_exam_subjects` টেবিলের `exclude_from_rank` কলাম দ্বারা নিয়ন্ত্রিত হয়।
 

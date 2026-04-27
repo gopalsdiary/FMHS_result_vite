@@ -71,7 +71,7 @@ export default function ResultEntryAdminPage() {
   const draftStorageKey = buildResultEntryDraftKey('admin', draftOwner, cls, section, subject)
 
   async function detectColumns() {
-    const { data: sampleRows } = await supabase.from('fmhs_exam_data').select('*').limit(1)
+    const { data: sampleRows } = await supabase.from('FMHS_exam_data').select('*').limit(1)
     if (sampleRows?.length) {
       const keys = Object.keys(sampleRows[0])
       const ic = keys.find(k => /^iid$/i.test(k)) ?? 'iid'
@@ -101,7 +101,7 @@ export default function ResultEntryAdminPage() {
     const { data: examData } = await supabase.from('FMHS_exams_names').select('id').eq('is_live', true).order('id', { ascending: false }).limit(1).maybeSingle()
     const activeExamId = examData?.id
 
-    let query = supabase.from('fmhs_exam_data').select('*')
+    let query = supabase.from('FMHS_exam_data').select('*')
     if (activeExamId) query = query.eq('exam_id', activeExamId)
     
     const { data, error } = await query
@@ -178,7 +178,7 @@ export default function ResultEntryAdminPage() {
     }
 
     setStatus('Saving…')
-    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: iidCol })
+    const { error } = await supabase.from('FMHS_exam_data').upsert(updates, { onConflict: iidCol })
     if (error) {
       setStatus('Error: ' + error.message)
       return
@@ -284,7 +284,7 @@ export default function ResultEntryAdminPage() {
     }
 
     setRowSaving(prev => ({ ...prev, [iid]: true }))
-    const { error } = await supabase.from('fmhs_exam_data').update(payload).eq(iidCol, iid)
+    const { error } = await supabase.from('FMHS_exam_data').update(payload).eq(iidCol, iid)
     setRowSaving(prev => ({ ...prev, [iid]: false }))
 
     if (error) {

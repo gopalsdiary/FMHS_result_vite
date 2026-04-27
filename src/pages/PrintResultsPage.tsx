@@ -55,7 +55,7 @@ export default function PrintResultsPage() {
     if (!classVal || !sectionVal) { setStatus('Please select class and section'); return }
     setLoading(true); setStatus('Loading…')
     const { data, error } = await supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('iid, student_name_en, father_name_en, father_mobile, roll, section, gpa_final, remark, class_rank')
       .eq('class', classVal)
       .eq('section', sectionVal)

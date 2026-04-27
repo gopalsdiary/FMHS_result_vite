@@ -36,7 +36,7 @@ Language: TypeScript ; English ;
 - **`student_database`**: The master repository for all student metadata (Name, IID, Class/Section per year).
 - **`FMHS_exams_names`**: Stores exam identity (Year, Status, Entry Permissions).
 - **`FMHS_exam_subjects`**: Stores subject rules (Full marks, Pass marks, Components).
-- **`fmhs_exam_data`**: The core results table storing marks, totals, and GPAs.
+- **`FMHS_exam_data`**: The core results table storing marks, totals, and GPAs.
 - **`FMHS_exam_teacher_assignments`**: Maps teachers to their specific entry duties.
 
 ---
@@ -84,7 +84,7 @@ Mark Entry → Subject GPA → GPA Final (সব ধাপে ধাপে ক�
 3. student_database table is created and sql code is in student_database.sql
 4. subject_selection table is created and sql code is in subject_selection.sql
 5. Next step is to create the frontend.
-6. create a new table named "fmhs_exam_data"
+6. create a new table named "FMHS_exam_data"
 7. now make a system for create exam name and year.
     a) exam id auto increment
     b) exam name, year from user input
@@ -112,4 +112,4 @@ Mark Entry → Subject GPA → GPA Final (সব ধাপে ধাপে ক�
 *Import Students করার সময় শিক্ষার্থীর "student_database" এ status চেক করবে। যদি "TC" হয় তবে সেটি ইমপোর্ট করবে না
 *কোনো একটি পরীক্ষার জন্য একবার শিক্ষার্থী ইমপোর্ট করলে , পরে সেই শিক্ষার্থী আর ইমপোর্ট করবে ন। 
 
-*পুরো প্রজেক্টে "fmhs_exam_data" ও "student_database" প্রজেক্ট থেকে ডাটা লোডের ক্ষেত্রে ডাটাবেজের শেষ রেকর্ড পর্যন্ত স্ক্যান করবে। এটি নিশ্চিত কর। 
+*পুরো প্রজেক্টে "FMHS_exam_data" ও "student_database" প্রজেক্ট থেকে ডাটা লোডের ক্ষেত্রে ডাটাবেজের শেষ রেকর্ড পর্যন্ত স্ক্যান করবে। এটি নিশ্চিত কর। 

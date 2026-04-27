@@ -86,7 +86,7 @@ export default function GpaFinalPage() {
     setOptionalSubjectMap(activeExamId !== null ? await loadOptionalSubjectMapForExam(activeExamId) : {})
 
     // 2. Detect subject columns from DB schema (only Total + GPA cols)
-    let sampleQ = supabase.from('fmhs_exam_data').select('*').limit(1)
+    let sampleQ = supabase.from('FMHS_exam_data').select('*').limit(1)
     if (activeExamId !== null) sampleQ = sampleQ.eq('exam_id', activeExamId)
     const { data: sample } = await sampleQ
 
@@ -169,7 +169,7 @@ export default function GpaFinalPage() {
     const selectStr = extraCols ? `${coreCols},${extraCols}` : coreCols
 
     const rows = await fetchAllRows<Record<string, unknown>>(async (from, to) => {
-      let q = supabase.from('fmhs_exam_data').select(selectStr)
+      let q = supabase.from('FMHS_exam_data').select(selectStr)
       if (activeExamId !== null) q = q.eq('exam_id', activeExamId)
       return q.order('class', { ascending: false })
               .order('section', { ascending: true })
@@ -422,7 +422,7 @@ export default function GpaFinalPage() {
     setStatus('Updating database…')
     const recalculated = calcClassRanks(updateCalculations(students))
     const updates = recalculated.map(s => ({ id: s.id, exam_id: s.exam_id ?? activeExamId, iid: s.iid, ...buildUpdatePayload(s) }))
-    const { error } = await supabase.from('fmhs_exam_data').upsert(updates, { onConflict: 'id' })
+    const { error } = await supabase.from('FMHS_exam_data').upsert(updates, { onConflict: 'id' })
     if (!error) {
       setStudents(recalculated.map(s => ({ ...s, _db_gpa: s.gpa_final, _db_rank: s.class_rank, _db_remark: s.remark })))
       setStatus('Database updated successfully!')
@@ -435,7 +435,7 @@ export default function GpaFinalPage() {
     const s = students.find(r => r.id === rowId)
     if (!s) return
     setRowSaving(prev => ({ ...prev, [rowId]: true }))
-    const { error } = await supabase.from('fmhs_exam_data').update({ id: s.id, ...buildUpdatePayload(s) }).eq('id', s.id)
+    const { error } = await supabase.from('FMHS_exam_data').update({ id: s.id, ...buildUpdatePayload(s) }).eq('id', s.id)
     if (!error) {
       setStudents(prev => prev.map(r => r.id === rowId ? { ...r, _db_gpa: r.gpa_final, _db_rank: r.class_rank, _db_remark: r.remark } : r))
       setRowSaved(prev => ({ ...prev, [rowId]: true }))

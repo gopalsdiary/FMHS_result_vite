@@ -31,7 +31,7 @@ export default function SummaryPage() {
 
   async function loadAll() {
     setLoading(true); setStatus('Loading…')
-    const { data, error } = await supabase.from('fmhs_exam_data').select('iid, section, gpa_final, remark, total_mark')
+    const { data, error } = await supabase.from('FMHS_exam_data').select('iid, section, gpa_final, remark, total_mark')
     if (error) { setStatus('Error: ' + error.message); setLoading(false); return }
     const rows = (data ?? []) as Student[]
     const grouped = new Map<string, Student[]>()

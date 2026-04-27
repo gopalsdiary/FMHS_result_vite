@@ -96,7 +96,7 @@ export default function TeacherSetupPage() {
 
     // 4. Sections for each class (from enrolled students)
     const { data: enrolledData } = await supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('class, section')
       .eq('exam_id', examId)
     

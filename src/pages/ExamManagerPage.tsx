@@ -99,7 +99,7 @@ export default function ExamManagerPage() {
   async function deleteExam(id: number, examName: string) {
     // Check if any marks exist for this exam
     const { count } = await supabase
-      .from('fmhs_exam_data')
+      .from('FMHS_exam_data')
       .select('*', { count: 'exact', head: true })
       .eq('exam_id', id)
     

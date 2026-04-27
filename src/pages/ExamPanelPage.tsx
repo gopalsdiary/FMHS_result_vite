@@ -165,7 +165,7 @@ export default function ExamPanelPage() {
   }, [id])
 
   async function loadTotalEnrollment() {
-    const { count, error } = await supabase.from('fmhs_exam_data').select('*', { count: 'exact', head: true }).eq('exam_id', id)
+    const { count, error } = await supabase.from('FMHS_exam_data').select('*', { count: 'exact', head: true }).eq('exam_id', id)
     if (!error) setTotalEnrolled(count)
   }
 
@@ -175,7 +175,7 @@ export default function ExamPanelPage() {
     let to = 999
     let hasMore = true
     while (hasMore) {
-      const { data, error } = await supabase.from('fmhs_exam_data').select('*').eq('exam_id', id).range(from, to)
+      const { data, error } = await supabase.from('FMHS_exam_data').select('*').eq('exam_id', id).range(from, to)
       if (error) break
       if (data && data.length > 0) {
         rows = [...rows, ...data]
@@ -225,7 +225,7 @@ export default function ExamPanelPage() {
     let existing: any[] = []
     from = 0; to = 999; hasMore = true
     while (hasMore) {
-      const { data, error } = await supabase.from('fmhs_exam_data').select('iid').eq('exam_id', id).range(from, to)
+      const { data, error } = await supabase.from('FMHS_exam_data').select('iid').eq('exam_id', id).range(from, to)
       if (error) break
       if (data && data.length > 0) {
         existing = [...existing, ...data]
@@ -273,7 +273,7 @@ export default function ExamPanelPage() {
     let rows: any[] = []
     let from = 0; let to = 999; let hasMore = true
     while (hasMore) {
-      const { data, error } = await supabase.from('fmhs_exam_data').select('class, section').eq('exam_id', Number(id)).range(from, to)
+      const { data, error } = await supabase.from('FMHS_exam_data').select('class, section').eq('exam_id', Number(id)).range(from, to)
       if (error) break
       if (data && data.length > 0) {
         rows = [...rows, ...data]
@@ -303,7 +303,7 @@ export default function ExamPanelPage() {
     let rows: any[] = []
     let from = 0; let to = 999; let hasMore = true
     while (hasMore) {
-      let q = supabase.from('fmhs_exam_data').select('*').eq('exam_id', Number(id)).eq('class', Number(cVal))
+      let q = supabase.from('FMHS_exam_data').select('*').eq('exam_id', Number(id)).eq('class', Number(cVal))
       if (sVal && sVal !== 'All') q = q.eq('section', sVal)
       const { data, error } = await q.order('roll', { ascending: true }).range(from, to)
       if (error) break
@@ -441,7 +441,7 @@ export default function ExamPanelPage() {
     if (!editChanges.current[rowId]) return
     setSavingRows(prev => ({ ...prev, [rowId]: 'saving' }))
     
-    const { error } = await supabase.from('fmhs_exam_data').update(editChanges.current[rowId]).eq('id', rowId)
+    const { error } = await supabase.from('FMHS_exam_data').update(editChanges.current[rowId]).eq('id', rowId)
     
     if (!error) {
       setSavingRows(prev => ({ ...prev, [rowId]: 'success' }))
@@ -479,7 +479,7 @@ export default function ExamPanelPage() {
         continue
       }
       setSavingRows(prev => ({ ...prev, [rid]: 'saving' }))
-      const { error } = await supabase.from('fmhs_exam_data').update(editChanges.current[rid]).eq('id', rid)
+      const { error } = await supabase.from('FMHS_exam_data').update(editChanges.current[rid]).eq('id', rid)
       if (!error) {
         done++
         setSavingRows(prev => ({ ...prev, [rid]: 'success' }))
@@ -589,7 +589,7 @@ export default function ExamPanelPage() {
     let existing: any[] = []
     from = 0; to = 999; hasMore = true
     while (hasMore) {
-      const { data, error } = await supabase.from('fmhs_exam_data').select('iid').eq('exam_id', id).range(from, to)
+      const { data, error } = await supabase.from('FMHS_exam_data').select('iid').eq('exam_id', id).range(from, to)
       if (error) break
       if (data && data.length > 0) {
         existing = [...existing, ...data]
@@ -618,7 +618,7 @@ export default function ExamPanelPage() {
       status: 'Pending'
     }))
 
-    const { error: insErr } = await supabase.from('fmhs_exam_data').insert(toInsert)
+    const { error: insErr } = await supabase.from('FMHS_exam_data').insert(toInsert)
     if (insErr) {
       alert(insErr.message)
     } else {

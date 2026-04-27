@@ -74,7 +74,7 @@ export default function SubjectRulesPage() {
     if (examData) setExamName(examData.exam_name)
 
     // 4. Sections for each class (STRICTLY from enrolled students for this exam)
-    const { data: enrolledData } = await supabase.from('fmhs_exam_data').select('class, section').eq('exam_id', id)
+    const { data: enrolledData } = await supabase.from('FMHS_exam_data').select('class, section').eq('exam_id', id)
     
     const uniqueCls = [...new Set((enrolledData ?? []).map(r => Number(r.class)).filter(Boolean))].sort((a, b) => a - b)
     setEnrolledClasses(uniqueCls)
@@ -150,7 +150,7 @@ export default function SubjectRulesPage() {
     if (sub.total_mcq > 0) cols.push(`add column if not exists "${base}_MCQ" numeric`)
     if (sub.total_practical > 0) cols.push(`add column if not exists "${base}_Practical" numeric`)
     cols.push(`add column if not exists "${base}_Total" numeric`, `add column if not exists "${base}_GPA" text`)
-    for (const sql of cols) { await supabase.rpc('execute_sql', { query: `alter table fmhs_exam_data ${sql}` }) }
+    for (const sql of cols) { await supabase.rpc('execute_sql', { query: `alter table FMHS_exam_data ${sql}` }) }
   }
 
   async function deleteRule(rid: number, name: string) {

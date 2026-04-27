@@ -37,7 +37,7 @@ export default function FailReportPage() {
     let from = 0; let to = 999; let hasMore = true
     while (hasMore) {
       let query = supabase
-        .from('fmhs_exam_data')
+        .from('FMHS_exam_data')
         .select('iid, student_name_en, class, section, roll, gpa_final')
         .eq('class', classVal)
         .eq('section', section)

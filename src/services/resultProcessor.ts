@@ -56,7 +56,7 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
   let to = 999
   let hasMore = true
   while (hasMore) {
-    const { data, error } = await supabase.from('fmhs_exam_data').select('*').eq('exam_id', examId).range(from, to)
+    const { data, error } = await supabase.from('FMHS_exam_data').select('*').eq('exam_id', examId).range(from, to)
     if (error) throw error
     if (data && data.length > 0) {
       students = [...students, ...data]
@@ -184,7 +184,7 @@ export async function processExamResults(examId: number, onProgress?: (msg: stri
   })
 
   onProgress?.('Saving results to database...')
-  const { error } = await supabase.from('fmhs_exam_data').upsert(updates)
+  const { error } = await supabase.from('FMHS_exam_data').upsert(updates)
   if (error) throw error
 
   onProgress?.('✅ All results processed successfully!')
