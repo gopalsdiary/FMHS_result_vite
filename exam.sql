@@ -76,7 +76,8 @@ create table if not exists public."FMHS_exam_teacher_selection" (
   exclude_from_rank boolean null default false,
   is_live boolean null default true,
   comment text null,
-  constraint "FMHS_exam_teacher_selection_pkey" primary key (id)
+  constraint "FMHS_exam_teacher_selection_pkey" primary key (id),
+  constraint "teacher_selection_exam_id_fkey" foreign key (exam_id) references "FMHS_exams_names" (id) on delete cascade
 );
 
 -- 2. Safe Column Addition (Adds columns if they are missing in existing "FMHS_exam_data")

@@ -8,6 +8,7 @@ interface Assignment {
   class: number
   section: string
   subject_code: string
+  final_submitted?: boolean
   exams: { exam_name: string; year: number; is_live: boolean; teacher_entry_enabled: boolean }
 }
 
@@ -39,6 +40,15 @@ export default function TeacherGradeEntryPage() {
   const [myAssignments, setMyAssignments] = useState<Assignment[]>([])
   
   const editRef = useRef<Record<string, Record<string, any>>>({})
+  
+  // Responsive mobile state
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   function calculateSubjectTotal(row: StudentRow, edits: Record<string, any>) {
     if (!rule) return 0
@@ -62,20 +72,47 @@ export default function TeacherGradeEntryPage() {
     if (!user) { navigate('/login'); return }
 
     // Load ALL assignments for switcher
-    const { data: allAssigns } = await supabase
+    const { data: teacherSelections, error: selectionError } = await supabase
       .from('FMHS_exam_teacher_selection')
-      .select('*, exams:FMHS_exams_names(exam_name, year, is_live, teacher_entry_enabled)')
+      .select('*')
       .eq('teacher_email_id', user.email)
       .not('exam_id', 'is', null)
     
-    if (allAssigns) setMyAssignments(allAssigns as any[])
+    if (selectionError || !teacherSelections || teacherSelections.length === 0) {
+      setMyAssignments([])
+      setStatus('No assignments found')
+      setLoading(false)
+      return
+    }
 
-    const { data: assign } = await supabase
-      .from('FMHS_exam_teacher_selection')
-      .select('*, exams:FMHS_exams_names(exam_name, year, is_live, teacher_entry_enabled)')
-      .eq('subject_code', assignId)
-      .eq('exam_id', examId)
-      .single()
+    // Fetch details of all unique exams referenced by assignments
+    const examIds = [...new Set(teacherSelections.map(s => Number(s.exam_id)))]
+    const { data: exams, error: examsError } = await supabase
+      .from('FMHS_exams_names')
+      .select('id, exam_name, year, is_live, teacher_entry_enabled')
+      .in('id', examIds)
+
+    if (examsError) {
+      console.error('Error loading exams:', examsError)
+      setLoading(false)
+      return
+    }
+
+    // Map exam details onto each assignment in-memory and filter for live exams only
+    const mappedAssigns = teacherSelections.map(s => {
+      const exam = (exams || []).find(e => Number(e.id) === Number(s.exam_id))
+      return {
+        ...s,
+        exams: exam || { exam_name: 'Unknown Exam', year: 0, is_live: false, teacher_entry_enabled: false }
+      }
+    }).filter(a => a.exams.is_live)
+
+    setMyAssignments(mappedAssigns as any[])
+
+    // Find the single current active assignment from mapped list
+    const assign = mappedAssigns.find(
+      a => String(a.subject_code) === String(assignId) && Number(a.exam_id) === Number(examId)
+    )
 
     if (!assign) { setStatus('Assignment not found'); setLoading(false); return }
     setAssignment(assign as any)
@@ -89,7 +126,6 @@ export default function TeacherGradeEntryPage() {
       (r.exam_class as any[])?.some(c => Number(c.class) === Number(assign.class) && c.selected)
     )
     if (correctRule) setRule(correctRule)
-
 
     const { data: rows } = await supabase
       .from('FMHS_exam_data').select('*')
@@ -204,6 +240,46 @@ export default function TeacherGradeEntryPage() {
     setSaving(false)
   }
 
+  async function handleFinalSubmit() {
+    if (!assignment) return
+    const msg = `আপনি কি নিশ্চিত যে আপনি এই বিষয়ের মার্কস ফাইনাল সাবমিট করতে চান?
+ফাইনাল সাবমিটের পর আপনি আর কোনো পরিবর্তন বা নতুন এন্ট্রি করতে পারবেন না।`
+    if (!confirm(msg)) return
+
+    // Save all unsaved marks first
+    if (Object.keys(editRef.current).length > 0) {
+      setSaving(true)
+      setStatus('প্রথমে অসংরক্ষিত পরিবর্তনগুলো সংরক্ষণ করা হচ্ছে...')
+      let done = 0
+      for (const [rowId, edits] of Object.entries(editRef.current)) {
+        const { error } = await supabase.from('FMHS_exam_data').update(edits).eq('id', rowId)
+        if (!error) {
+          done++
+          delete editRef.current[rowId]
+        }
+      }
+      const localKey = `unsaved_marks_${assignId}`
+      if (Object.keys(editRef.current).length === 0) localStorage.removeItem(localKey)
+      else localStorage.setItem(localKey, JSON.stringify(editRef.current))
+    }
+
+    setStatus('ফাইনাল সাবমিট করা হচ্ছে...')
+    const { error } = await supabase
+      .from('FMHS_exam_teacher_selection')
+      .update({ final_submitted: true })
+      .eq('id', assignment.id)
+
+    if (!error) {
+      setAssignment(prev => prev ? { ...prev, final_submitted: true } : null)
+      setStatus('✅ বিষয়ের মার্কস সফলভাবে ফাইনাল সাবমিট করা হয়েছে।')
+      setTimeout(() => setStatus(''), 5000)
+    } else {
+      setStatus('❌ ত্রুটি: ' + error.message)
+      alert('❌ ত্রুটি: ' + error.message)
+    }
+    setSaving(false)
+  }
+
   async function resetLocalMarks() {
     if (!confirm('আপনি কি নিশ্চিত? এটি আপনার করা সব অসংরক্ষিত পরিবর্তন মুছে ফেলবে এবং ডাটাবেস থেকে ফ্রেশ ডাটা লোড করবে।')) return
     localStorage.removeItem(`unsaved_marks_${assignId}`)
@@ -225,84 +301,278 @@ export default function TeacherGradeEntryPage() {
     </div>
   )
 
-  const isEditable = assignment.exams.is_live && assignment.exams.teacher_entry_enabled
+  const isEditable = assignment.exams.is_live && assignment.exams.teacher_entry_enabled && !assignment.final_submitted
   const base = `*${rule.subject_name}`
-  const comps: { label: string; key: string; pass: number; total: number; editable: boolean }[] = []
-  if (rule.total_cq > 0) comps.push({ label: 'CQ', key: `${base}_CQ`, pass: rule.pass_cq, total: rule.total_cq, editable: true })
-  if (rule.total_mcq > 0) comps.push({ label: 'MCQ', key: `${base}_MCQ`, pass: rule.pass_mcq, total: rule.total_mcq, editable: true })
-  if (rule.total_practical > 0) comps.push({ label: 'Practical', key: `${base}_Practical`, pass: rule.pass_practical, total: rule.total_practical, editable: true })
-  comps.push({ label: 'Total', key: `${base}_Total`, pass: rule.pass_total, total: rule.full_marks, editable: false })
+  const comps = [
+    { label: 'CQ', key: `${base}_CQ`, pass: rule.pass_cq, editable: rule.total_cq > 0 },
+    { label: 'MCQ', key: `${base}_MCQ`, pass: rule.pass_mcq, editable: rule.total_mcq > 0 },
+    { label: 'Practical', key: `${base}_Practical`, pass: rule.pass_practical, editable: rule.total_practical > 0 },
+    { label: 'Total', key: `${base}_Total`, pass: rule.pass_total, editable: false }
+  ].filter(c => c.editable || c.label === 'Total')
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#1e293b', fontFamily: "'Outfit', sans-serif" }}>
-      <header style={{ background: '#fff', padding: '16px 40px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <button onClick={() => navigate('/teacher-dashboard')} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#64748b', padding: '8px 16px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}>← EXIT</button>
-          <button onClick={resetLocalMarks} style={{ background: '#fff', border: '1px solid #fee2e2', color: '#ef4444', padding: '8px 16px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}>🔄 RESET</button>
-          <div>
-             <select value={assignId} onChange={(e) => navigate(`/teacher-entry/${examId}/${e.target.value}`)} style={{ border: 'none', background: 'transparent', fontSize: '1.2rem', fontWeight: 900, color: '#0f172a', cursor: 'pointer', outline: 'none' }}>
+      <header className="responsive-header" style={{
+        background: '#fff',
+        padding: isMobile ? '12px 16px' : '16px 40px',
+        borderBottom: '1px solid #e2e8f0',
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'stretch' : 'center',
+        justifyContent: 'space-between',
+        position: isMobile ? 'static' : 'sticky',
+        top: 0,
+        zIndex: 100,
+        boxShadow: isMobile ? 'none' : '0 4px 20px rgba(15, 23, 42, 0.03)',
+        backdropFilter: 'blur(10px)',
+        transition: 'all 0.3s ease',
+        gap: isMobile ? '12px' : '20px'
+      }}>
+        <div className="responsive-header-left" style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'stretch' : 'center',
+          gap: isMobile ? '8px' : '16px',
+          flex: 1,
+          minWidth: 0
+        }}>
+          <div className="top-controls" style={{
+            display: 'flex',
+            gap: '8px',
+            width: isMobile ? '100%' : 'auto',
+            flexShrink: 0
+          }}>
+            <button onClick={() => navigate('/teacher-dashboard')} style={{
+              background: '#f1f5f9',
+              border: '1px solid #e2e8f0',
+              color: '#64748b',
+              padding: isMobile ? '10px' : '8px 16px',
+              borderRadius: '10px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              flex: isMobile ? 1 : 'none',
+              textAlign: 'center',
+              height: isMobile ? '42px' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: isMobile ? '12px' : '14px'
+            }}>← EXIT</button>
+            <button onClick={resetLocalMarks} style={{
+              background: '#fff',
+              border: '1px solid #fee2e2',
+              color: '#ef4444',
+              padding: isMobile ? '10px' : '8px 16px',
+              borderRadius: '10px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: '12px',
+              flex: isMobile ? 1 : 'none',
+              textAlign: 'center',
+              height: isMobile ? '42px' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>🔄 RESET</button>
+          </div>
+          <div className="switcher-container" style={{
+            flex: 1,
+            minWidth: 0,
+            width: isMobile ? '100%' : 'auto'
+          }}>
+             <select className="premium-select" value={assignId} onChange={(e) => navigate(`/teacher-entry/${examId}/${e.target.value}`)} style={{
+               border: '1.5px solid #e2e8f0',
+               background: '#f8fafc',
+               fontSize: isMobile ? '0.95rem' : '1.1rem',
+               fontWeight: 800,
+               color: '#0f172a',
+               cursor: 'pointer',
+               outline: 'none',
+               padding: isMobile ? '10px 12px' : '8px 16px',
+               borderRadius: '12px',
+               width: '100%',
+               height: isMobile ? '42px' : 'auto',
+               boxShadow: isMobile ? '0 2px 5px rgba(0,0,0,0.02)' : 'none',
+               textOverflow: 'ellipsis',
+               transition: 'all 0.2s ease'
+             }}>
                 {myAssignments.map(a => (
-                  <option key={(a as any).subject_code} value={(a as any).subject_code}>{(a as any).exams?.exam_name} - {(a as any).subject_name} (Class {a.class} {a.section})</option>
+                  <option key={(a as any).subject_code} value={(a as any).subject_code}>{(a as any).exams?.exam_name} - {(a as any).subject_name} (Class {a.class} {a.section}){(a as any).final_submitted ? ' ✓ Final Submitted' : ''}</option>
                 ))}
              </select>
-             <p style={{ margin: 0, fontSize: '11px', color: '#ec4899', fontWeight: 800 }}>CLASS {assignment.class} • SECTION {assignment.section} • {rule.subject_name}</p>
+             <p style={{ margin: '6px 0 0 0', fontSize: '11px', color: '#ec4899', fontWeight: 800, background: '#fdf2f8', padding: '6px 12px', borderRadius: '8px', border: '1px dashed #fbcfe8', display: 'inline-block', width: '100%', textAlign: 'center', boxSizing: 'border-box' }}>
+               CLASS {assignment.class} • SECTION {assignment.section} • {rule.subject_name}
+             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button onClick={() => setShowDetails(!showDetails)} style={{ padding: '8px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', background: showDetails ? '#f8fafc' : '#fff', color: '#64748b', fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>
+        <div className="responsive-header-actions" style={{
+          display: isMobile ? 'grid' : 'flex',
+          gridTemplateColumns: isMobile ? '1fr 1fr' : 'none',
+          alignItems: 'center',
+          gap: isMobile ? '8px' : '12px',
+          width: isMobile ? '100%' : 'auto'
+        }}>
+          <button onClick={() => setShowDetails(!showDetails)} style={{
+            padding: isMobile ? '8px' : '8px 16px',
+            borderRadius: isMobile ? '10px' : '12px',
+            border: '1px solid #e2e8f0',
+            background: showDetails ? '#f8fafc' : '#fff',
+            color: '#64748b',
+            fontSize: isMobile ? '11px' : '12px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            width: isMobile ? '100%' : 'auto',
+            height: isMobile ? '40px' : 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxSizing: 'border-box'
+          }}>
              {showDetails ? '🙈 HIDE NAMES' : '👁️ SHOW NAMES'}
           </button>
-          {!isEditable && <span style={{ padding: '10px 20px', borderRadius: '12px', background: '#fee2e2', color: '#ef4444', fontSize: '13px', fontWeight: 800, border: '1px solid #fecaca' }}>ENTRY LOCKED</span>}
-          <button onClick={saveAll} disabled={saving || !isEditable} style={{ padding: '10px 32px', borderRadius: '12px', background: isEditable ? '#059669' : '#94a3b8', color: '#fff', border: 'none', fontWeight: 800, cursor: isEditable ? 'pointer' : 'not-allowed' }}>{saving ? 'সংরক্ষণ হচ্ছে...' : 'সব সংরক্ষণ করুন'}</button>
+          {assignment.final_submitted && (
+            <span style={{
+              padding: isMobile ? '8px' : '10px 20px',
+              borderRadius: isMobile ? '10px' : '12px',
+              background: '#d1fae5',
+              color: '#059669',
+              fontSize: isMobile ? '11px' : '13px',
+              fontWeight: 800,
+              border: '1px solid #a7f3d0',
+              width: isMobile ? '100%' : 'auto',
+              height: isMobile ? '40px' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxSizing: 'border-box'
+            }}>✔ FINAL SUBMITTED</span>
+          )}
+          {!isEditable && !assignment.final_submitted && (
+            <span style={{
+              padding: isMobile ? '8px' : '10px 20px',
+              borderRadius: isMobile ? '10px' : '12px',
+              background: '#fee2e2',
+              color: '#ef4444',
+              fontSize: isMobile ? '11px' : '13px',
+              fontWeight: 800,
+              border: '1px solid #fecaca',
+              width: isMobile ? '100%' : 'auto',
+              height: isMobile ? '40px' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxSizing: 'border-box'
+            }}>ENTRY LOCKED</span>
+          )}
+          {isEditable && (
+            <>
+              <button className="save-all-btn" onClick={saveAll} disabled={saving} style={{
+                padding: isMobile ? '8px' : '10px 32px',
+                borderRadius: isMobile ? '10px' : '12px',
+                background: '#059669',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 800,
+                cursor: 'pointer',
+                width: isMobile ? '100%' : 'auto',
+                height: isMobile ? '44px' : 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gridColumn: isMobile ? 'span 2' : 'auto',
+                marginTop: isMobile ? '4px' : '0',
+                fontSize: isMobile ? '13px' : '14px',
+                boxSizing: 'border-box'
+              }}>{saving ? 'সংরক্ষণ হচ্ছে...' : 'সব সংরক্ষণ করুন'}</button>
+              <button className="final-submit-btn" onClick={handleFinalSubmit} disabled={saving} style={{
+                padding: isMobile ? '8px' : '10px 32px',
+                borderRadius: isMobile ? '10px' : '12px',
+                background: '#4f46e5',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 800,
+                cursor: 'pointer',
+                width: isMobile ? '100%' : 'auto',
+                height: isMobile ? '44px' : 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gridColumn: isMobile ? 'span 2' : 'auto',
+                marginTop: isMobile ? '4px' : '0',
+                fontSize: isMobile ? '13px' : '14px',
+                boxSizing: 'border-box',
+                boxShadow: '0 4px 10px rgba(79,70,229,0.2)'
+              }}>🔒 Final Submit</button>
+            </>
+          )}
         </div>
       </header>
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
+      <main className="main-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: isMobile ? '12px 8px' : '32px 20px', transition: 'all 0.3s ease' }}>
+        <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? '10px' : '16px', marginBottom: isMobile ? '20px' : '32px' }}>
           {[
             { label: 'শিক্ষার্থী সংখ্যা', value: data.length, icon: '👥', color: '#4f46e5' },
             { label: 'পাস মার্ক', value: rule.pass_total, icon: '🎯', color: '#059669' },
             { label: 'পূর্ণ মান', value: rule.full_marks, icon: '💯', color: '#ec4899' },
             { label: 'পরীক্ষার সাল', value: assignment.exams.year, icon: '📅', color: '#f59e0b' }
           ].map(stat => (
-            <div key={stat.label} style={{ background: '#fff', padding: '24px', borderRadius: '24px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+            <div key={stat.label} className="stats-card" style={{ 
+              background: '#fff', 
+              padding: isMobile ? '12px 8px' : '24px', 
+              borderRadius: isMobile ? '14px' : '20px', 
+              border: '1.5px solid #f97316', 
+              textAlign: 'center', 
+              boxShadow: '0 2px 10px rgba(0,0,0,0.01)', 
+              transition: 'all 0.25s ease-in-out' 
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-4px)'
+              e.currentTarget.style.borderColor = '#ea580c'
+              e.currentTarget.style.boxShadow = '0 8px 20px rgba(249, 115, 22, 0.08)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'none'
+              e.currentTarget.style.borderColor = '#f97316'
+              e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.01)'
+            }}
+            >
                <div style={{ fontSize: '10px', fontWeight: 800, color: '#94a3b8', marginBottom: '8px', textTransform: 'uppercase' }}>{stat.label}</div>
-               <div style={{ fontSize: '1.8rem', fontWeight: 900, color: stat.color }}>{stat.value}</div>
+               <div className="stats-card-value" style={{ fontSize: isMobile ? '1.4rem' : '1.8rem', fontWeight: 900, color: stat.color }}>{stat.value}</div>
             </div>
           ))}
         </div>
 
         {status && <div style={{ marginBottom: '24px', padding: '16px 24px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '16px', color: '#047857', fontWeight: 800 }}>{status}</div>}
 
-        <div style={{ background: '#fff', borderRadius: '32px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+        <div className="table-wrapper" style={{ background: '#fff', borderRadius: isMobile ? '12px' : '32px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', width: '100%', maxWidth: '100%' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', width: '100%', maxWidth: '100%' }}>
+            <table className={`responsive-table ${showDetails ? 'with-details' : 'no-details'}`} style={{ width: '100%', minWidth: isMobile ? (showDetails ? '640px' : '100%') : '100%', borderCollapse: 'collapse', fontSize: isMobile ? '13px' : '14px', tableLayout: 'auto' }}>
               <thead style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                 <tr>
-                  <th style={{ padding: '20px', textAlign: 'center', width: '60px', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>ROLL</th>
+                  <th style={{ padding: isMobile ? '10px 2px' : '20px', textAlign: 'center', width: isMobile ? '35px' : '60px', color: '#64748b', fontSize: isMobile ? '9px' : '11px', fontWeight: 800 }}>ROLL</th>
                   {showDetails && (
                     <>
-                      <th style={{ padding: '20px', textAlign: 'left', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>STUDENT NAME</th>
-                      <th style={{ padding: '20px', textAlign: 'left', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>IID</th>
+                      <th style={{ padding: isMobile ? '10px 4px' : '20px', textAlign: 'left', color: '#64748b', fontSize: isMobile ? '9px' : '11px', fontWeight: 800 }}>STUDENT NAME</th>
+                      <th style={{ padding: isMobile ? '10px 4px' : '20px', textAlign: 'left', color: '#64748b', fontSize: isMobile ? '9px' : '11px', fontWeight: 800 }}>IID</th>
                     </>
                   )}
                   {comps.map(c => (
-                    <th key={c.key} style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '11px', fontWeight: 900 }}>
+                    <th key={c.key} style={{ padding: isMobile ? '10px 2px' : '20px', textAlign: 'center', color: '#64748b', fontSize: isMobile ? '9px' : '11px', fontWeight: 900, width: isMobile ? (c.editable ? '52px' : '42px') : 'auto' }}>
                        {c.label.toUpperCase()}
-                       <div style={{ fontSize: '9px', color: '#ef4444', fontWeight: 800, marginTop: '2px' }}>P: {c.pass}</div>
+                       <div style={{ fontSize: '8px', color: '#ef4444', fontWeight: 800, marginTop: '2px' }}>P: {c.pass}</div>
                     </th>
                   ))}
-                  <th style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '11px', fontWeight: 800 }}>ACTION</th>
+                  <th style={{ padding: isMobile ? '10px 2px' : '20px', textAlign: 'center', width: isMobile ? '56px' : '100px', color: '#64748b', fontSize: isMobile ? '9px' : '11px', fontWeight: 800 }}>ACTION</th>
                 </tr>
               </thead>
               <tbody>
                 {data.map((row, ri) => (
                   <tr key={String(row.id)} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '16px', textAlign: 'center', fontWeight: 900, color: '#1e293b' }}>{String(row.roll ?? '-')}</td>
+                    <td style={{ padding: isMobile ? '8px 4px' : '16px', textAlign: 'center', fontWeight: 900, color: '#1e293b' }}>{String(row.roll ?? '-')}</td>
                     {showDetails && (
                       <>
-                        <td style={{ padding: '16px', fontWeight: 700, color: '#0f172a' }}>{String(row.student_name_en ?? '-')}</td>
-                        <td style={{ padding: '16px', fontSize: '11px', color: '#64748b' }}>{String(row.iid ?? '-')}</td>
+                        <td style={{ padding: isMobile ? '8px 4px' : '16px', fontWeight: 700, color: '#0f172a', maxWidth: isMobile ? '110px' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(row.student_name_en ?? '-')}</td>
+                        <td style={{ padding: isMobile ? '8px 4px' : '16px', fontSize: '10px', color: '#64748b', maxWidth: isMobile ? '50px' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(row.iid ?? '-')}</td>
                       </>
                     )}
                     {comps.map(c => {
@@ -310,20 +580,20 @@ export default function TeacherGradeEntryPage() {
                       const numVal = Number(val) || 0
                       const isFail = c.pass > 0 && numVal > 0 && numVal < c.pass
                       if (!c.editable) {
-                        return <td key={c.key} style={{ padding: '16px', textAlign: 'center', fontWeight: 900, color: isFail ? '#ef4444' : (numVal > 0 ? '#059669' : '#cbd5e1'), fontSize: '1.1rem' }}>{numVal > 0 ? numVal : '-'}</td>
+                        return <td key={c.key} style={{ padding: isMobile ? '8px 4px' : '16px', textAlign: 'center', fontWeight: 900, color: isFail ? '#ef4444' : (numVal > 0 ? '#059669' : '#cbd5e1'), fontSize: isMobile ? '14px' : '1.1rem' }}>{numVal > 0 ? numVal : '-'}</td>
                       }
                       return (
-                        <td key={c.key} style={{ padding: '12px', textAlign: 'center' }}>
+                        <td key={c.key} style={{ padding: isMobile ? '6px 2px' : '12px', textAlign: 'center' }}>
                           <input type="number" disabled={!isEditable} value={val !== null && val !== undefined ? String(val) : ''} onChange={e => {
                             handleEdit(Number(row.id), c.key, e.target.value, ri)
                             const newData = [...data]; newData[ri][c.key] = e.target.value === '' ? null : Number(e.target.value); setData(newData)
-                          }} style={{ width: '80px', padding: '10px', textAlign: 'center', borderRadius: '12px', border: `2px solid ${isFail ? '#fecaca' : '#e2e8f0'}`, background: isFail ? '#fef2f2' : '#f8fafc', color: isFail ? '#ef4444' : '#0f172a', fontWeight: 800, fontSize: '15px', outline: 'none' }} />
+                          }} style={{ width: isMobile ? '48px' : '80px', padding: isMobile ? '5px 3px' : '10px', textAlign: 'center', borderRadius: isMobile ? '6px' : '12px', border: `2px solid ${isFail ? '#fecaca' : '#e2e8f0'}`, background: isFail ? '#fef2f2' : '#f8fafc', color: isFail ? '#ef4444' : '#0f172a', fontWeight: 800, fontSize: isMobile ? '13px' : '15px', outline: 'none' }} />
                         </td>
                       )
                     })}
-                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                      <button onClick={() => saveRow(Number(row.id))} disabled={savingRows[String(row.id)] === 'saving'} style={{ padding: '8px 16px', borderRadius: '10px', border: 'none', fontWeight: 800, fontSize: '11px', cursor: 'pointer', background: savingRows[String(row.id)] === 'pending' ? '#f59e0b' : savingRows[String(row.id)] === 'success' ? '#10b981' : savingRows[String(row.id)] === 'saving' ? '#94a3b8' : '#f1f5f9', color: (savingRows[String(row.id)] === 'pending' || savingRows[String(row.id)] === 'success' || savingRows[String(row.id)] === 'saving') ? '#fff' : '#64748b' }}>
-                        {savingRows[String(row.id)] === 'saving' ? '...' : savingRows[String(row.id)] === 'success' ? 'SAVED ✅' : 'SAVE'}
+                    <td className="action-cell" style={{ padding: isMobile ? '6px 2px' : '12px', textAlign: 'center' }}>
+                      <button onClick={() => saveRow(Number(row.id))} disabled={savingRows[String(row.id)] === 'saving'} style={{ padding: isMobile ? '6px 6px' : '8px 16px', borderRadius: isMobile ? '6px' : '10px', border: 'none', fontWeight: 800, fontSize: isMobile ? '9px' : '11px', cursor: 'pointer', background: savingRows[String(row.id)] === 'pending' ? '#f59e0b' : savingRows[String(row.id)] === 'success' ? '#10b981' : savingRows[String(row.id)] === 'saving' ? '#94a3b8' : '#f1f5f9', color: (savingRows[String(row.id)] === 'pending' || savingRows[String(row.id)] === 'success' || savingRows[String(row.id)] === 'saving') ? '#fff' : '#64748b' }}>
+                        {savingRows[String(row.id)] === 'saving' ? '...' : savingRows[String(row.id)] === 'success' ? (isMobile ? 'SAVED' : 'SAVED ✅') : 'SAVE'}
                       </button>
                     </td>
                   </tr>

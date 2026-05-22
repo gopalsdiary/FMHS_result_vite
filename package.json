@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "migrate": "node \"C:\\Users\\Gopals Diary\\.gemini\\antigravity-ide\\scratch\\add_fk.js\"",
     "lint": "eslint ."
   },
   "dependencies": {

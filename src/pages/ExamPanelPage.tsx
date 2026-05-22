@@ -56,11 +56,32 @@ export default function ExamPanelPage() {
   const [fixedCols] = useState<string[]>(['roll'])
   const editChanges = useRef<Record<string, any>>({})
 
+  // Unlock Final Submit state
+  const [showUnlockModal, setShowUnlockModal] = useState(false)
+  const [submittedAssignments, setSubmittedAssignments] = useState<any[]>([])
+  const [loadingSubmitted, setLoadingSubmitted] = useState(false)
+
+  // Manual & CSV upload state
+  const [showManualModal, setShowManualModal] = useState(false)
+  const [showCsvModal, setShowCsvModal] = useState(false)
+  const [manualForm, setManualForm] = useState({
+    studentNameEn: '',
+    fatherNameEn: '',
+    studentClass: '',
+    studentSection: '',
+    studentRoll: '',
+    optionalSubject: '',
+    fatherMobile: ''
+  })
+  const [csvStudents, setCsvStudents] = useState<any[]>([])
+  const [isProcessingCsv, setIsProcessingCsv] = useState(false)
+
   // Filters / Import state
   const [gridClass, setGridClass] = useState('')
   const [gridSection, setGridSection] = useState('')
   const [availableClasses, setAvailableClasses] = useState<string[]>([])
   const [availableSections, setAvailableSections] = useState<string[]>([])
+  const [classSectionsMap, setClassSectionsMap] = useState<Record<string, string[]>>({})
   const [filterSubject, setFilterSubject] = useState('')
   const [sourceYear, setSourceYear] = useState<string>('')
   const [availableYears, setAvailableYears] = useState<string[]>([])
@@ -285,6 +306,22 @@ export default function ExamPanelPage() {
     if (rows.length > 0) {
       setAvailableClasses(Array.from(new Set(rows.map(r => String(r.class)))).sort((a,b) => Number(a)-Number(b)))
       setAvailableSections(Array.from(new Set(rows.map(r => String(r.section)))).sort())
+
+      // Build class-to-sections mapping dynamically
+      const mapping: Record<string, Set<string>> = {}
+      rows.forEach(r => {
+        const c = String(r.class)
+        const s = String(r.section)
+        if (c) {
+          if (!mapping[c]) mapping[c] = new Set()
+          if (s) mapping[c].add(s)
+        }
+      })
+      const finalMapping: Record<string, string[]> = {}
+      Object.keys(mapping).forEach(c => {
+        finalMapping[c] = Array.from(mapping[c]).sort()
+      })
+      setClassSectionsMap(finalMapping)
     }
   }
 
@@ -528,6 +565,41 @@ export default function ExamPanelPage() {
     setLoading(false)
   }
 
+  async function loadSubmittedAssignments() {
+    setLoadingSubmitted(true)
+    const { data: assignments, error } = await supabase
+      .from('FMHS_exam_teacher_selection')
+      .select('*')
+      .eq('exam_id', Number(id))
+      .eq('final_submitted', true)
+      .order('class', { ascending: true })
+      .order('section', { ascending: true })
+    
+    if (!error && assignments) {
+      setSubmittedAssignments(assignments)
+    } else {
+      console.error('Error fetching submitted assignments:', error)
+    }
+    setLoadingSubmitted(false)
+  }
+
+  async function handleUnlockAssignment(assignmentId: number, subjectName: string) {
+    if (!confirm(`Are you sure you want to unlock "${subjectName}"? This will allow the teacher to edit marks again.`)) return
+    
+    const { error } = await supabase
+      .from('FMHS_exam_teacher_selection')
+      .update({ final_submitted: false })
+      .eq('id', assignmentId)
+
+    if (error) {
+      alert('Failed to unlock: ' + error.message)
+    } else {
+      setStatus('✅ Subject unlocked successfully!')
+      setTimeout(() => setStatus(''), 3000)
+      loadSubmittedAssignments()
+    }
+  }
+
 
   async function toggleStatus(field: 'is_live' | 'teacher_entry_enabled', current: boolean) {
     const { error } = await supabase.from('FMHS_exams_names').update({ [field]: !current }).eq('id', id)
@@ -628,6 +700,293 @@ export default function ExamPanelPage() {
     }
   }
 
+  async function handleAddManualStudent(e: React.FormEvent) {
+    e.preventDefault()
+    if (!exam) return
+
+    const { studentNameEn, fatherNameEn, studentClass, studentSection, studentRoll, optionalSubject, fatherMobile } = manualForm
+    if (!studentNameEn || !fatherNameEn || !studentClass || !studentRoll || !studentSection) {
+      alert('Please fill in all required fields.')
+      return
+    }
+
+    setStatus('Adding student...')
+    
+    // 1. Insert into student_database
+    const sessionYear = exam.year
+    const studentDbPayload: Record<string, any> = {
+      student_name_en: studentNameEn.trim(),
+      father_name_en: fatherNameEn.trim(),
+      optional_subject: optionalSubject.trim() || null,
+      active_class: Number(studentClass),
+      active_section: studentSection.trim(),
+      active_roll: Number(studentRoll),
+      [`class_${sessionYear}`]: Number(studentClass),
+      [`section_${sessionYear}`]: studentSection.trim(),
+      [`roll_${sessionYear}`]: Number(studentRoll),
+    }
+
+    if (fatherMobile.trim()) {
+      studentDbPayload.father_mobile = Number(fatherMobile.trim())
+    }
+
+    const { data: insertedStudent, error: sdError } = await supabase
+      .from('student_database')
+      .insert(studentDbPayload)
+      .select()
+      .single()
+
+    if (sdError) {
+      alert('Error inserting student in global database: ' + sdError.message)
+      setStatus('❌ Insertion failed.')
+      return
+    }
+
+    // 2. Insert into FMHS_exam_data
+    const examDataPayload = {
+      exam_id: Number(id),
+      iid: insertedStudent.iid,
+      class: Number(studentClass),
+      section: studentSection.trim(),
+      roll: Number(studentRoll),
+      student_name_en: studentNameEn.trim(),
+      father_name_en: fatherNameEn.trim(),
+      exam_name_year: `${exam.exam_name}-${exam.year}`,
+      status: 'Pending'
+    }
+
+    const { error: edError } = await supabase
+      .from('FMHS_exam_data')
+      .insert(examDataPayload)
+
+    if (edError) {
+      alert('Error adding student to current exam: ' + edError.message)
+      setStatus('❌ Insertion failed.')
+      return
+    }
+
+    setStatus('✅ Student added successfully!')
+    setShowManualModal(false)
+    setManualForm({
+      studentNameEn: '',
+      fatherNameEn: '',
+      studentClass: '',
+      studentSection: '',
+      studentRoll: '',
+      optionalSubject: '',
+      fatherMobile: ''
+    })
+    
+    // Reload counts and table
+    await loadMarks()
+    await loadMetadata()
+    await loadTotalEnrollment()
+    setTimeout(() => setStatus(''), 3000)
+  }
+
+  function parseCSVContent(text: string) {
+    const lines: string[] = []
+    let currentLine = ''
+    let insideQuote = false
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      const nextChar = text[i + 1]
+
+      if (char === '"') {
+        insideQuote = !insideQuote
+      } else if (char === '\r' && nextChar === '\n') {
+        if (!insideQuote) {
+          lines.push(currentLine)
+          currentLine = ''
+          i++ // skip \n
+        } else {
+          currentLine += char
+        }
+      } else if (char === '\n' || char === '\r') {
+        if (!insideQuote) {
+          lines.push(currentLine)
+          currentLine = ''
+        } else {
+          currentLine += char
+        }
+      } else {
+        currentLine += char
+      }
+    }
+    if (currentLine) {
+      lines.push(currentLine)
+    }
+
+    if (lines.length === 0) return []
+
+    // Helper to split line by comma, respecting quotes
+    const splitCSVLine = (line: string) => {
+      const result: string[] = []
+      let cell = ''
+      let insideQuote = false
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i]
+        if (char === '"') {
+          insideQuote = !insideQuote
+        } else if (char === ',' && !insideQuote) {
+          result.push(cell.trim())
+          cell = ''
+        } else {
+          cell += char
+        }
+      }
+      result.push(cell.trim())
+      return result
+    }
+
+    const headers = splitCSVLine(lines[0]).map(h => h.toLowerCase().replace(/['"_\s-]+/g, ''))
+    
+    const fieldMap: Record<string, string> = {
+      studentnameen: 'studentNameEn',
+      studentname: 'studentNameEn',
+      name: 'studentNameEn',
+      fathernameen: 'fatherNameEn',
+      fathername: 'fatherNameEn',
+      fathersname: 'fatherNameEn',
+      class: 'studentClass',
+      section: 'studentSection',
+      roll: 'studentRoll',
+      optionalsubject: 'optionalSubject',
+      fourthsubject: 'optionalSubject',
+      fathermobile: 'fatherMobile',
+      mobile: 'fatherMobile'
+    }
+
+    const matchedHeaders = headers.map(h => fieldMap[h] || h)
+
+    const parsedRows = []
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+      const cells = splitCSVLine(line)
+      const rowData: Record<string, string> = {}
+      matchedHeaders.forEach((field, idx) => {
+        if (field && cells[idx] !== undefined) {
+          rowData[field] = cells[idx]
+        }
+      })
+      
+      if (rowData.studentNameEn || rowData.studentRoll) {
+        parsedRows.push({
+          studentNameEn: rowData.studentNameEn || '',
+          fatherNameEn: rowData.fatherNameEn || '',
+          studentClass: rowData.studentClass || '',
+          studentSection: rowData.studentSection || '',
+          studentRoll: rowData.studentRoll || '',
+          optionalSubject: rowData.optionalSubject || '',
+          fatherMobile: rowData.fatherMobile || ''
+        })
+      }
+    }
+    return parsedRows
+  }
+
+  function handleCsvFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const text = event.target?.result as string
+      try {
+        const rows = parseCSVContent(text)
+        if (rows.length === 0) {
+          alert('No students found in CSV or headers could not be matched. Make sure to have student name, father name, class, section, and roll columns.')
+          return
+        }
+        setCsvStudents(rows)
+      } catch (err: any) {
+        alert('Failed to parse CSV file: ' + err.message)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  async function handleImportCsvStudents() {
+    if (!exam || csvStudents.length === 0) return
+
+    const invalid = csvStudents.some(s => !s.studentNameEn || !s.fatherNameEn || !s.studentClass || !s.studentSection || !s.studentRoll)
+    if (invalid) {
+      alert('Some rows have missing required fields (Student Name, Father Name, Class, Section, Roll). Please fix them or upload a clean file.')
+      return
+    }
+
+    setIsProcessingCsv(true)
+    setStatus(`Importing ${csvStudents.length} students...`)
+
+    const sessionYear = exam.year
+    
+    const dbPayloads = csvStudents.map(s => {
+      const payload: Record<string, any> = {
+        student_name_en: s.studentNameEn.trim(),
+        father_name_en: s.fatherNameEn.trim(),
+        optional_subject: s.optionalSubject.trim() || null,
+        active_class: Number(s.studentClass),
+        active_section: s.studentSection.trim(),
+        active_roll: Number(s.studentRoll),
+        [`class_${sessionYear}`]: Number(s.studentClass),
+        [`section_${sessionYear}`]: s.studentSection.trim(),
+        [`roll_${sessionYear}`]: Number(s.studentRoll),
+      }
+      if (s.fatherMobile.trim()) {
+        payload.father_mobile = Number(s.fatherMobile.trim())
+      }
+      return payload
+    })
+
+    const { data: inserted, error: dbErr } = await supabase
+      .from('student_database')
+      .insert(dbPayloads)
+      .select()
+
+    if (dbErr) {
+      alert('Error importing to global student database: ' + dbErr.message)
+      setIsProcessingCsv(false)
+      setStatus('❌ Import failed.')
+      return
+    }
+
+    const examPayloads = inserted.map((s: any) => ({
+      exam_id: Number(id),
+      iid: s.iid,
+      class: Number(s[`class_${sessionYear}`] ?? s.active_class),
+      section: s[`section_${sessionYear}`] ?? s.active_section,
+      roll: Number(s[`roll_${sessionYear}`] ?? s.active_roll),
+      student_name_en: s.student_name_en,
+      father_name_en: s.father_name_en,
+      exam_name_year: `${exam.exam_name}-${exam.year}`,
+      status: 'Pending'
+    }))
+
+    const { error: examErr } = await supabase
+      .from('FMHS_exam_data')
+      .insert(examPayloads)
+
+    if (examErr) {
+      alert('Successfully inserted into global student database but failed to link to the active exam: ' + examErr.message)
+      setIsProcessingCsv(false)
+      setStatus('⚠️ Partial import failure.')
+      return
+    }
+
+    setStatus(`✅ Successfully imported ${csvStudents.length} students!`)
+    setIsProcessingCsv(false)
+    setShowCsvModal(false)
+    setCsvStudents([])
+
+    await loadMarks()
+    await loadMetadata()
+    await loadTotalEnrollment()
+    setTimeout(() => setStatus(''), 3000)
+  }
+
+
   if (loading && !exam) return <div className="spinner" />
 
   const tabStyle = (tab: string) => ({
@@ -659,7 +1018,7 @@ export default function ExamPanelPage() {
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
            <button onClick={saveAllChanges} style={{ padding: '10px 24px', borderRadius: '12px', background: '#059669', color: '#fff', border: 'none', fontWeight: 800, boxShadow: '0 4px 10px rgba(5,150,105,0.2)' }}>SAVE CHANGES</button>
-           <button onClick={handleProcessResults} style={{ padding: '10px 24px', borderRadius: '12px', background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800, boxShadow: '0 4px 10px rgba(79,70,229,0.2)' }}>PROCESS GPA</button>
+           <button onClick={() => { setShowUnlockModal(true); loadSubmittedAssignments(); }} style={{ padding: '10px 24px', borderRadius: '12px', background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800, boxShadow: '0 4px 10px rgba(79,70,229,0.2)' }}>🔓 UNLOCK SUBMIT</button>
         </div>
       </header>
 
@@ -758,7 +1117,31 @@ export default function ExamPanelPage() {
                       {(sourceSectionsByClass[gridClass] || []).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
-                  <button onClick={importStudents} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800 }}>IMPORT {previewCount !== null ? `${previewCount} ` : ''}STUDENTS</button>
+                  <button onClick={importStudents} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800, marginBottom: '24px' }}>IMPORT {previewCount !== null ? `${previewCount} ` : ''}STUDENTS</button>
+
+                  <div style={{ margin: '24px 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ position: 'absolute', width: '100%', height: '1px', background: '#e2e8f0' }}></div>
+                    <span style={{ position: 'relative', background: '#fff', padding: '0 16px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Or Add Manually</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <button 
+                      onClick={() => setShowManualModal(true)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', background: '#fff', border: '2px solid #e2e8f0', color: '#1e293b', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
+                    >
+                      ✏️ Add Manually
+                    </button>
+                    <button 
+                      onClick={() => setShowCsvModal(true)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', background: '#fff', border: '2px solid #e2e8f0', color: '#1e293b', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
+                    >
+                      📤 Upload CSV
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -827,7 +1210,7 @@ export default function ExamPanelPage() {
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '8px', textTransform: 'uppercase' }}>2. Select Section</label>
                         <select className="form-control" style={{ borderRadius: '14px', padding: '12px', fontWeight: 700 }} value={gridSection} onChange={e => { setGridSection(e.target.value); setFilterSubject(''); setData([]); }}>
                           <option value="All">All Sections</option>
-                          {availableSections.map(s => <option key={s} value={s}>{s}</option>)}
+                          {(classSectionsMap[gridClass] || []).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
                       <div style={{ flex: 2, minWidth: '220px' }}>
@@ -1171,6 +1554,283 @@ export default function ExamPanelPage() {
                   else { setEditingRule(null); loadExamData() }
                 }}>Save Changes</button>
                 <button className="btn btn-secondary" style={{ flex: 1, borderRadius: '16px', padding: '16px', background: '#f1f5f9', border: 'none', fontWeight: 700, color: '#475569' }} onClick={() => setEditingRule(null)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MANUAL STUDENT MODAL */}
+        {showManualModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+            <div style={{ background: '#fff', borderRadius: '32px', padding: '40px', width: '550px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900 }}>Add Student Manually</h3>
+                <button onClick={() => setShowManualModal(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>×</button>
+              </div>
+              <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '32px' }}>Enter student details. This will save to both global database and the active exam.</p>
+              
+              <form onSubmit={handleAddManualStudent}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '32px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '6px' }}>STUDENT NAME (ENGLISH) *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '12px' }} 
+                      value={manualForm.studentNameEn} 
+                      onChange={e => setManualForm({ ...manualForm, studentNameEn: e.target.value })} 
+                      placeholder="e.g. TASNIM ALAM"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '6px' }}>FATHER'S NAME (ENGLISH) *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '12px' }} 
+                      value={manualForm.fatherNameEn} 
+                      onChange={e => setManualForm({ ...manualForm, fatherNameEn: e.target.value })} 
+                      placeholder="e.g. NURUL ALAM"
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '6px' }}>CLASS *</label>
+                      <select 
+                        required 
+                        className="form-control" 
+                        style={{ borderRadius: '12px', padding: '12px' }} 
+                        value={manualForm.studentClass} 
+                        onChange={e => setManualForm({ ...manualForm, studentClass: e.target.value })}
+                      >
+                        <option value="">Select...</option>
+                        {[6, 7, 8, 9, 10, 11, 12].map(c => <option key={c} value={c}>Class {c}</option>)}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '6px' }}>SECTION *</label>
+                      <input 
+                        type="text" 
+                        required 
+                        className="form-control" 
+                        style={{ borderRadius: '12px', padding: '12px' }} 
+                        value={manualForm.studentSection} 
+                        onChange={e => setManualForm({ ...manualForm, studentSection: e.target.value })} 
+                        placeholder="e.g. A"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '6px' }}>ROLL NO *</label>
+                      <input 
+                        type="number" 
+                        required 
+                        className="form-control" 
+                        style={{ borderRadius: '12px', padding: '12px' }} 
+                        value={manualForm.studentRoll} 
+                        onChange={e => setManualForm({ ...manualForm, studentRoll: e.target.value })} 
+                        placeholder="e.g. 15"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '6px' }}>OPTIONAL / 4TH SUBJECT</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '12px' }} 
+                      value={manualForm.optionalSubject} 
+                      onChange={e => setManualForm({ ...manualForm, optionalSubject: e.target.value })} 
+                      placeholder="e.g. Biology, Higher Mathematics, Agriculture"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '6px' }}>FATHER'S MOBILE (OPTIONAL)</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '12px' }} 
+                      value={manualForm.fatherMobile} 
+                      onChange={e => setManualForm({ ...manualForm, fatherMobile: e.target.value })} 
+                      placeholder="e.g. 01712345678"
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 2, borderRadius: '16px', padding: '16px', background: '#4f46e5', border: 'none', fontWeight: 800, color: '#fff', cursor: 'pointer' }}>Add Student</button>
+                  <button type="button" className="btn btn-secondary" style={{ flex: 1, borderRadius: '16px', padding: '16px', background: '#f1f5f9', border: 'none', fontWeight: 700, color: '#475569', cursor: 'pointer' }} onClick={() => setShowManualModal(false)}>Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* CSV IMPORT MODAL */}
+        {showCsvModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+            <div style={{ background: '#fff', borderRadius: '32px', padding: '40px', width: '750px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900 }}>Upload Students CSV</h3>
+                <button onClick={() => { setShowCsvModal(false); setCsvStudents([]); }} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>×</button>
+              </div>
+              <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Import multiple students at once. Columns must include: <b>Name, Father Name, Class, Section, Roll</b> (Optional: <b>Optional Subject, Father Mobile</b>).</p>
+              
+              {csvStudents.length === 0 ? (
+                <div style={{ border: '3px dashed #cbd5e1', borderRadius: '24px', padding: '40px', textAlign: 'center', cursor: 'pointer', transition: 'all 0.2s', position: 'relative' }}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const text = event.target?.result as string;
+                        try {
+                          const rows = parseCSVContent(text);
+                          if (rows.length === 0) {
+                            alert('No students found in CSV or headers could not be matched.');
+                            return;
+                          }
+                          setCsvStudents(rows);
+                        } catch (err: any) {
+                          alert('Failed to parse CSV file: ' + err.message);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                >
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>📁</div>
+                  <div style={{ fontWeight: 800, fontSize: '16px', color: '#1e293b', marginBottom: '8px' }}>Drag & Drop your CSV file here</div>
+                  <div style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>or choose from your computer</div>
+                  
+                  <input 
+                    type="file" 
+                    accept=".csv" 
+                    onChange={handleCsvFileSelect}
+                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
+                  />
+                  <button type="button" style={{ padding: '10px 24px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '12px', fontWeight: 700, pointerEvents: 'none' }}>Choose File</button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#10b981' }}>📊 Ready to Import: {csvStudents.length} Students Detected</span>
+                    <button onClick={() => setCsvStudents([])} style={{ background: '#fef2f2', border: 'none', color: '#ef4444', fontWeight: 800, padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '11px' }}>RESET FILE</button>
+                  </div>
+                  
+                  <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '16px', marginBottom: '32px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                      <thead style={{ background: '#f8fafc', position: 'sticky', top: 0, borderBottom: '1px solid #e2e8f0', zIndex: 1 }}>
+                        <tr>
+                          <th style={{ padding: '12px' }}>Name</th>
+                          <th style={{ padding: '12px' }}>Father's Name</th>
+                          <th style={{ padding: '12px' }}>Class</th>
+                          <th style={{ padding: '12px' }}>Section</th>
+                          <th style={{ padding: '12px' }}>Roll</th>
+                          <th style={{ padding: '12px' }}>Optional Subject</th>
+                          <th style={{ padding: '12px' }}>Mobile</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvStudents.map((s, idx) => {
+                          const isInvalid = !s.studentNameEn || !s.fatherNameEn || !s.studentClass || !s.studentSection || !s.studentRoll;
+                          return (
+                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: isInvalid ? '#fff1f2' : 'none' }}>
+                              <td style={{ padding: '12px', fontWeight: 700, color: s.studentNameEn ? '#1e293b' : '#ef4444' }}>{s.studentNameEn || '[MISSING]'}</td>
+                              <td style={{ padding: '12px', color: s.fatherNameEn ? '#1e293b' : '#ef4444' }}>{s.fatherNameEn || '[MISSING]'}</td>
+                              <td style={{ padding: '12px', color: s.studentClass ? '#1e293b' : '#ef4444' }}>{s.studentClass || '[MISSING]'}</td>
+                              <td style={{ padding: '12px', color: s.studentSection ? '#1e293b' : '#ef4444' }}>{s.studentSection || '[MISSING]'}</td>
+                              <td style={{ padding: '12px', color: s.studentRoll ? '#1e293b' : '#ef4444' }}>{s.studentRoll || '[MISSING]'}</td>
+                              <td style={{ padding: '12px', color: '#64748b' }}>{s.optionalSubject || '-'}</td>
+                              <td style={{ padding: '12px', color: '#64748b' }}>{s.fatherMobile || '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button 
+                      onClick={handleImportCsvStudents} 
+                      disabled={isProcessingCsv}
+                      style={{ flex: 2, borderRadius: '16px', padding: '16px', background: '#059669', border: 'none', fontWeight: 800, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 10px rgba(5,150,105,0.2)' }}
+                    >
+                      {isProcessingCsv ? 'Importing...' : `Confirm & Import ${csvStudents.length} Students`}
+                    </button>
+                    <button 
+                      type="button" 
+                      disabled={isProcessingCsv}
+                      style={{ flex: 1, borderRadius: '16px', padding: '16px', background: '#f1f5f9', border: 'none', fontWeight: 700, color: '#475569', cursor: 'pointer' }} 
+                      onClick={() => { setShowCsvModal(false); setCsvStudents([]); }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* UNLOCK FINAL SUBMIT MODAL */}
+        {showUnlockModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+            <div style={{ background: '#fff', borderRadius: '32px', padding: '40px', width: '600px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900 }}>🔓 Unlock Subject Marks Entry</h3>
+                <button onClick={() => setShowUnlockModal(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b' }}>×</button>
+              </div>
+              <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
+                Below are the subjects that have been final-submitted by teachers. Unlocking a subject allows teachers to edit and save marks again.
+              </p>
+
+              {loadingSubmitted ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><div className="spinner" /></div>
+              ) : submittedAssignments.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', background: '#f8fafc', borderRadius: '24px', border: '1px dashed #e2e8f0', color: '#64748b', fontWeight: 700 }}>
+                  No subjects are currently locked/final submitted!
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                  {submittedAssignments.map((a: any) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f8fafc', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ minWidth: 0, flex: 1, marginRight: '16px' }}>
+                        <div style={{ fontWeight: 900, color: '#0f172a', fontSize: '15px' }}>{a.subject_name} ({a.subject_code})</div>
+                        <div style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 800, marginTop: '4px' }}>
+                          CLASS {a.class} • SECTION {a.section}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          Teacher: {a.teacher_name_en || 'Unknown'} ({a.teacher_email_id})
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleUnlockAssignment(a.id, a.subject_name)}
+                        style={{ padding: '8px 16px', borderRadius: '10px', background: '#fee2e2', border: 'none', color: '#ef4444', fontWeight: 800, cursor: 'pointer', transition: '0.2s', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        🔓 Unlock
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                  style={{ borderRadius: '16px', padding: '12px 24px', background: '#f1f5f9', border: 'none', fontWeight: 700, color: '#475569', cursor: 'pointer' }} 
+                  onClick={() => setShowUnlockModal(false)}
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

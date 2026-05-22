@@ -236,10 +236,10 @@ export default function TeacherSetupPage() {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', border: '1px solid #cbd5e1' }}>
               <thead>
                 <tr>
-                  <th style={{ ...thStyle, width: '280px', position: 'sticky', left: 0, zIndex: 5, background: '#f8fafc' }}>Subject</th>
+                  <th style={{ ...thStyle, width: '280px', position: 'sticky', left: 0, zIndex: 5, background: '#f8fafc', borderRight: '2px solid #cbd5e1' }}>Subject</th>
                   {uniqueClasses.map(cls => (
                     <th key={cls} style={thStyle}>Class {cls}</th>
                   ))}
@@ -248,7 +248,7 @@ export default function TeacherSetupPage() {
               <tbody>
                 {uniqueSubjects.map((sub, idx) => (
                   <tr key={sub.subject_code} style={{ background: idx % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                    <td style={{ ...tdStyle, fontWeight: 800, color: '#0f172a', position: 'sticky', left: 0, zIndex: 4, background: idx % 2 === 0 ? '#fff' : '#fafbfc', borderRight: '2px solid #f1f5f9' }}>
+                    <td style={{ ...tdStyle, fontWeight: 800, color: '#0f172a', position: 'sticky', left: 0, zIndex: 4, background: idx % 2 === 0 ? '#fff' : '#fafbfc', borderRight: '2px solid #cbd5e1' }}>
                       <div style={{ fontSize: '14px', marginBottom: '2px' }}>{sub.subject_name}</div>
                       <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em' }}>CODE: {sub.subject_code}</div>
                     </td>
@@ -386,7 +386,7 @@ export default function TeacherSetupPage() {
   )
 }
 
-const thStyle: React.CSSProperties = { padding: '20px', background: '#f8fafc', borderBottom: '2px solid #f1f5f9', fontSize: '12px', fontWeight: 800, color: '#64748b', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.05em' }
-const tdStyle: React.CSSProperties = { padding: '16px 20px', borderBottom: '1px solid #f1f5f9', verticalAlign: 'top' }
+const thStyle: React.CSSProperties = { padding: '20px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', borderRight: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 800, color: '#64748b', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.05em' }
+const tdStyle: React.CSSProperties = { padding: '16px 20px', borderBottom: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', verticalAlign: 'top' }
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }
 const inputStyle: React.CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', fontWeight: 600, background: '#f8fafc', outline: 'none', boxSizing: 'border-box' }

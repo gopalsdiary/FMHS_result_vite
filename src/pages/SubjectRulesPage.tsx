@@ -18,6 +18,29 @@ interface SubjectRule {
   exam_class: any[] // JSONB column
 }
 
+const STANDARD_SUBJECTS = [
+  { name: 'Bangla 1st Paper', code: '101' },
+  { name: 'Bangla 2nd Paper', code: '102' },
+  { name: 'English 1st Paper', code: '107' },
+  { name: 'English 2nd Paper', code: '108' },
+  { name: 'Mathematics', code: '109' },
+  { name: 'Religion', code: '111' },
+  { name: 'Science', code: '127' },
+  { name: 'ICT', code: '154' },
+  { name: 'Bangladesh And Global Studies', code: '150' },
+  { name: 'History', code: '140' },
+  { name: 'Geography', code: '110' },
+  { name: 'Civics', code: '141' },
+  { name: 'Physics', code: '136' },
+  { name: 'Chemistry', code: '137' },
+  { name: 'Biology', code: '138' },
+  { name: 'Higher Mathematics', code: '126' },
+  { name: 'Accounting', code: '146' },
+  { name: 'Finance And Banking', code: '152' },
+  { name: 'Business Entrepreneurship', code: '143' },
+  { name: 'Agriculture', code: '134' }
+]
+
 export default function SubjectRulesPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -30,6 +53,7 @@ export default function SubjectRulesPage() {
   const [masterSubjects, setMasterSubjects] = useState<{ name: string; code: string }[]>([])
   const [enrolledClasses, setEnrolledClasses] = useState<number[]>([])
   const [allSectionsByClass, setAllSectionsByClass] = useState<Record<number, string[]>>({})
+  const [isCustomSelected, setIsCustomSelected] = useState(false)
 
   // State for adding/editing a subject
   const initialClasses = (baseClasses: number[]) => baseClasses.map(c => ({ 
@@ -103,7 +127,7 @@ export default function SubjectRulesPage() {
   }
 
   function handleSubjectNameChange(name: string) {
-    const found = masterSubjects.find(s => s.name === name)
+    const found = masterSubjects.find(s => s.name === name) || STANDARD_SUBJECTS.find(s => s.name === name)
     setNewSub({
       ...newSub,
       subject_name: name,
@@ -161,6 +185,8 @@ export default function SubjectRulesPage() {
 
   function openEdit(r: SubjectRule) {
     setEditId(r.id)
+    const isStd = STANDARD_SUBJECTS.some(s => s.name === r.subject_name)
+    setIsCustomSelected(!isStd)
     setNewSub({
       subject_code: r.subject_code,
       subject_name: r.subject_name,
@@ -216,7 +242,7 @@ export default function SubjectRulesPage() {
           <p style={{ margin: 0, fontSize: '11px', color: '#ec4899', fontWeight: 800 }}>{examName.toUpperCase()}</p>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
-          <button onClick={() => { setEditId(null); setNewSub({ ...newSub, subject_code: '', subject_name: '', classes: initialClasses(enrolledClasses) }); setIsModalOpen(true); }} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '14px', fontWeight: 900, cursor: 'pointer', fontSize: '13px' }}>+ Add Subject Config</button>
+          <button onClick={() => { setEditId(null); setIsCustomSelected(false); setNewSub({ ...newSub, subject_code: '', subject_name: '', classes: initialClasses(enrolledClasses) }); setIsModalOpen(true); }} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '14px', fontWeight: 900, cursor: 'pointer', fontSize: '13px' }}>+ Add Subject Config</button>
         </div>
       </header>
 
@@ -224,17 +250,17 @@ export default function SubjectRulesPage() {
         <div style={{ background: '#fff', borderRadius: '32px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' }}>
           {loading ? <div style={{ padding: '100px', textAlign: 'center' }}><div className="spinner" /></div> : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1' }}>
                 <thead>
                   <tr>
-                    <th style={{ ...thStyle, width: '220px', background: '#f8fafc', position: 'sticky', left: 0, zIndex: 5 }}>SUBJECT</th>
+                    <th style={{ ...thStyle, width: '220px', background: '#f8fafc', position: 'sticky', left: 0, zIndex: 5, borderRight: '2px solid #cbd5e1' }}>SUBJECT</th>
                     {enrolledClasses.map(c => <th key={c} style={thStyle}>Class {c}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {rules.map((rule, idx) => (
                     <tr key={rule.id} style={{ background: idx % 2 === 0 ? '#fff' : '#fafbfc' }}>
-                      <td style={{ ...tdStyle, fontWeight: 900, position: 'sticky', left: 0, zIndex: 4, background: idx % 2 === 0 ? '#fff' : '#fafbfc', borderRight: '2px solid #f1f5f9' }}>
+                      <td style={{ ...tdStyle, fontWeight: 900, position: 'sticky', left: 0, zIndex: 4, background: idx % 2 === 0 ? '#fff' : '#fafbfc', borderRight: '2px solid #cbd5e1' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <div>
                             <div style={{ fontSize: '15px' }}>{rule.subject_name}</div>
@@ -300,7 +326,39 @@ export default function SubjectRulesPage() {
             <form onSubmit={saveSubject}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginBottom: '20px' }}>
                 <div><label style={labelStyle}>Code</label><input style={inputStyle} value={newSub.subject_code} onChange={e => setNewSub({ ...newSub, subject_code: e.target.value })} required /></div>
-                <div><label style={labelStyle}>Subject Name</label><input list="master-subjects" style={inputStyle} value={newSub.subject_name} onChange={e => handleSubjectNameChange(e.target.value)} required /><datalist id="master-subjects">{masterSubjects.map(s => <option key={s.name} value={s.name} />)}</datalist></div>
+                <div>
+                  <label style={labelStyle}>Subject Name</label>
+                  <select 
+                    style={inputStyle} 
+                    value={isCustomSelected ? 'Custom' : newSub.subject_name} 
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === 'Custom') {
+                        setIsCustomSelected(true);
+                        setNewSub({ ...newSub, subject_name: '' });
+                      } else {
+                        setIsCustomSelected(false);
+                        handleSubjectNameChange(val);
+                      }
+                    }}
+                    required
+                  >
+                    <option value="">-- Select Subject --</option>
+                    {STANDARD_SUBJECTS.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+                    <option value="Custom">Custom / Other Subject...</option>
+                  </select>
+                  
+                  {isCustomSelected && (
+                    <input
+                      type="text"
+                      placeholder="Enter Custom Subject Name"
+                      style={{ ...inputStyle, marginTop: '8px' }}
+                      value={newSub.subject_name}
+                      onChange={e => setNewSub({ ...newSub, subject_name: e.target.value })}
+                      required
+                    />
+                  )}
+                </div>
               </div>
               <div style={{ marginBottom: '24px' }}>
                 <label style={labelStyle}>Apply to Classes</label>
@@ -327,8 +385,8 @@ export default function SubjectRulesPage() {
   )
 }
 
-const thStyle: React.CSSProperties = { padding: '16px 20px', fontSize: '11px', fontWeight: 900, color: '#64748b', textAlign: 'left', borderBottom: '2px solid #f1f5f9', textTransform: 'uppercase' }
-const tdStyle: React.CSSProperties = { padding: '16px 20px', borderBottom: '1px solid #f1f5f9', verticalAlign: 'top' }
+const thStyle: React.CSSProperties = { padding: '16px 20px', fontSize: '11px', fontWeight: 900, color: '#64748b', textAlign: 'left', borderBottom: '2px solid #cbd5e1', borderRight: '1px solid #cbd5e1', textTransform: 'uppercase' }
+const tdStyle: React.CSSProperties = { padding: '16px 20px', borderBottom: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', verticalAlign: 'top' }
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase' }
 const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', fontWeight: 600, background: '#f8fafc', boxSizing: 'border-box' }
 const overlayStyle: React.CSSProperties = { position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }

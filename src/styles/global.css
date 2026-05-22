@@ -138,3 +138,253 @@ tbody tr:hover { background: rgba(102,126,234,0.04); }
   body { background: #fff; }
 }
 
+/* ── Teacher Grade Entry Responsive Styles ────────────────────────────── */
+.responsive-header {
+  background: #fff;
+  padding: 16px 40px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.responsive-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.top-controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.switcher-container {
+  flex: 1;
+  min-width: 0;
+}
+
+.premium-select {
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  cursor: pointer;
+  outline: none;
+  padding: 8px 16px;
+  border-radius: 12px;
+  max-width: 100%;
+  width: auto;
+  text-overflow: ellipsis;
+  transition: all 0.2s ease;
+}
+
+.premium-select:hover {
+  border-color: #ec4899;
+  background: #fff;
+}
+
+.responsive-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.main-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px;
+  transition: all 0.3s ease;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stats-card {
+  background: #fff;
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.01);
+  transition: all 0.2s ease;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+}
+
+.table-wrapper {
+  background: #fff;
+  border-radius: 32px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.responsive-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.responsive-table tbody tr:hover {
+  background: #fdf2f8 !important; /* Premium subtle pink highlight on hover */
+}
+
+/* Mobile responsive styles */
+@media screen and (max-width: 768px) {
+  .responsive-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 12px 16px !important;
+    position: static !important;
+    box-shadow: none !important;
+  }
+  
+  .responsive-header-left {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  
+  .top-controls {
+    display: flex !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  
+  .top-controls button {
+    flex: 1 !important;
+    text-align: center !important;
+    padding: 10px !important;
+    font-size: 12px !important;
+    height: 42px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .switcher-container {
+    width: 100% !important;
+  }
+  
+  .premium-select {
+    width: 100% !important;
+    font-size: 0.95rem !important;
+    padding: 10px 12px !important;
+    height: 42px !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important;
+  }
+  
+  .responsive-header-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  
+  .responsive-header-actions button, 
+  .responsive-header-actions span {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    font-size: 11px !important;
+    padding: 8px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+  }
+  
+  .save-all-btn {
+    grid-column: span 2 !important;
+    height: 44px !important;
+    font-size: 13px !important;
+    margin-top: 4px !important;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    margin-bottom: 20px !important;
+  }
+  
+  .stats-card {
+    padding: 12px 8px !important;
+    border-radius: 16px !important;
+  }
+  
+  .stats-card-value {
+    font-size: 1.4rem !important;
+  }
+  
+  .main-container {
+    padding: 12px 8px !important;
+  }
+  
+  .table-wrapper {
+    border-radius: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Horizontal scroll logic */
+  .responsive-table.with-details {
+    width: auto !important;
+    min-width: 640px !important;
+    table-layout: auto !important;
+  }
+  
+  .responsive-table.no-details {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+  }
+  
+  .responsive-table th {
+    padding: 8px 2px !important;
+    font-size: 9px !important;
+  }
+  
+  .responsive-table td {
+    padding: 6px 1px !important;
+    font-size: 11px !important;
+  }
+  
+  .responsive-table input {
+    width: 42px !important;
+    padding: 5px 2px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+  }
+  
+  .action-cell button {
+    padding: 5px 4px !important;
+    font-size: 8.5px !important;
+    border-radius: 6px !important;
+  }
+}
+
