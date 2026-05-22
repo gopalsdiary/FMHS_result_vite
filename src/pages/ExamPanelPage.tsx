@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
-import { processExamResults } from '@/services/resultProcessor'
 
 
 
@@ -80,7 +79,6 @@ export default function ExamPanelPage() {
   const [gridClass, setGridClass] = useState('')
   const [gridSection, setGridSection] = useState('')
   const [availableClasses, setAvailableClasses] = useState<string[]>([])
-  const [availableSections, setAvailableSections] = useState<string[]>([])
   const [classSectionsMap, setClassSectionsMap] = useState<Record<string, string[]>>({})
   const [filterSubject, setFilterSubject] = useState('')
   const [sourceYear, setSourceYear] = useState<string>('')
@@ -305,7 +303,6 @@ export default function ExamPanelPage() {
 
     if (rows.length > 0) {
       setAvailableClasses(Array.from(new Set(rows.map(r => String(r.class)))).sort((a,b) => Number(a)-Number(b)))
-      setAvailableSections(Array.from(new Set(rows.map(r => String(r.section)))).sort())
 
       // Build class-to-sections mapping dynamically
       const mapping: Record<string, Set<string>> = {}
@@ -549,21 +546,6 @@ export default function ExamPanelPage() {
     setTimeout(() => setStatus(''), 3000)
   }
 
-  async function handleProcessResults() {
-    if (!confirm('This will recalculate all Totals and GPAs for EVERY student in this exam. Continue?')) return
-    setLoading(true)
-    setStatus('⚡ Processing started...')
-    try {
-      const count = await processExamResults(Number(id), (msg) => setStatus(msg))
-      setStatus(`✅ Successfully processed ${count} students!`)
-      loadMarks()
-      loadReportSummary()
-    } catch (e: any) {
-      alert(e.message)
-      setStatus('❌ Processing failed.')
-    }
-    setLoading(false)
-  }
 
   async function loadSubmittedAssignments() {
     setLoadingSubmitted(true)
