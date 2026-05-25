@@ -10,6 +10,7 @@ interface Exam {
   year: number
   is_live: boolean
   teacher_entry_enabled: boolean
+  student_result_live: boolean
   class_6: number
   class_7: number
   class_8: number
@@ -583,10 +584,27 @@ export default function ExamPanelPage() {
   }
 
 
-  async function toggleStatus(field: 'is_live' | 'teacher_entry_enabled', current: boolean) {
-    const { error } = await supabase.from('FMHS_exams_names').update({ [field]: !current }).eq('id', id)
-    if (error) alert(error.message)
-    else loadExamData()
+  async function toggleStatus(field: 'is_live' | 'teacher_entry_enabled' | 'student_result_live', current: boolean) {
+    if (!exam) return
+
+    // 1. Optimistic local update for instantaneous response
+    const updatedValue = !current
+    setExam(prev => prev ? { ...prev, [field]: updatedValue } : null)
+
+    // 2. Database update in background
+    const { error } = await supabase.from('FMHS_exams_names').update({ [field]: updatedValue }).eq('id', id)
+    
+    if (error) {
+      alert(error.message)
+      // Revert state if the database update failed
+      setExam(prev => prev ? { ...prev, [field]: current } : null)
+    } else {
+      // Quiet background refresh to keep state robust and verified
+      const { data: ex } = await supabase.from('FMHS_exams_names').select('*').eq('id', id).single()
+      if (ex) {
+        setExam(ex)
+      }
+    }
   }
 
   async function saveClassCounts() {
@@ -1033,15 +1051,97 @@ export default function ExamPanelPage() {
                   <div style={{ padding: '32px', borderRadius: '24px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                     <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '8px' }}>LIVE PORTAL STATUS</div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '1.4rem', fontWeight: 900, color: exam?.is_live ? '#059669' : '#f43f5e' }}>{exam?.is_live ? 'ACTIVE' : 'OFFLINE'}</span>
-                      <button onClick={() => toggleStatus('is_live', !!exam?.is_live)} style={{ padding: '8px 16px', borderRadius: '10px', background: exam?.is_live ? '#fee2e2' : '#dcfce7', border: 'none', color: exam?.is_live ? '#ef4444' : '#15803d', fontWeight: 800 }}>{exam?.is_live ? 'PAUSE' : 'START'}</button>
+                      <span style={{ fontSize: '1.4rem', fontWeight: 900, color: exam?.is_live ? '#059669' : '#f43f5e', transition: 'color 0.2s ease' }}>{exam?.is_live ? 'ACTIVE' : 'OFFLINE'}</span>
+                      <div 
+                        onClick={() => toggleStatus('is_live', !!exam?.is_live)} 
+                        style={{ 
+                          width: '56px', 
+                          height: '30px', 
+                          borderRadius: '999px', 
+                          background: exam?.is_live ? '#10b981' : '#cbd5e1', 
+                          padding: '3px', 
+                          cursor: 'pointer', 
+                          position: 'relative', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)'
+                        }}
+                      >
+                        <div style={{ 
+                          width: '24px', 
+                          height: '24px', 
+                          borderRadius: '50%', 
+                          background: '#fff', 
+                          position: 'absolute', 
+                          left: exam?.is_live ? '29px' : '3px', 
+                          top: '3px', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
                     </div>
                   </div>
                   <div style={{ padding: '32px', borderRadius: '24px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                     <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '8px' }}>TEACHER ENTRY ACCESS</div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '1.4rem', fontWeight: 900, color: exam?.teacher_entry_enabled ? '#4f46e5' : '#64748b' }}>{exam?.teacher_entry_enabled ? 'ENABLED' : 'DISABLED'}</span>
-                      <button onClick={() => toggleStatus('teacher_entry_enabled', !!exam?.teacher_entry_enabled)} style={{ padding: '8px 16px', borderRadius: '10px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 800 }}>TOGGLE</button>
+                      <span style={{ fontSize: '1.4rem', fontWeight: 900, color: exam?.teacher_entry_enabled ? '#4f46e5' : '#64748b', transition: 'color 0.2s ease' }}>{exam?.teacher_entry_enabled ? 'ENABLED' : 'DISABLED'}</span>
+                      <div 
+                        onClick={() => toggleStatus('teacher_entry_enabled', !!exam?.teacher_entry_enabled)} 
+                        style={{ 
+                          width: '56px', 
+                          height: '30px', 
+                          borderRadius: '999px', 
+                          background: exam?.teacher_entry_enabled ? '#4f46e5' : '#cbd5e1', 
+                          padding: '3px', 
+                          cursor: 'pointer', 
+                          position: 'relative', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)'
+                        }}
+                      >
+                        <div style={{ 
+                          width: '24px', 
+                          height: '24px', 
+                          borderRadius: '50%', 
+                          background: '#fff', 
+                          position: 'absolute', 
+                          left: exam?.teacher_entry_enabled ? '29px' : '3px', 
+                          top: '3px', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ padding: '32px', borderRadius: '24px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '8px' }}>STUDENT ACCESS</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '1.4rem', fontWeight: 900, color: exam?.student_result_live ? '#059669' : '#f43f5e', transition: 'color 0.2s ease' }}>{exam?.student_result_live ? 'PUBLISHED' : 'HIDDEN'}</span>
+                      <div 
+                        onClick={() => toggleStatus('student_result_live', !!exam?.student_result_live)} 
+                        style={{ 
+                          width: '56px', 
+                          height: '30px', 
+                          borderRadius: '999px', 
+                          background: exam?.student_result_live ? '#059669' : '#cbd5e1', 
+                          padding: '3px', 
+                          cursor: 'pointer', 
+                          position: 'relative', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)'
+                        }}
+                      >
+                        <div style={{ 
+                          width: '24px', 
+                          height: '24px', 
+                          borderRadius: '50%', 
+                          background: '#fff', 
+                          position: 'absolute', 
+                          left: exam?.student_result_live ? '29px' : '3px', 
+                          top: '3px', 
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
                     </div>
                   </div>
                   <div style={{ padding: '32px', borderRadius: '24px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
