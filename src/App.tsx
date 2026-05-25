@@ -27,7 +27,7 @@ import GradeEntry2Page from './pages/GradeEntry2Page'
 import GradeManagementPage from './pages/GradeManagementPage'
 
 // Student pages
-import StudentDetailsPage from './pages/StudentDetailsPage'
+import StudentDetailsPage from './pages/StudentDetailsPageNew'
 import StudentDetailsAccessPage from './pages/StudentDetailsAccessPage'
 import StudentManagementPage from './pages/StudentManagementPage'
 import DataListPage from './pages/DataListPage'

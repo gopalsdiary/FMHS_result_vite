@@ -26,7 +26,7 @@ function pickVal(row: Record<string, unknown>, candidates: string[]): string {
   return ''
 }
 
-export default function StudentDetailsPage() {
+export default function StudentDetailsPageNew() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const iid = searchParams.get('IID') ?? ''
@@ -132,19 +132,31 @@ export default function StudentDetailsPage() {
     const h2p = window.html2pdf
     if (!h2p) return
 
+    element.classList.add('generating-pdf')
+
     const opt = {
       margin: [5, 5, 5, 5],
       filename: `Result_${(info?.name || 'Student').replace(/\s+/g, '_')}_${info?.iid || ''}.pdf`,
-      image: { type: 'jpeg', quality: 1 },
+      image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { 
         scale: 2, 
         useCORS: true, 
         letterRendering: true,
         width: 800 // Force width to match the component's maxWidth for consistent scaling
       },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: 'avoid-all' }
     }
-    h2p().from(element).set(opt).save()
+    setTimeout(() => {
+      h2p().from(element).set(opt).save()
+        .then(() => {
+          element.classList.remove('generating-pdf')
+        })
+        .catch((err: unknown) => {
+          console.error('PDF generation error:', err)
+          element.classList.remove('generating-pdf')
+        })
+    }, 150)
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: '60px' }}><div className="spinner" /></div>
@@ -154,6 +166,7 @@ export default function StudentDetailsPage() {
       <button className="btn btn-primary" onClick={() => navigate(-1)}>← Back</button>
     </div>
   )
+
   const classNameClean = String(info?.className || '').trim()
   const isClass6to8 = ['6', '7', '8', 'six', 'seven', 'eight', 'class_6', 'class_7', 'class_8'].some(c => classNameClean.toLowerCase().includes(c))
   const header1 = isClass6to8 ? 'WRITTEN' : 'CQ'
@@ -240,7 +253,7 @@ export default function StudentDetailsPage() {
             text-align: center; 
             background-color: #22c55e; /* Vibrant Green Header */
             text-transform: uppercase;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid #e2e8f0;
           }
           .marks-table th.subject-col { 
             background-color: #1d82e2; /* Bright Blue Header */
@@ -255,7 +268,7 @@ export default function StudentDetailsPage() {
             text-align: center; 
             background-color: #fffdf4; /* Creamy yellow background */
             color: #334155;
-            border: 2px solid #fff; /* White grid gaps */
+            border: 1px solid #e2e8f0; /* Light grid borders */
           }
           .marks-table td.subject-name { 
             color: #1d4ed8; /* Indigo/blue subject name */
@@ -281,6 +294,61 @@ export default function StudentDetailsPage() {
           .qr-box { border: 1px solid #e2e8f0; padding: 8px; display: inline-block; background: #fff; borderRadius: 12px; }
           .qr-text { font-size: 11px; color: #64748b; margin-bottom: 6px; }
           .scan-verify { font-size: 10px; text-align: center; margin-top: 4px; font-weight: 700; color: #475569; text-transform: uppercase; }
+
+          /* PDF generation overrides to fit on one page */
+          .generating-pdf {
+            box-shadow: none !important;
+            margin: 0 auto !important;
+            width: 100% !important;
+            max-width: 800px !important;
+            border-radius: 0 !important;
+            padding: 25px 35px !important;
+            border: none !important;
+          }
+          .generating-pdf .no-print {
+            display: none !important;
+          }
+          .generating-pdf .student-name {
+            font-size: 20px !important;
+            margin-bottom: 6px !important;
+          }
+          .generating-pdf .student-details {
+            margin-bottom: 15px !important;
+            font-size: 12.5px !important;
+            gap: 8px 24px !important;
+            padding-bottom: 10px !important;
+          }
+          .generating-pdf .marks-table {
+            margin-bottom: 15px !important;
+          }
+          .generating-pdf .marks-table th,
+          .generating-pdf .marks-table td {
+            padding: 10px 10px !important;
+            font-size: 12px !important;
+          }
+          .generating-pdf .summary-bar {
+            margin-bottom: 18px !important;
+            padding: 10px 16px !important;
+            border-radius: 12px !important;
+            border: 1px solid #dbeafe !important;
+            background: #f0f7ff !important;
+          }
+          .generating-pdf .summary-value {
+            font-size: 15px !important;
+          }
+          .generating-pdf .qr-section {
+            margin-top: 15px !important;
+          }
+          .generating-pdf .qr-box img {
+            width: 95px !important;
+            height: 95px !important;
+          }
+          .generating-pdf .scan-verify {
+            font-size: 10px !important;
+          }
+          .generating-pdf .qr-text {
+            font-size: 11px !important;
+          }
         `}</style>
 
         <div className="no-print">
@@ -386,20 +454,6 @@ export default function StudentDetailsPage() {
                 <img ref={qrRef} alt="QR Code" style={{ width: '100px', height: '100px' }} />
               </div>
               <div className="scan-verify">Scan to Verify</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}�ে অনুপস্থিত থাকলে হাজিরা বহিতে নাম কাটা যাবে।
-              </p>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div className="qr-box">
-                <img ref={qrRef} alt="QR Code" style={{ width: '120px', height: '120px' }} />
-              </div>
-              <div className="scan-verify">Scan for verify</div>
             </div>
           </div>
         </div>
