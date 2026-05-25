@@ -29,8 +29,28 @@ function pickVal(row: Record<string, unknown>, candidates: string[]): string {
 export default function StudentDetailsPageNew() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const iid = searchParams.get('IID') ?? ''
-  const examId = searchParams.get('examID')
+
+  // Support both standard format (?IID=xxx&examID=yyy) and compact format (?xxx&yyy)
+  const getIidAndExamId = () => {
+    let parsedIid = searchParams.get('IID') ?? ''
+    let parsedExamId = searchParams.get('examID')
+
+    if (!parsedIid) {
+      const searchStr = window.location.search.substring(1)
+      if (searchStr && !searchStr.includes('=')) {
+        const parts = searchStr.split('&')
+        if (parts[0]) {
+          parsedIid = decodeURIComponent(parts[0])
+        }
+        if (parts[1]) {
+          parsedExamId = decodeURIComponent(parts[1])
+        }
+      }
+    }
+    return { iid: parsedIid, examId: parsedExamId }
+  }
+
+  const { iid, examId } = getIidAndExamId()
   const [info, setInfo] = useState<StudentInfo | null>(null)
   const [subjects, setSubjects] = useState<SubjectRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,7 +121,7 @@ export default function StudentDetailsPageNew() {
     if (!info || !qrRef.current) return
     const generateQR = async () => {
       try {
-        const qrUrl = `${window.location.origin}/student-details?IID=${encodeURIComponent(iid)}${examId ? `&examID=${examId}` : ''}`
+        const qrUrl = `https://app.fmhs.edu.bd/student-details?${encodeURIComponent(iid)}${examId ? `&${encodeURIComponent(examId)}` : ''}`
         const dataUrl = await QRCode.toDataURL(qrUrl, { width: 150, margin: 1 })
         if (qrRef.current) qrRef.current.src = dataUrl
       } catch (err) {
