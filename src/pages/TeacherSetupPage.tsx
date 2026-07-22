@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 
+interface Teacher { iid: number; teacher_name_en: string; teacher_name_bn: string; teacher_email_id: string }
 interface ExamSubject { 
   id: number; 
   subject_code: string; 

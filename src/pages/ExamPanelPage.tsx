@@ -34,6 +34,7 @@ interface SubjectRule {
   total_cq: number
   total_mcq: number
   total_practical: number
+  exam_class?: any[]
 }
 
 interface StudentRow { [key: string]: unknown }
