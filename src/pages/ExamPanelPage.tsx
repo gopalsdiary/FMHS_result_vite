@@ -1252,24 +1252,34 @@ export default function ExamPanelPage() {
                     </div>
                     <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Set the total number of subjects to divide by when calculating the final GPA for each class.</p>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '20px' }}>
-                      {[6, 7, 8, 9, 10, 11, 12].map(c => (
-                        <div key={c} style={{ background: isEditingCounts ? '#fff' : '#f8fafc', padding: '16px', borderRadius: '20px', border: isEditingCounts ? '2px solid #4f46e5' : '1px solid #e2e8f0', transition: '0.2s' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '8px', textAlign: 'center' }}>CLASS {c}</div>
-                          {isEditingCounts ? (
-                            <input 
-                              type="number" 
-                              className="form-control" 
-                              style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}
-                              value={draftCounts[c] || 0}
-                              onChange={(e) => setDraftCounts({ ...draftCounts, [c]: Number(e.target.value) })}
-                            />
-                          ) : (
-                            <div style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.5rem', color: '#1e293b' }}>
-                              {exam ? (exam as any)[`class_${c}`] : 0}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                      {(() => {
+                        const activeClasses = (availableClasses.length > 0 
+                          ? availableClasses.map(Number)
+                          : (subjectRules.length > 0
+                              ? Array.from(new Set(subjectRules.flatMap(r => (r.exam_class || []).filter((c: any) => c.selected).map((c: any) => Number(c.class))))).filter(n => !isNaN(n) && n > 0)
+                              : [6, 7, 8, 9, 10, 11, 12]
+                            )
+                        ).sort((a, b) => a - b)
+
+                        return activeClasses.map(c => (
+                          <div key={c} style={{ background: isEditingCounts ? '#fff' : '#f8fafc', padding: '16px', borderRadius: '20px', border: isEditingCounts ? '2px solid #4f46e5' : '1px solid #e2e8f0', transition: '0.2s' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '8px', textAlign: 'center' }}>CLASS {c}</div>
+                            {isEditingCounts ? (
+                              <input 
+                                type="number" 
+                                className="form-control" 
+                                style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}
+                                value={draftCounts[c] || 0}
+                                onChange={(e) => setDraftCounts({ ...draftCounts, [c]: Number(e.target.value) })}
+                              />
+                            ) : (
+                              <div style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.5rem', color: '#1e293b' }}>
+                                {exam ? (exam as any)[`class_${c}`] : 0}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      })()}
                     </div>
                   </div>
                 </div>

@@ -5,7 +5,7 @@ import { supabase } from '@/services/supabaseClient'
 interface Teacher { iid: number; teacher_name_en: string; teacher_name_bn: string; teacher_email_id: string }
 interface ExamSubject { id: number; subject_code: string; subject_name: string; exam_class?: any[] }
 interface Assignment {
-  id: number;
+  id?: number;
   subject_code: string;
   subject_name: string;
   class: number;
@@ -22,6 +22,17 @@ interface ClassSubjectRule {
   subject_code: string
   subject_name: string
   sections: string[]
+}
+
+interface TableRowItem {
+  class: number
+  section: string
+  subject_code: string
+  subject_name: string
+  subjectIndex: number
+  isFirstInGroup: boolean
+  groupRowSpan: number
+  isLastInGroup: boolean
 }
 
 export default function TeacherSetupPage() {
@@ -42,6 +53,7 @@ export default function TeacherSetupPage() {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [status, setStatus] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [viewMode, setViewMode] = useState<'table' | 'matrix'>('table')
 
   const [form, setForm] = useState({
     teacher_iid: '',
@@ -161,6 +173,40 @@ export default function TeacherSetupPage() {
     }))
   }
 
+  function handleTeacherSelect(cls: number, sec: string, subCode: string, subName: string, teacherEmail: string) {
+    if (!teacherEmail) {
+      setAssignments(prev => prev.filter(
+        a => !(a.class === cls && a.section === sec && String(a.subject_code) === String(subCode))
+      ))
+      setIsDirty(true)
+      return
+    }
+
+    const t = teachers.find(t => t.teacher_email_id === teacherEmail)
+    if (!t) return
+
+    const newAssignment: Assignment = {
+      id: Date.now(),
+      exam_id: Number(examId),
+      teacher_email_id: t.teacher_email_id,
+      teacher_name_en: t.teacher_name_en,
+      teacher_name_bn: t.teacher_name_bn || '',
+      class: Number(cls),
+      section: sec,
+      subject_name: subName,
+      subject_code: String(subCode),
+      comment: '',
+    }
+
+    setAssignments(prev => {
+      const filtered = prev.filter(
+        a => !(a.class === cls && a.section === sec && String(a.subject_code) === String(subCode))
+      )
+      return [...filtered, newAssignment]
+    })
+    setIsDirty(true)
+  }
+
   function saveAssignmentLocally(e: React.FormEvent) {
     e.preventDefault()
     if (!form.teacher_email_id || !form.subject_code || !form.class || !form.section) {
@@ -257,6 +303,57 @@ export default function TeacherSetupPage() {
     ? examSubjects.filter(s => classRulesForMatrix.some(r => String(r.subject_code) === String(s.subject_code)))
     : examSubjects
 
+  // Compute table rows for Table view (Grouped by Class - Section)
+  const tableRows: TableRowItem[] = []
+  uniqueClasses.forEach(cls => {
+    const secList = sectionsByClass[cls] || []
+    const classRules = classRulesForMatrix.filter(r => r.class === cls)
+
+    secList.forEach(sec => {
+      const secSubRows: { subject_code: string; subject_name: string }[] = []
+
+      uniqueSubjects.forEach(sub => {
+        const ruleConfig = classRules.find(r => String(r.subject_code) === String(sub.subject_code))
+        const isMapped = !!ruleConfig
+        
+        let isSecAllowed = false
+        if (isMapped) {
+          if (!ruleConfig.sections || ruleConfig.sections.length === 0) {
+            isSecAllowed = true
+          } else {
+            isSecAllowed = ruleConfig.sections.includes(sec)
+          }
+        }
+
+        const hasAssign = assignments.some(a => a.class === cls && a.section === sec && String(a.subject_code) === String(sub.subject_code))
+
+        if (isSecAllowed || hasAssign) {
+          secSubRows.push({
+            subject_code: String(sub.subject_code),
+            subject_name: sub.subject_name
+          })
+        }
+      })
+
+      const groupTotal = secSubRows.length
+      secSubRows.forEach((r, idx) => {
+        const isFirstInGroup = idx === 0
+        const isLastInGroup = idx === groupTotal - 1
+
+        tableRows.push({
+          class: cls,
+          section: sec,
+          subject_code: r.subject_code,
+          subject_name: r.subject_name,
+          subjectIndex: idx + 1,
+          isFirstInGroup,
+          groupRowSpan: groupTotal,
+          isLastInGroup
+        })
+      })
+    })
+  })
+
   if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}><div className="spinner" /></div>
 
   const isMatrixEmpty = uniqueClasses.length === 0 || uniqueSubjects.length === 0
@@ -266,7 +363,7 @@ export default function TeacherSetupPage() {
       <header style={{ background: '#fff', padding: '16px 40px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={handleBack} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: '12px', padding: '8px 16px', cursor: 'pointer', fontWeight: 700 }}>← Back</button>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900 }}>👩‍🏫 Teacher Assignments Matrix</h1>
+          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900 }}>👩‍🏫 Teacher Access Control</h1>
           <p style={{ margin: 0, fontSize: '11px', color: '#ec4899', fontWeight: 800 }}>{examName.toUpperCase()}</p>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -275,6 +372,13 @@ export default function TeacherSetupPage() {
               ✓ Save Successful!
             </span>
           )}
+
+          <button 
+            onClick={() => setViewMode(v => v === 'table' ? 'matrix' : 'table')}
+            style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', padding: '10px 16px', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', fontSize: '12px' }}
+          >
+            {viewMode === 'table' ? '▦ Grid Matrix View' : '📋 List Table View'}
+          </button>
           
           <button 
             onClick={handleSaveChanges} 
@@ -324,7 +428,93 @@ export default function TeacherSetupPage() {
                 Go to Subject Rules
               </button>
             </div>
+          ) : viewMode === 'table' ? (
+            /* ── NEW COMPACT TABLE VIEW LAYOUT ── */
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #cbd5e1' }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{ ...thTableStyle, width: '180px' }}>Class - Section</th>
+                    <th style={{ ...thTableStyle, textAlign: 'left' }}>Subject name</th>
+                    <th style={{ ...thTableStyle, textAlign: 'left', width: '280px' }}>Teacher access</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row, idx) => {
+                    const currentAssign = assignments.find(
+                      a => a.class === row.class && a.section === row.section && String(a.subject_code) === String(row.subject_code)
+                    )
+
+                    return (
+                      <tr 
+                        key={`${row.class}-${row.section}-${row.subject_code}`} 
+                        style={{ 
+                          borderBottom: row.isLastInGroup ? '2px solid #94a3b8' : '1px solid #e2e8f0',
+                          background: idx % 2 === 0 ? '#fff' : '#fafbfc'
+                        }}
+                      >
+                        {row.isFirstInGroup && (
+                          <td 
+                            rowSpan={row.groupRowSpan} 
+                            style={{ 
+                              padding: '12px 14px', 
+                              borderRight: '1.5px solid #cbd5e1', 
+                              textAlign: 'center', 
+                              verticalAlign: 'middle', 
+                              background: '#f8fafc'
+                            }}
+                          >
+                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 900, fontSize: '15px', color: '#0f172a', lineHeight: 1 }}>Class {row.class}</span>
+                              <span style={{ background: '#e0e7ff', color: '#3730a3', fontSize: '11px', fontWeight: 800, padding: '2px 10px', borderRadius: '12px', letterSpacing: '0.03em' }}>{row.section}</span>
+                            </div>
+                          </td>
+                        )}
+
+                        <td style={{ padding: '8px 14px', borderRight: '1.5px solid #cbd5e1', verticalAlign: 'middle' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ background: '#f1f5f9', color: '#64748b', fontWeight: 800, fontSize: '11px', minWidth: '22px', height: '22px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {row.subjectIndex}
+                            </span>
+                            <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>{row.subject_name}</span>
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>({row.subject_code})</span>
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '6px 12px', verticalAlign: 'middle' }}>
+                          <select
+                            value={currentAssign?.teacher_email_id || ''}
+                            onChange={(e) => handleTeacherSelect(row.class, row.section, row.subject_code, row.subject_name, e.target.value)}
+                            style={{
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: '8px',
+                              border: currentAssign ? '1.5px solid #10b981' : '1px solid #cbd5e1',
+                              background: currentAssign ? '#f0fdf4' : '#fff',
+                              fontWeight: currentAssign ? 700 : 500,
+                              color: currentAssign ? '#15803d' : '#64748b',
+                              fontSize: '12px',
+                              outline: 'none',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <option value="">-- Choose Teacher --</option>
+                            {teachers.map(t => (
+                              <option key={t.iid || t.teacher_email_id} value={t.teacher_email_id}>
+                                {t.teacher_name_en} {t.teacher_name_bn ? `(${t.teacher_name_bn})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
+            /* ── GRID MATRIX VIEW ── */
             <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', border: '1px solid #cbd5e1' }}>
               <thead>
@@ -346,7 +536,6 @@ export default function TeacherSetupPage() {
                       const ruleConfig = classRulesForMatrix.find(r => r.class === cls && String(r.subject_code) === String(sub.subject_code))
                       const isMapped = !!ruleConfig
                       
-                      // Filter sections based on rule restrictions
                       let sections: string[] = []
                       if (isMapped) {
                         sections = sectionsByClass[cls] || []
@@ -354,7 +543,6 @@ export default function TeacherSetupPage() {
                           sections = sections.filter(s => ruleConfig.sections.includes(s))
                         }
                       } else {
-                        // If not mapped in Subject Rules, only include sections that already have a teacher assigned
                         const existingAssignSecs = assignments
                           .filter(a => a.class === cls && String(a.subject_code) === String(sub.subject_code))
                           .map(a => a.section)
@@ -490,6 +678,7 @@ export default function TeacherSetupPage() {
 }
 
 const thStyle: React.CSSProperties = { padding: '20px', background: '#f8fafc', borderBottom: '2px solid #cbd5e1', borderRight: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 800, color: '#64748b', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.05em' }
+const thTableStyle: React.CSSProperties = { padding: '10px 14px', background: '#f1f5f9', borderBottom: '2px solid #cbd5e1', borderRight: '1.5px solid #cbd5e1', fontSize: '12px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }
 const tdStyle: React.CSSProperties = { padding: '16px 20px', borderBottom: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', verticalAlign: 'top' }
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: '10px', fontWeight: 800, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }
 const inputStyle: React.CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '13px', fontWeight: 600, background: '#f8fafc', outline: 'none', boxSizing: 'border-box' }
