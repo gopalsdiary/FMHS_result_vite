@@ -38,6 +38,8 @@ export default function TeacherSetupPage() {
   const [examName, setExamName] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const [status, setStatus] = useState('')
   const [showModal, setShowModal] = useState(false)
 
@@ -54,6 +56,17 @@ export default function TeacherSetupPage() {
   })
 
   useEffect(() => { loadAll() }, [examId])
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
 
   async function loadAll() {
     setLoading(true)
@@ -120,20 +133,9 @@ export default function TeacherSetupPage() {
     // 6. All configured subjects (for row list)
     setExamSubjects((rulesData ?? []) as ExamSubject[])
 
+    setIsDirty(false)
     setLoading(false)
   }
-
-  // Realtime subscription
-  useEffect(() => {
-    if (!examId) return
-    const channel = supabase
-      .channel(`assignments-exam-${examId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'FMHS_exam_teacher_selection', filter: `exam_id=eq.${examId}` }, () => {
-        loadAll()
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [examId])
 
   function openAssignModal(cls: number, sec: string, subCode: string, subName: string) {
     setForm({
@@ -159,14 +161,15 @@ export default function TeacherSetupPage() {
     }))
   }
 
-  async function save(e: React.FormEvent) {
+  function saveAssignmentLocally(e: React.FormEvent) {
     e.preventDefault()
     if (!form.teacher_email_id || !form.subject_code || !form.class || !form.section) {
       setStatus('⚠️ All fields are required.')
       return
     }
-    setSaving(true)
-    const payload = {
+
+    const newAssignment: Assignment = {
+      id: Date.now(),
       exam_id: Number(examId),
       teacher_email_id: form.teacher_email_id,
       teacher_name_en: form.teacher_name_en,
@@ -174,21 +177,76 @@ export default function TeacherSetupPage() {
       class: Number(form.class),
       section: form.section,
       subject_name: form.subject_name,
-      subject_code: form.subject_code,
-      comment: form.comment,
+      subject_code: String(form.subject_code),
+      comment: form.comment || '',
     }
-    const { error } = await supabase.from('FMHS_exam_teacher_selection').insert(payload)
-    setSaving(false)
-    if (error) { setStatus('❌ ' + error.message); return }
-    
+
+    setAssignments(prev => {
+      const filtered = prev.filter(
+        a => !(a.class === newAssignment.class && a.section === newAssignment.section && String(a.subject_code) === newAssignment.subject_code)
+      )
+      return [...filtered, newAssignment]
+    })
+
+    setIsDirty(true)
     setShowModal(false)
-    loadAll()
   }
 
-  async function del(aId: number) {
-    if (!confirm('Delete this assignment?')) return
-    await supabase.from('FMHS_exam_teacher_selection').delete().eq('id', aId)
-    loadAll()
+  function delAssignmentLocally(cls: number, sec: string, subCode: string) {
+    setAssignments(prev => prev.filter(
+      a => !(a.class === cls && a.section === sec && String(a.subject_code) === String(subCode))
+    ))
+    setIsDirty(true)
+  }
+
+  async function handleSaveChanges() {
+    if (!examId) return
+    setSaving(true)
+    setStatus('')
+
+    try {
+      // 1. Delete current assignments for this exam
+      const { error: delError } = await supabase
+        .from('FMHS_exam_teacher_selection')
+        .delete()
+        .eq('exam_id', Number(examId))
+
+      if (delError) throw delError
+
+      // 2. Insert new assignments
+      if (assignments.length > 0) {
+        const payload = assignments.map(a => ({
+          exam_id: Number(examId),
+          teacher_email_id: a.teacher_email_id,
+          teacher_name_en: a.teacher_name_en,
+          teacher_name_bn: a.teacher_name_bn,
+          class: Number(a.class),
+          section: a.section,
+          subject_name: a.subject_name,
+          subject_code: String(a.subject_code),
+          comment: a.comment || '',
+        }))
+
+        const { error: insError } = await supabase
+          .from('FMHS_exam_teacher_selection')
+          .insert(payload)
+
+        if (insError) throw insError
+      }
+
+      setIsDirty(false)
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err: any) {
+      alert('❌ Save Error: ' + (err.message || 'Could not save changes'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleBack() {
+    if (isDirty && !confirm('You have unsaved changes. Leave without saving?')) return
+    navigate(`/exam-panel/${examId}`)
   }
 
   const uniqueClasses = classRulesForMatrix.length > 0 
@@ -204,15 +262,47 @@ export default function TeacherSetupPage() {
   const isMatrixEmpty = uniqueClasses.length === 0 || uniqueSubjects.length === 0
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Outfit', sans-serif", color: '#1e293b' }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'Aneek Bangla', 'Outfit', sans-serif", color: '#1e293b' }}>
       <header style={{ background: '#fff', padding: '16px 40px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '16px', position: 'sticky', top: 0, zIndex: 10 }}>
-        <button onClick={() => navigate(`/exam-panel/${examId}`)} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: '12px', padding: '8px 16px', cursor: 'pointer', fontWeight: 700 }}>← Back</button>
+        <button onClick={handleBack} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: '12px', padding: '8px 16px', cursor: 'pointer', fontWeight: 700 }}>← Back</button>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900 }}>👩‍🏫 Teacher Assignments Matrix</h1>
           <p style={{ margin: 0, fontSize: '11px', color: '#ec4899', fontWeight: 800 }}>{examName.toUpperCase()}</p>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
-          <button onClick={() => navigate(`/exam-subjects/${examId}`)} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {saveSuccess && (
+            <span style={{ color: '#16a34a', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              ✓ Save Successful!
+            </span>
+          )}
+          
+          <button 
+            onClick={handleSaveChanges} 
+            disabled={saving || !isDirty}
+            style={{ 
+              background: isDirty ? '#16a34a' : '#94a3b8', 
+              color: '#fff', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '12px', 
+              fontWeight: 800, 
+              cursor: isDirty ? 'pointer' : 'not-allowed', 
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: isDirty ? '0 4px 12px rgba(22, 163, 74, 0.25)' : 'none',
+              transition: 'all 0.2s ease',
+              opacity: saving ? 0.7 : 1
+            }}
+          >
+            {saving ? '⏳ Saving...' : (isDirty ? '💾 Save Changes *' : '💾 Saved')}
+          </button>
+
+          <button onClick={() => {
+            if (isDirty && !confirm('You have unsaved changes. Leave without saving?')) return
+            navigate(`/exam-subjects/${examId}`)
+          }} style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}>
             ⚙️ Subject Rules
           </button>
         </div>
@@ -257,15 +347,28 @@ export default function TeacherSetupPage() {
                       const isMapped = !!ruleConfig
                       
                       // Filter sections based on rule restrictions
-                      let sections = sectionsByClass[cls] || []
-                      if (ruleConfig?.sections && ruleConfig.sections.length > 0) {
-                        sections = sections.filter(s => ruleConfig.sections.includes(s))
+                      let sections: string[] = []
+                      if (isMapped) {
+                        sections = sectionsByClass[cls] || []
+                        if (ruleConfig?.sections && ruleConfig.sections.length > 0) {
+                          sections = sections.filter(s => ruleConfig.sections.includes(s))
+                        }
+                      } else {
+                        // If not mapped in Subject Rules, only include sections that already have a teacher assigned
+                        const existingAssignSecs = assignments
+                          .filter(a => a.class === cls && String(a.subject_code) === String(sub.subject_code))
+                          .map(a => a.section)
+                        sections = [...new Set(existingAssignSecs)]
                       }
                       
                       return (
-                        <td key={cls} style={{ ...tdStyle, background: isMapped ? 'transparent' : '#fcfcfc' }}>
+                        <td key={cls} style={{ ...tdStyle, background: isMapped ? 'transparent' : '#f8fafc' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {sections.length === 0 && <div style={{ fontSize: '11px', color: '#cbd5e1', fontStyle: 'italic' }}>No sections enrolled</div>}
+                            {sections.length === 0 && (
+                              <div style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '8px 0' }}>
+                                {isMapped ? 'No sections enrolled' : '—'}
+                              </div>
+                            )}
                             {sections.map(sec => {
                               const assign = assignments.find(a => a.class === cls && a.section === sec && String(a.subject_code) === String(sub.subject_code))
                               return (
@@ -301,7 +404,7 @@ export default function TeacherSetupPage() {
                                   
                                   {assign ? (
                                     <button 
-                                      onClick={() => del(assign.id)} 
+                                      onClick={() => delAssignmentLocally(cls, sec, sub.subject_code)} 
                                       style={{ border: 'none', background: '#fff1f2', color: '#ef4444', width: '28px', height: '28px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }}
                                       onMouseOver={e => e.currentTarget.style.background = '#fee2e2'}
                                       onMouseOut={e => e.currentTarget.style.background = '#fff1f2'}
@@ -349,7 +452,7 @@ export default function TeacherSetupPage() {
               <div style={{ fontSize: '12px', color: '#ec4899', fontWeight: 700 }}>Class {form.class} • Section {form.section}</div>
             </div>
 
-            <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={saveAssignmentLocally} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={labelStyle}>Select Teacher</label>
                 <select style={inputStyle} value={form.teacher_iid} onChange={e => onTeacherChange(e.target.value)} required>
@@ -369,8 +472,8 @@ export default function TeacherSetupPage() {
 
               {status && <div style={{ fontSize: '13px', color: '#ef4444', fontWeight: 600 }}>{status}</div>}
 
-              <button type="submit" disabled={saving} style={{ padding: '14px', borderRadius: '16px', background: '#ec4899', color: '#fff', border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: '10px', boxShadow: '0 10px 20px rgba(236,72,153,0.2)' }}>
-                {saving ? 'Assigning...' : 'Confirm Assignment'}
+              <button type="submit" style={{ padding: '14px', borderRadius: '16px', background: '#ec4899', color: '#fff', border: 'none', fontWeight: 900, cursor: 'pointer', marginTop: '10px', boxShadow: '0 10px 20px rgba(236,72,153,0.2)' }}>
+                Confirm Assignment
               </button>
             </form>
           </div>

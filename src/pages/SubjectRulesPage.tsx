@@ -234,7 +234,7 @@ export default function SubjectRulesPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: "'Outfit', sans-serif", color: '#1e293b' }}>
+    <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: "'Aneek Bangla', 'Outfit', sans-serif", color: '#1e293b' }}>
       <header style={{ background: '#fff', padding: '18px 40px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <button onClick={() => navigate(`/exam-panel/${id}`)} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: '12px', padding: '8px 16px', cursor: 'pointer', fontWeight: 700 }}>← Back</button>
         <div>
