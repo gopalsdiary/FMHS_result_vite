@@ -2,8 +2,20 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 
-interface Teacher { iid: number; teacher_name_en: string; teacher_name_bn: string; teacher_email_id: string }
-interface ExamSubject { id: number; subject_code: string; subject_name: string; exam_class?: any[] }
+interface ExamSubject { 
+  id: number; 
+  subject_code: string; 
+  subject_name: string; 
+  full_marks?: number;
+  total_cq?: number;
+  total_mcq?: number;
+  total_practical?: number;
+  pass_cq?: number;
+  pass_mcq?: number;
+  pass_practical?: number;
+  pass_total?: number;
+  exam_class?: any[];
+}
 interface Assignment {
   id?: number;
   subject_code: string;
@@ -100,7 +112,7 @@ export default function TeacherSetupPage() {
     // 3. Class-Subject Rules (Now from FMHS_exam_subjects)
     const { data: rulesData } = await supabase
       .from('FMHS_exam_subjects')
-      .select('subject_code, subject_name, exam_class')
+      .select('*')
       .eq('exam_id', examId)
     
     const parsedRules: ClassSubjectRule[] = []
@@ -429,14 +441,18 @@ export default function TeacherSetupPage() {
               </button>
             </div>
           ) : viewMode === 'table' ? (
-            /* ── NEW COMPACT TABLE VIEW LAYOUT ── */
+            /* ── NEW SEPARATE MARKS COLUMNS TABLE VIEW LAYOUT ── */
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #cbd5e1' }}>
                 <thead>
                   <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                    <th style={{ ...thTableStyle, width: '180px' }}>Class - Section</th>
+                    <th style={{ ...thTableStyle, width: '170px' }}>Class - Section</th>
                     <th style={{ ...thTableStyle, textAlign: 'left' }}>Subject name</th>
-                    <th style={{ ...thTableStyle, textAlign: 'left', width: '280px' }}>Teacher access</th>
+                    <th style={{ ...thTableStyle, width: '90px', textAlign: 'center' }}>CQ</th>
+                    <th style={{ ...thTableStyle, width: '90px', textAlign: 'center' }}>MCQ</th>
+                    <th style={{ ...thTableStyle, width: '90px', textAlign: 'center' }}>Practical</th>
+                    <th style={{ ...thTableStyle, width: '95px', textAlign: 'center' }}>Pass Marks</th>
+                    <th style={{ ...thTableStyle, textAlign: 'left', width: '260px' }}>Teacher access</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -444,6 +460,11 @@ export default function TeacherSetupPage() {
                     const currentAssign = assignments.find(
                       a => a.class === row.class && a.section === row.section && String(a.subject_code) === String(row.subject_code)
                     )
+                    const ruleObj = examSubjects.find(s => String(s.subject_code) === String(row.subject_code))
+
+                    const hasCq = ruleObj?.total_cq !== undefined && ruleObj.total_cq > 0
+                    const hasMcq = ruleObj?.total_mcq !== undefined && ruleObj.total_mcq > 0
+                    const hasPrac = ruleObj?.total_practical !== undefined && ruleObj.total_practical > 0
 
                     return (
                       <tr 
@@ -471,6 +492,7 @@ export default function TeacherSetupPage() {
                           </td>
                         )}
 
+                        {/* Subject Name */}
                         <td style={{ padding: '8px 14px', borderRight: '1.5px solid #cbd5e1', verticalAlign: 'middle' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ background: '#f1f5f9', color: '#64748b', fontWeight: 800, fontSize: '11px', minWidth: '22px', height: '22px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -481,6 +503,61 @@ export default function TeacherSetupPage() {
                           </div>
                         </td>
 
+                        {/* CQ Column */}
+                        <td style={{ padding: '8px 10px', borderRight: '1.5px solid #cbd5e1', verticalAlign: 'middle', textAlign: 'center' }}>
+                          {hasCq ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                              <span style={{ fontWeight: 800, fontSize: '13px', color: '#0369a1' }}>{ruleObj.total_cq}</span>
+                              <span style={{ fontSize: '10px', color: ruleObj.pass_cq ? '#0284c7' : '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                                Pass: {ruleObj.pass_cq && ruleObj.pass_cq > 0 ? ruleObj.pass_cq : '-'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>
+                          )}
+                        </td>
+
+                        {/* MCQ Column */}
+                        <td style={{ padding: '8px 10px', borderRight: '1.5px solid #cbd5e1', verticalAlign: 'middle', textAlign: 'center' }}>
+                          {hasMcq ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                              <span style={{ fontWeight: 800, fontSize: '13px', color: '#b45309' }}>{ruleObj.total_mcq}</span>
+                              <span style={{ fontSize: '10px', color: ruleObj.pass_mcq ? '#d97706' : '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                                Pass: {ruleObj.pass_mcq && ruleObj.pass_mcq > 0 ? ruleObj.pass_mcq : '-'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Practical Column */}
+                        <td style={{ padding: '8px 10px', borderRight: '1.5px solid #cbd5e1', verticalAlign: 'middle', textAlign: 'center' }}>
+                          {hasPrac ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                              <span style={{ fontWeight: 800, fontSize: '13px', color: '#6b21a8' }}>{ruleObj.total_practical}</span>
+                              <span style={{ fontSize: '10px', color: ruleObj.pass_practical ? '#9333ea' : '#94a3b8', fontWeight: 600, marginTop: '2px' }}>
+                                Pass: {ruleObj.pass_practical && ruleObj.pass_practical > 0 ? ruleObj.pass_practical : '-'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Pass Marks Column */}
+                        <td style={{ padding: '8px 10px', borderRight: '1.5px solid #cbd5e1', verticalAlign: 'middle', textAlign: 'center' }}>
+                          {ruleObj?.pass_total !== undefined ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                              <span style={{ fontWeight: 900, fontSize: '13px', color: '#b91c1c' }}>{ruleObj.pass_total}</span>
+                              <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>/ {ruleObj.full_marks || 100}</span>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#cbd5e1', fontSize: '12px' }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Teacher Access Column */}
                         <td style={{ padding: '6px 12px', verticalAlign: 'middle' }}>
                           <select
                             value={currentAssign?.teacher_email_id || ''}
