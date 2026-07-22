@@ -14,8 +14,10 @@ export interface ExamSubjectRule {
   total_practical: number
   exam_class?: Array<{
     class: number
+    selected?: boolean
     is_fourth_subject?: boolean
     exclude_from_rank?: boolean
+    sections?: string[]
   }> | null
 }
 

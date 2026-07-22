@@ -249,11 +249,11 @@ export default function GpaFinalPage() {
 
       // Determine class-specific assignment config for studentClass
       const hasRuleClassConfig = Array.isArray(rule.exam_class) && rule.exam_class.length > 0
-      const clsEntry = hasRuleClassConfig ? rule.exam_class.find((c: any) => Number(c.class) === studentClass) : null
+      const clsEntry = hasRuleClassConfig ? (rule.exam_class || []).find((c: any) => Number(c.class) === studentClass) : null
 
       let isMappedForClass = false
       if (hasRuleClassConfig) {
-        isMappedForClass = !!clsEntry && clsEntry.selected !== false
+        isMappedForClass = !!clsEntry && (clsEntry as any).selected !== false
       } else if (hasAssignments) {
         isMappedForClass = classFlags.subjectCodes.has(code)
       } else {
