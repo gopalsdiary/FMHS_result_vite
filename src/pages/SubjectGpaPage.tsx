@@ -29,6 +29,8 @@ interface DataRow {
   id: number
   exam_id: number | null
   iid: string
+  class: number | null
+  section: string | null
   cq: number; mcq: number; practical: number; total: number
   gpa: number | string | null
   _db_gpa: number | string | null   // DB snapshot for dirty detection
@@ -81,6 +83,8 @@ export default function SubjectGpaPage() {
   const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
   const [subjectRules, setSubjectRules] = useState<any[]>([])
   const [combinedMode, setCombinedMode] = useState(true) // true = 1st+2nd together, false = separate
+  const [availableClasses, setAvailableClasses] = useState<number[]>([])
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -97,6 +101,12 @@ export default function SubjectGpaPage() {
     if (activeExamId !== null) {
       const { data: rules } = await supabase.from('FMHS_exam_subjects').select('*').eq('exam_id', activeExamId)
       setSubjectRules(rules || [])
+
+      const { data: clsRows } = await supabase.from(TABLE_NAME).select('class').eq('exam_id', activeExamId)
+      if (clsRows) {
+        const uniq = [...new Set(clsRows.map(r => Number(r.class)).filter(n => !isNaN(n) && n > 0))].sort((a, b) => a - b)
+        setAvailableClasses(uniq)
+      }
     }
     const { data: rows, error } = await supabase.from(TABLE_NAME).select('*').limit(1)
     if (error || !rows?.length) { setStatus('Error loading table: ' + error?.message); return }
@@ -182,6 +192,13 @@ export default function SubjectGpaPage() {
         totalCol: c.TOTAL ?? '', gpaCol: c.GPA ?? '', isCombined: false,
       })
       ;(rows ?? []).forEach(row => {
+        const clsNum = Number(row.class || row.Class) || null
+        const secStr = String(row.section || row.Section || '')
+
+        if (selectedClasses.length > 0 && clsNum !== null && !selectedClasses.includes(clsNum)) {
+          return
+        }
+
         const cq = Number(row[c.CQ!]) || 0, mcq = Number(row[c.MCQ!]) || 0
         const practical = Number(row[c.PRACTICAL!]) || 0, total = Number(row[c.TOTAL!]) || 0
         const gpaRaw = c.GPA ? row[c.GPA] : null
@@ -190,7 +207,10 @@ export default function SubjectGpaPage() {
         parsed.push({
           id: Number(row.id),
           exam_id: row.exam_id as number | null,
-          iid: String(row[iidCol] ?? ''), cq, mcq, practical, total,
+          iid: String(row[iidCol] ?? ''),
+          class: clsNum,
+          section: secStr,
+          cq, mcq, practical, total,
           gpa: gpaRaw as string | null, _db_gpa: gpaRaw as string | null,
           originalRow: row as Record<string, unknown>,
         })
@@ -204,6 +224,13 @@ export default function SubjectGpaPage() {
       })
       ;(rows ?? []).forEach(row => {
         if (subs.length < 2) return
+        const clsNum = Number(row.class || row.Class) || null
+        const secStr = String(row.section || row.Section || '')
+
+        if (selectedClasses.length > 0 && clsNum !== null && !selectedClasses.includes(clsNum)) {
+          return
+        }
+
         const t1 = Number(row[subs[0].components.TOTAL!]) || 0
         const t2 = Number(row[subs[1].components.TOTAL!]) || 0
         
@@ -224,7 +251,10 @@ export default function SubjectGpaPage() {
         parsed.push({
           id: Number(row.id),
           exam_id: row.exam_id as number | null,
-          iid: String(row[iidCol] ?? ''), cq: 0, mcq: 0, practical: 0, total: convertedTotal,
+          iid: String(row[iidCol] ?? ''),
+          class: clsNum,
+          section: secStr,
+          cq: 0, mcq: 0, practical: 0, total: convertedTotal,
           gpa: gpaRaw as string | null, _db_gpa: gpaRaw as string | null,
           originalRow: row as Record<string, unknown>,
         })
@@ -235,7 +265,7 @@ export default function SubjectGpaPage() {
     setRowSaved({})
     setStatus(activeExamId !== null ? `Loaded ${parsed.length} records for exam ${activeExamId}` : `Loaded ${parsed.length} records`)
     setLoading(false)
-  }, [subjects, iidCol, activeExamId, invalidExamParam, examId])
+  }, [subjects, iidCol, activeExamId, invalidExamParam, examId, selectedClasses, subjectRules])
 
   useEffect(() => {
     if (selectedSubject) loadSubjectData(selectedSubject)
@@ -387,6 +417,59 @@ export default function SubjectGpaPage() {
             </div>
           </div>
 
+          {/* Class Filter (Multiple Selection) */}
+          {availableClasses.length > 0 && (
+            <div className="card" style={{ marginBottom: '14px', background: '#fcfcfd', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 700, color: '#334155', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🏫</span> Class Selection (মাল্টিপল ক্লাস সিলেক্ট করতে পারবেন):
+                </div>
+                <button
+                  onClick={() => setSelectedClasses([])}
+                  style={{
+                    padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                    border: '1px solid #cbd5e1', background: selectedClasses.length === 0 ? '#4f46e5' : '#fff',
+                    color: selectedClasses.length === 0 ? '#fff' : '#64748b'
+                  }}
+                >
+                  All Classes ({availableClasses.length})
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {availableClasses.map(cls => {
+                  const isSelected = selectedClasses.length === 0 || selectedClasses.includes(cls)
+                  return (
+                    <button
+                      key={cls}
+                      onClick={() => {
+                        setSelectedClasses(prev => {
+                          if (prev.length === 0) {
+                            return [cls]
+                          }
+                          if (prev.includes(cls)) {
+                            return prev.filter(c => c !== cls)
+                          } else {
+                            return [...prev, cls].sort((a, b) => a - b)
+                          }
+                        })
+                      }}
+                      style={{
+                        padding: '6px 14px', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: 800,
+                        border: isSelected ? '1.5px solid #4f46e5' : '1px solid #cbd5e1',
+                        background: isSelected ? '#eeeffe' : '#fff',
+                        color: isSelected ? '#4338ca' : '#64748b',
+                        display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s'
+                      }}
+                    >
+                      <span>{isSelected ? '☑' : '☐'}</span> Class {cls}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Manual Grading Criteria */}
           <div className="card" style={{ marginBottom: '14px', background: '#f8f9fa' }}>
             <div style={{ fontWeight: 600, marginBottom: '10px', color: '#495057' }}>⚙️ Manual Grading Criteria</div>
@@ -447,6 +530,8 @@ export default function SubjectGpaPage() {
                   <thead>
                     <tr>
                       <th style={thBase}>IID</th>
+                      <th style={thBase}>Class</th>
+                      <th style={thBase}>Sec</th>
                       {!displayCols.isCombined && displayCols.cqCol && <th style={thBase}>{displayCols.cqCol}</th>}
                       {!displayCols.isCombined && displayCols.mcqCol && <th style={thBase}>{displayCols.mcqCol}</th>}
                       {!displayCols.isCombined && displayCols.practicalCol && <th style={thBase}>{displayCols.practicalCol}</th>}
@@ -462,6 +547,12 @@ export default function SubjectGpaPage() {
                       return (
                         <tr key={row.id} style={{ background: i % 2 === 0 ? '#fff' : '#fcfcfd' }}>
                           <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.iid}</td>
+                          <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center', fontWeight: 700, color: '#334155' }}>
+                            {row.class ? `Class ${row.class}` : '-'}
+                          </td>
+                          <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
+                            {row.section || '-'}
+                          </td>
                           {!displayCols.isCombined && displayCols.cqCol && (
                             <td style={{ padding: '6px 8px', border: '1px solid #d0d7de', textAlign: 'center' }}>{row.cq || ''}</td>
                           )}

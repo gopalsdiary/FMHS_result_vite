@@ -92,8 +92,8 @@ export default function SubjectRulesPage() {
     }
   }
 
-  async function loadData() {
-    setLoading(true)
+  async function loadData(showSpinner = true) {
+    if (showSpinner) setLoading(true)
     const { data: examData } = await supabase.from('FMHS_exams_names').select('exam_name').eq('id', id).single()
     if (examData) setExamName(examData.exam_name)
 
@@ -123,7 +123,7 @@ export default function SubjectRulesPage() {
     if (error) alert('Error: ' + error.message)
     else setRules(data || [])
     
-    setLoading(false)
+    if (showSpinner) setLoading(false)
   }
 
   function handleSubjectNameChange(name: string) {
@@ -162,8 +162,7 @@ export default function SubjectRulesPage() {
 
     if (!editId) await addColumnsToTable(newSub)
 
-    alert(editId ? '✅ Subject updated!' : '✅ Subject created!')
-    setProcessing(false); setEditId(null); setIsModalOpen(false); loadData()
+    setProcessing(false); setEditId(null); setIsModalOpen(false); loadData(false)
     setNewSub({ ...newSub, subject_code: '', subject_name: '', classes: initialClasses(enrolledClasses) })
   }
 
@@ -179,8 +178,9 @@ export default function SubjectRulesPage() {
 
   async function deleteRule(rid: number, name: string) {
     if (!confirm(`Remove "${name}"?`)) return
+    setRules(prev => prev.filter(r => r.id !== rid))
     const { error } = await supabase.from('FMHS_exam_subjects').delete().eq('id', rid)
-    if (error) alert(error.message); else loadData()
+    if (error) { alert(error.message); loadData(false); }
   }
 
   function openEdit(r: SubjectRule) {
@@ -209,15 +209,23 @@ export default function SubjectRulesPage() {
   async function toggleClassSelection(rule: SubjectRule, cls: number) {
     const currentClasses = rule.exam_class || []
     const found = currentClasses.find((c: any) => c.class === cls)
-    let nextClasses = found ? currentClasses.filter((c: any) => c.class !== cls) : [...currentClasses, { class: cls, selected: true, is_fourth_subject: false, exclude_from_rank: false, sections: [] }]
+    const nextClasses = found ? currentClasses.filter((c: any) => c.class !== cls) : [...currentClasses, { class: cls, selected: true, is_fourth_subject: false, exclude_from_rank: false, sections: [] }]
+    
+    // Instant local UI update
+    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, exam_class: nextClasses } : r))
+
     const { error } = await supabase.from('FMHS_exam_subjects').update({ exam_class: nextClasses }).eq('id', rule.id)
-    if (error) alert(error.message); else loadData()
+    if (error) { alert(error.message); loadData(false); }
   }
 
   async function updateRuleFlag(rule: SubjectRule, cls: number, field: string, value: any) {
     const nextClasses = (rule.exam_class || []).map((c: any) => c.class === cls ? { ...c, [field]: value } : c)
+    
+    // Instant local UI update
+    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, exam_class: nextClasses } : r))
+
     const { error } = await supabase.from('FMHS_exam_subjects').update({ exam_class: nextClasses }).eq('id', rule.id)
-    if (error) alert(error.message); else loadData()
+    if (error) { alert(error.message); loadData(false); }
   }
 
   async function toggleSectionSelection(rule: SubjectRule, cls: number, sec: string) {
@@ -229,8 +237,12 @@ export default function SubjectRulesPage() {
       }
       return c
     })
+
+    // Instant local UI update
+    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, exam_class: nextClasses } : r))
+
     const { error } = await supabase.from('FMHS_exam_subjects').update({ exam_class: nextClasses }).eq('id', rule.id)
-    if (error) alert(error.message); else loadData()
+    if (error) { alert(error.message); loadData(false); }
   }
 
   return (

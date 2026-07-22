@@ -62,6 +62,7 @@ export default function GpaFinalPage() {
   const [rowSaved, setRowSaved] = useState<Record<number, boolean>>({})
   const [subjectRules, setSubjectRules] = useState<any[]>([])
   const [classSubjectInfo, setClassSubjectInfo] = useState<ClassSubjectInfo[]>([])
+  const [classConfigs, setClassConfigs] = useState<Record<number, number>>({})
   const [optionalSubjectMap, setOptionalSubjectMap] = useState<Record<string, string>>({})
   const [rankMode, setRankMode] = useState<'standard' | 'fail' | 'absent'>('standard')
   const [absentRankCount, setAbsentRankCount] = useState<number>(1)
@@ -80,9 +81,10 @@ export default function GpaFinalPage() {
     // 1. Load subject rules + class assignments + optional subjects
     const examConfig = activeExamId !== null
       ? await loadExamSubjectContext(activeExamId)
-      : { rules: [], classAssignments: [] as ClassSubjectInfo[] }
+      : { rules: [], classAssignments: [] as ClassSubjectInfo[], classConfigs: {} }
     setSubjectRules(examConfig.rules || [])
     setClassSubjectInfo(examConfig.classAssignments || [])
+    setClassConfigs((examConfig as any).classConfigs || {})
     setOptionalSubjectMap(activeExamId !== null ? await loadOptionalSubjectMapForExam(activeExamId) : {})
 
     // 2. Detect subject columns from DB schema (only Total + GPA cols)
@@ -244,11 +246,26 @@ export default function GpaFinalPage() {
       if (!rule) return 
 
       const code = normalizeSubjectValue(rule.subject_code)
-      if (hasAssignments && !classFlags.subjectCodes.has(code)) return
 
-      const isExcluded = classFlags.excludeFromRankCodes.has(code)
-      const isClassFourth = classFourthCodes.has(code)
-      const isStudentFourth = isClassFourth && code === studentFourthCode
+      // Determine class-specific assignment config for studentClass
+      const hasRuleClassConfig = Array.isArray(rule.exam_class) && rule.exam_class.length > 0
+      const clsEntry = hasRuleClassConfig ? rule.exam_class.find((c: any) => Number(c.class) === studentClass) : null
+
+      let isMappedForClass = false
+      if (hasRuleClassConfig) {
+        isMappedForClass = !!clsEntry && clsEntry.selected !== false
+      } else if (hasAssignments) {
+        isMappedForClass = classFlags.subjectCodes.has(code)
+      } else {
+        isMappedForClass = true
+      }
+
+      // If subject is NOT assigned to student's class, skip completely
+      if (!isMappedForClass) return
+
+      const isExcluded = clsEntry ? Boolean(clsEntry.exclude_from_rank) : classFlags.excludeFromRankCodes.has(code)
+      const isClassFourth = clsEntry ? Boolean(clsEntry.is_fourth_subject) : classFourthCodes.has(code)
+      const isStudentFourth = isClassFourth && (code === studentFourthCode || (!studentFourthCode && isClassFourth))
 
       if (isClassFourth && !isStudentFourth) return
 
@@ -261,7 +278,7 @@ export default function GpaFinalPage() {
       const isFail = gpaStr.toUpperCase() === 'F'
       const gpaNum = isFail ? 0 : (parseFloat(gpaStr) || 0)
       const hasGpa = isFail || gpaNum > 0
-      const attended = subjectTotal > 0
+      const attended = subjectTotal > 0 || hasGpa
 
       if (subjectTotal > 0) {
         totalMarks += subjectTotal
@@ -283,6 +300,13 @@ export default function GpaFinalPage() {
         }
       }
     })
+
+    // Class 9 and 10 adjustment: GPA divisor from Total Subjects Configuration
+    const isClass9or10 = studentClass === 9 || studentClass === 10
+    const configuredDivisor = classConfigs[studentClass] || 0
+    if (isClass9or10 && configuredDivisor > 0) {
+      expectedMain = configuredDivisor
+    }
 
     const countAbsent = Math.max(0, expectedMain - attendedMain)
     const avgCalc = validSubjects > 0 ? Math.round(totalMarks / validSubjects) : 0
