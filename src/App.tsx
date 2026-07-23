@@ -18,8 +18,6 @@ import SubjectGpaPage from './pages/SubjectGpaPage'
 import GpaFinalPage from './pages/GpaFinalPage'
 import ResultListPage from './pages/ResultListPage'
 import FailReportPage from './pages/FailReportPage'
-import ProcessResultsPage from './pages/ProcessResultsPage'
-import ResultViewPage from './pages/ResultViewPage'
 
 // Grade entry
 import GradeEntrySystemPage from './pages/GradeEntrySystemPage'

@@ -1612,7 +1612,7 @@ export default function ExamPanelPage() {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
                       display: 'flex',
                       flexDirection: 'column',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       gap: '20px',
                     }}
                   >
@@ -1659,7 +1659,7 @@ export default function ExamPanelPage() {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
                       display: 'flex',
                       flexDirection: 'column',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       gap: '20px',
                     }}
                   >
@@ -1705,7 +1705,7 @@ export default function ExamPanelPage() {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
                       display: 'flex',
                       flexDirection: 'column',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       gap: '20px',
                     }}
                   >
@@ -1751,7 +1751,7 @@ export default function ExamPanelPage() {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
                       display: 'flex',
                       flexDirection: 'column',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       gap: '20px',
                     }}
                   >
@@ -1797,7 +1797,7 @@ export default function ExamPanelPage() {
                       boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
                       display: 'flex',
                       flexDirection: 'column',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       gap: '20px',
                     }}
                   >
