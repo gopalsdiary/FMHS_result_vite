@@ -38,6 +38,7 @@ import SubjectSetupPage from './pages/SubjectSetupPage'
 import SubjectTeacherPage from './pages/SubjectTeacherPage'
 import ClassSubjectPage from './pages/ClassSubjectPage'
 import TeacherSetupPage from './pages/TeacherSetupPage'
+import TeacherAccessListPage from './pages/TeacherAccessListPage'
 import ResultEntryPage from './pages/ResultEntryPage'
 import ResultEntryAdminPage from './pages/ResultEntryAdminPage'
 import ResultTableColmAddPage from './pages/ResultTableColmAddPage'
@@ -93,6 +94,8 @@ export default function App() {
         <Route path="/subject-teacher" element={<SubjectTeacherPage />} />
         <Route path="/class-subject" element={<ClassSubjectPage />} />
         <Route path="/teacher-setup/:id?" element={<TeacherSetupPage />} />
+        <Route path="/teacher_access_list/:examId?" element={<TeacherAccessListPage />} />
+        <Route path="/teacher-access-list/:examId?" element={<TeacherAccessListPage />} />
         <Route path="/result-entry" element={<ResultEntryPage />} />
         <Route path="/result-entry-admin" element={<ResultEntryAdminPage />} />
         <Route path="/result-table" element={<ResultTableColmAddPage />} />

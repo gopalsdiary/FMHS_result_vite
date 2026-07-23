@@ -153,7 +153,19 @@ export default function TeacherSetupPage() {
       .from('FMHS_exam_teacher_selection')
       .select('*')
       .eq('exam_id', Number(examId))
-    setAssignments((aData ?? []) as Assignment[])
+    
+    let loadedAssigns = (aData ?? []) as Assignment[]
+    if (parsedRules.length > 0) {
+      loadedAssigns = loadedAssigns.filter(a => {
+        const ruleConfig = parsedRules.find(r => r.class === Number(a.class) && String(r.subject_code) === String(a.subject_code))
+        if (!ruleConfig) return false
+        if (ruleConfig.sections && ruleConfig.sections.length > 0) {
+          return ruleConfig.sections.includes(a.section)
+        }
+        return true
+      })
+    }
+    setAssignments(loadedAssigns)
     
     // 6. All configured subjects (for row list)
     setExamSubjects((rulesData ?? []) as ExamSubject[])
@@ -272,9 +284,20 @@ export default function TeacherSetupPage() {
 
       if (delError) throw delError
 
-      // 2. Insert new assignments
-      if (assignments.length > 0) {
-        const payload = assignments.map(a => ({
+      // 2. Insert new assignments (filtering out any non-allowed section assignments)
+      const validAssignments = classRulesForMatrix.length > 0
+        ? assignments.filter(a => {
+            const ruleConfig = classRulesForMatrix.find(r => r.class === Number(a.class) && String(r.subject_code) === String(a.subject_code))
+            if (!ruleConfig) return false
+            if (ruleConfig.sections && ruleConfig.sections.length > 0) {
+              return ruleConfig.sections.includes(a.section)
+            }
+            return true
+          })
+        : assignments
+
+      if (validAssignments.length > 0) {
+        const payload = validAssignments.map(a => ({
           exam_id: Number(examId),
           teacher_email_id: a.teacher_email_id,
           teacher_name_en: a.teacher_name_en,
@@ -338,9 +361,7 @@ export default function TeacherSetupPage() {
           }
         }
 
-        const hasAssign = assignments.some(a => a.class === cls && a.section === sec && String(a.subject_code) === String(sub.subject_code))
-
-        if (isSecAllowed || hasAssign) {
+        if (isSecAllowed) {
           secSubRows.push({
             subject_code: String(sub.subject_code),
             subject_name: sub.subject_name
@@ -385,6 +406,29 @@ export default function TeacherSetupPage() {
               ✓ Save Successful!
             </span>
           )}
+
+          <button 
+            onClick={() => {
+              if (isDirty && !confirm('You have unsaved changes. Leave without saving?')) return
+              navigate(`/teacher_access_list/${examId}`)
+            }}
+            style={{ 
+              background: '#0284c7', 
+              color: '#fff', 
+              border: 'none', 
+              padding: '10px 16px', 
+              borderRadius: '12px', 
+              fontWeight: 800, 
+              cursor: 'pointer', 
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)'
+            }}
+          >
+            📋 Teacher access list
+          </button>
 
           <button 
             onClick={() => setViewMode(v => v === 'table' ? 'matrix' : 'table')}
