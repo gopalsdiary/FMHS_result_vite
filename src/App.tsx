@@ -44,7 +44,6 @@ import ResultEntryAdminPage from './pages/ResultEntryAdminPage'
 import ResultTableColmAddPage from './pages/ResultTableColmAddPage'
 
 // Reports
-import SmsPage from './pages/SmsPage'
 import SmsFullPage from './pages/SmsFullPage'
 import SummaryPage from './pages/SummaryPage'
 
@@ -74,8 +73,6 @@ export default function App() {
         <Route path="/teacher-entry/:examId/:assignId" element={<TeacherGradeEntryPage />} />
         <Route path="/result-list/:examId?" element={<ResultListPage />} />
         <Route path="/fail-report/:examId?" element={<FailReportPage />} />
-        <Route path="/process-results/:examId?" element={<ProcessResultsPage />} />
-        <Route path="/result-view/:examId?" element={<ResultViewPage />} />
 
         {/* Grade entry */}
         <Route path="/grade-entry" element={<GradeEntrySystemPage />} />
@@ -101,7 +98,6 @@ export default function App() {
         <Route path="/result-table" element={<ResultTableColmAddPage />} />
 
         {/* Reports */}
-        <Route path="/sms/:examId?" element={<SmsPage />} />
         <Route path="/sms-full/:examId?" element={<SmsFullPage />} />
         <Route path="/summary" element={<SummaryPage />} />
 

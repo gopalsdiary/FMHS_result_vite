@@ -35,6 +35,7 @@ export default function SmsFullPage() {
   const [gridSection, setGridSection] = useState('')
   const [availableClasses, setAvailableClasses] = useState<string[]>([])
   const [availableSections, setAvailableSections] = useState<string[]>([])
+  const [classSectionData, setClassSectionData] = useState<{ class: string; section: string }[]>([])
   
   const [students, setStudents] = useState<StudentFull[]>([])
   const [subjects, setSubjects] = useState<any[]>([])
@@ -42,6 +43,13 @@ export default function SmsFullPage() {
   const [, setLoading] = useState(false)
   const [status, setStatus] = useState('')
   const [customMsg, setCustomMsg] = useState('')
+
+  // Password authentication state
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(() => {
+    return sessionStorage.getItem('sms_gateway_auth') === '112233'
+  })
+  const [passInput, setPassInput] = useState<string>('')
+  const [passError, setPassError] = useState<boolean>(false)
 
   useEffect(() => {
     loadExams()
@@ -66,14 +74,34 @@ export default function SmsFullPage() {
   async function loadMetadata(id: number) {
     const { data } = await supabase.from('FMHS_exam_data').select('class, section').eq('exam_id', id)
     if (data && data.length > 0) {
-      setAvailableClasses(Array.from(new Set(data.map(r => String(r.class)))).sort((a, b) => Number(a) - Number(b)))
-      setAvailableSections(Array.from(new Set(data.map(r => String(r.section)))).sort())
+      const formatted = data.map(r => ({ class: String(r.class), section: String(r.section) }))
+      setClassSectionData(formatted)
+      const classes = Array.from(new Set(formatted.map(r => r.class))).sort((a, b) => Number(a) - Number(b))
+      setAvailableClasses(classes)
+      const sections = Array.from(new Set(formatted.map(r => r.section))).sort()
+      setAvailableSections(sections)
     }
 
     // Load subject short codes
     const { data: subData } = await supabase.from('FMHS_exam_subjects').select('subject_name, subject_code').eq('exam_id', id)
     if (subData) setSubjects(subData)
   }
+
+  // Update available sections based on selected class
+  useEffect(() => {
+    if (!gridClass || gridClass === 'All') {
+      const allSecs = Array.from(new Set(classSectionData.map(r => r.section))).sort()
+      setAvailableSections(allSecs)
+    } else {
+      const filteredSecs = Array.from(
+        new Set(classSectionData.filter(r => r.class === gridClass).map(r => r.section))
+      ).sort()
+      setAvailableSections(filteredSecs)
+      if (gridSection !== 'All' && !filteredSecs.includes(gridSection)) {
+        setGridSection('All')
+      }
+    }
+  }, [gridClass, classSectionData])
 
   useEffect(() => {
     if (examId && (gridClass || gridClass === 'All')) {
@@ -215,6 +243,99 @@ export default function SmsFullPage() {
 
   // Cost calculation: total * 0.45 + 15% VAT
   const estimatedCost = (displayedSegments * 0.45) * 1.15
+
+  if (!isAuthorized) {
+    return (
+      <PageShell title="Full SMS Gateway - Locked">
+        {() => (
+          <div
+            style={{
+              minHeight: '60vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '24px',
+                padding: '36px 32px',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.08)',
+                textAlign: 'center',
+                maxWidth: '380px',
+                width: '100%',
+              }}
+            >
+              <div style={{ fontSize: '42px', marginBottom: '12px' }}>🔒</div>
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '1.2rem', fontWeight: 900, color: '#0f172a' }}>
+                Full SMS Gateway Locked
+              </h3>
+              <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                Please enter security password to unlock this page
+              </p>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (passInput === '112233') {
+                    sessionStorage.setItem('sms_gateway_auth', '112233')
+                    setIsAuthorized(true)
+                    setPassError(false)
+                  } else {
+                    setPassError(true)
+                  }
+                }}
+              >
+                <input
+                  type="password"
+                  placeholder="Enter Password..."
+                  value={passInput}
+                  onChange={(e) => setPassInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: passError ? '2px solid #ef4444' : '1.5px solid #cbd5e1',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    textAlign: 'center',
+                    outline: 'none',
+                    marginBottom: '12px',
+                  }}
+                  autoFocus
+                />
+                {passError && (
+                  <p style={{ color: '#ef4444', fontSize: '11px', fontWeight: 800, margin: '-6px 0 12px 0' }}>
+                    ❌ Incorrect Password! (Try again)
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: '#4f46e5',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
+                  }}
+                >
+                  Unlock Gateway →
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </PageShell>
+    )
+  }
 
   return (
     <PageShell title="Full SMS Generator">

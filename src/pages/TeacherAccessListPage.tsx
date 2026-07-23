@@ -82,6 +82,7 @@ export default function TeacherAccessListPage() {
 
   async function loadData(targetExamId: number) {
     setLoading(true)
+    const startTime = Date.now()
     
     // 1. Get Exam Details
     const { data: exData } = await supabase
@@ -159,7 +160,14 @@ export default function TeacherAccessListPage() {
       .range(0, 4999)
 
     setStudentRows(eRows || [])
-    setLoading(false)
+
+    // Ensure minimum 5 seconds (5000ms) loading state
+    const elapsed = Date.now() - startTime
+    const remainingDelay = Math.max(0, 5000 - elapsed)
+
+    setTimeout(() => {
+      setLoading(false)
+    }, remainingDelay)
   }
 
   // Pre-calculate mark entry stats for all assignments
@@ -330,6 +338,107 @@ export default function TeacherAccessListPage() {
         color: '#0f172a',
       }}
     >
+      {/* ── POPUP LOADING MODAL ── */}
+      {loading && (
+        <div
+          className="no-print"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '24px',
+              padding: '36px 40px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+              textAlign: 'center',
+              maxWidth: '400px',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+              animation: 'popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            {/* Animated Glowing Dual Ring Spinner */}
+            <div style={{ position: 'relative', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  width: '64px',
+                  height: '64px',
+                  borderRadius: '50%',
+                  border: '4px solid transparent',
+                  borderTopColor: '#0284c7',
+                  borderRightColor: '#38bdf8',
+                  animation: 'spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  border: '3px solid transparent',
+                  borderBottomColor: '#6366f1',
+                  borderLeftColor: '#818cf8',
+                  animation: 'spinReverse 1s linear infinite',
+                }}
+              />
+              <span style={{ fontSize: '22px' }}>📊</span>
+            </div>
+
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '1.15rem', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                তথ্যাদি প্রস্তুত করা হচ্ছে...
+              </h3>
+              <p style={{ margin: 0, fontSize: '12px', color: '#64748b', fontWeight: 600, lineHeight: 1.4 }}>
+                শিক্ষক বিষয় একসেস তালিকা ও এন্ট্রি প্রোগ্রেস লোড হচ্ছে
+              </p>
+            </div>
+
+            {/* Shimmering Progress Bar */}
+            <div
+              style={{
+                width: '100%',
+                height: '4px',
+                background: '#f1f5f9',
+                borderRadius: '999px',
+                overflow: 'hidden',
+                position: 'relative',
+                marginTop: '4px',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  height: '100%',
+                  width: '40%',
+                  background: 'linear-gradient(90deg, #0284c7, #6366f1)',
+                  borderRadius: '999px',
+                  animation: 'loadingProgress 1.6s ease-in-out infinite',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header Bar - Compact */}
       <header
         className="no-print"
@@ -625,19 +734,7 @@ export default function TeacherAccessListPage() {
             boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
           }}
         >
-          {loading ? (
-            <div
-              style={{
-                padding: '40px',
-                textAlign: 'center',
-                color: '#64748b',
-                fontWeight: 600,
-                fontSize: '13px',
-              }}
-            >
-              ⏳ Loading teacher access & entry progress...
-            </div>
-          ) : filteredGroups.length === 0 ? (
+          {filteredGroups.length === 0 && !loading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>
               <div style={{ fontSize: '36px', marginBottom: '8px' }}>
                 {filterUnder50 ? '🎉' : '🔍'}
@@ -938,6 +1035,23 @@ export default function TeacherAccessListPage() {
 
       {/* Print Styles */}
       <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes spinReverse {
+          0% { transform: rotate(360deg); }
+          100% { transform: rotate(0deg); }
+        }
+        @keyframes popIn {
+          0% { opacity: 0; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes loadingProgress {
+          0% { left: -40%; }
+          50% { left: 100%; }
+          100% { left: -40%; }
+        }
         @media print {
           .no-print {
             display: none !important;

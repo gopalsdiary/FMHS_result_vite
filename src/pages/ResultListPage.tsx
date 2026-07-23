@@ -14,6 +14,8 @@ interface Student {
   remark?: string | null
 }
 
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes in milliseconds
+
 export default function ResultListPage() {
   const { examId } = useParams()
   const navigate = useNavigate()
@@ -26,6 +28,9 @@ export default function ResultListPage() {
   const [sectionsByClass, setSectionsByClass] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState('')
+  const [examName, setExamName] = useState<string>('')
+
+  const cacheKey = `result_list_cache_${examId || 'all'}`
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -36,10 +41,41 @@ export default function ResultListPage() {
       setClasses(meta.classes)
       setSectionsByClass(meta.sectionsByClass)
     })
+    if (examId) {
+      supabase
+        .from('FMHS_exams_names')
+        .select('exam_name')
+        .eq('id', examId)
+        .single()
+        .then(({ data }) => {
+          if (data?.exam_name) setExamName(data.exam_name)
+        })
+    }
   }, [navigate, examId])
 
-  async function loadData() {
+  async function loadData(forceRefresh = false) {
     setLoading(true)
+
+    // Check localStorage cache (5 min TTL)
+    if (!forceRefresh) {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        try {
+          const { timestamp, data } = JSON.parse(cached)
+          if (Date.now() - timestamp < CACHE_TTL && Array.isArray(data) && data.length > 0) {
+            setStudents(data)
+            setFiltered(data)
+            setCount(`${data.length} students loaded (cached)`)
+            setLoading(false)
+            return
+          }
+        } catch (e) {
+          console.warn('Invalid cache, loading fresh:', e)
+        }
+      }
+    }
+
+    // Fetch fresh data from Supabase
     let list: Student[] = []
     let from = 0; let to = 999; let hasMore = true
 
@@ -58,6 +94,13 @@ export default function ResultListPage() {
         if (data.length < 1000) hasMore = false
         else { from += 1000; to += 1000 }
       } else { hasMore = false }
+    }
+
+    // Save to localStorage with timestamp
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), data: list }))
+    } catch (e) {
+      console.warn('localStorage quota exceeded:', e)
     }
 
     setStudents(list)
@@ -83,11 +126,16 @@ export default function ResultListPage() {
 
   const sections = classFilter ? sectionsByClass[classFilter] ?? [] : Array.from(new Set(students.map(s => s.section))).sort()
 
+  const openStudentDetails = (iid: string) => {
+    const url = `/student-details?IID=${encodeURIComponent(iid)}${examId ? `&examID=${examId}` : ''}`
+    window.open(url, '_blank')
+  }
+
   return (
     <div style={{ fontFamily: 'var(--font-family)', background: '#f8fafc', minHeight: '100vh' }}>
       <div className="app-header">
         <h1 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#2c3e50' }}>
-          Feni Model High School — Annual Examination Report Card 2025
+          {examName ? `Feni Model High School — ${examName}` : 'Feni Model High School — Examination Report Card'}
         </h1>
       </div>
 
@@ -109,6 +157,13 @@ export default function ResultListPage() {
             <option value="">All Sections</option>
             {sections.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <button
+            onClick={() => loadData(true)}
+            style={{ padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontWeight: 700, color: '#0284c7' }}
+            title="Force refresh data from database"
+          >
+            🔄 Refresh
+          </button>
         </div>
 
         {loading && <div className="spinner" />}
@@ -119,7 +174,7 @@ export default function ResultListPage() {
             {filtered.map(s => (
               <div
                 key={s.iid}
-                onClick={() => navigate(`/student-details?IID=${encodeURIComponent(s.iid)}${examId ? `&examID=${examId}` : ''}`)}
+                onClick={() => openStudentDetails(s.iid)}
                 style={{
                   background: '#fff', borderRadius: '8px', padding: '16px 20px', cursor: 'pointer',
                   boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
@@ -150,4 +205,3 @@ export default function ResultListPage() {
     </div>
   )
 }
-

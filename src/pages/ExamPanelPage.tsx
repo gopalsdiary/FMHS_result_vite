@@ -1033,14 +1033,12 @@ export default function ExamPanelPage() {
            
            <div style={{ width: '1px', height: '24px', background: '#e2e8f0', alignSelf: 'center', margin: '0 4px' }}></div>
            
-           <button onClick={() => navigate(`/teacher_access_list/${id}`)} style={tabStyle('')}>📋 Teacher Access List</button>
            <button onClick={() => navigate(`/subject-gpa/${id}`)} style={tabStyle('')}>🧪 Subject GPA</button>
            <button onClick={() => navigate(`/gpa-final/${id}`)} style={tabStyle('')}>🎯 GPA Final</button>
            
            <div style={{ width: '1px', height: '24px', background: '#e2e8f0', alignSelf: 'center', margin: '0 4px' }}></div>
            
            <button onClick={() => setActiveTab('reports')} style={tabStyle('reports')}>📊 Final Reports</button>
-           <button onClick={() => setActiveTab('optional')} style={tabStyle('optional')}>🛠️ Optional</button>
         </div>
 
         <div style={{ minHeight: '60vh' }}>
@@ -1305,7 +1303,7 @@ export default function ExamPanelPage() {
                       </div>
                     )}
                   </div>
-                  <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 14px 0' }}>Set the total number of subjects to divide by when calculating the final GPA for each class.</p>
+                  <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 14px 0' }}>GPA বের করার জন্য যত দিয়ে ভাগ হবে when calculating the final GPA for each class.</p>
                   
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px' }}>
                     {(() => {
@@ -1575,8 +1573,8 @@ export default function ExamPanelPage() {
 
             {/* ── REPORTS TAB ── */}
             {activeTab === 'reports' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                <div style={{ padding: '32px', borderRadius: '24px', gridColumn: '1 / -1', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ padding: '32px', borderRadius: '24px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                   <h3 style={{ margin: '0 0 24px 0', fontSize: '1.4rem', fontWeight: 900 }}>📊 Live Session Summary</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
                     <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
@@ -1597,72 +1595,252 @@ export default function ExamPanelPage() {
                         {summaryData.topStudents.map((s, idx) => (
                           <div key={idx} style={{ color: '#1e293b', fontSize: '11px', fontWeight: 700 }}>#{idx+1} {String(s.student_name_en || '').split(' ')[0]} ({String(s.total_mark ?? '')})</div>
                         ))}
-
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div style={{ padding: '32px', borderRadius: '24px', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '16px' }}>🏆</div>
-                  <h3 style={{ marginBottom: '8px', fontWeight: 900 }}>Final Result List</h3>
-                  <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>Complete merit list with GPAs and total marks.</p>
-                  <button onClick={() => navigate(`/result-list/${id}`)} style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#4f46e5', border: 'none', fontWeight: 800, color: '#fff' }}>Open Merit List</button>
-                </div>
-                <div style={{ padding: '32px', borderRadius: '24px', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '16px' }}>❌</div>
-                  <h3 style={{ marginBottom: '8px', fontWeight: 900 }}>Failure Analytics</h3>
-                  <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>Identify students who failed one or more subjects.</p>
-                  <button onClick={() => navigate(`/fail-report/${id}`)} style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', fontWeight: 700 }}>View Fail Report</button>
-                </div>
-                <div style={{ padding: '32px', borderRadius: '24px', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '16px' }}>🖨️</div>
-                  <h3 style={{ marginBottom: '8px', fontWeight: 900 }}>Bulk Print</h3>
-                  <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>Generate printable marksheets for the entire session.</p>
-                  <button onClick={() => navigate(`/print-results/${id}`)} style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', fontWeight: 700 }}>Print Center</button>
-                </div>
-                <div style={{ padding: '32px', borderRadius: '24px', textAlign: 'center', background: '#fff', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontSize: '40px', marginBottom: '16px' }}>📱</div>
-                  <h3 style={{ marginBottom: '8px', fontWeight: 900 }}>SMS Gateway</h3>
-                  <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '24px' }}>Send results directly to parents via SMS.</p>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => navigate(`/sms`)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 700, fontSize: '12px' }}>Simple SMS</button>
-                    <button onClick={() => navigate(`/sms-full/${id}`)} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: '#4f46e5', border: 'none', fontWeight: 800, color: '#fff', fontSize: '12px' }}>Detailed SMS</button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── OPTIONAL TAB ── */}
-            {activeTab === 'optional' && (
-              <div style={{ background: '#fff', padding: '40px', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)' }}>
-                <div style={{ marginBottom: '32px' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900 }}>🛠️ Optional Reports & Tools</h3>
-                  <p style={{ color: '#64748b', fontSize: '15px', marginTop: '8px' }}>Access legacy processing tools, specialized analytics, and secondary reports.</p>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                  {[
-                    { title: 'Result Processor', path: `/process-results/${id}`, icon: '⚡', desc: 'Alternative result processing engine.' },
-                    { title: 'Detailed Result View', path: `/result-view/${id}`, icon: '🔍', desc: 'Inspect raw data for individual students.' },
-                    { title: 'General Summary', path: `/summary`, icon: '📋', desc: 'High-level statistical overview.' },
-                    { title: 'Full SMS Gateway', path: `/sms-full/${id}`, icon: '✉️', desc: 'Advanced messaging with full logs.' }
-                  ].map(tool => (
-                    <div 
-                      key={tool.title} 
-                      onClick={() => navigate(tool.path)}
-                      style={{ 
-                        padding: '24px', background: '#f8fafc', borderRadius: '24px', border: '1px solid #e2e8f0', 
-                        cursor: 'pointer', transition: '0.2s', textAlign: 'left' 
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.transform = 'translateY(-4px)' }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'translateY(0)' }}
-                    >
-                      <div style={{ fontSize: '32px', marginBottom: '16px' }}>{tool.icon}</div>
-                      <h4 style={{ margin: '0 0 8px 0', fontWeight: 800 }}>{tool.title}</h4>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>{tool.desc}</p>
+                {/* ELEGANT FULL-WIDTH REPORTS CARDS GRID */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
+                  {/* 1. Mark Sheet */}
+                  <div
+                    style={{
+                      padding: '24px',
+                      borderRadius: '24px',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justify: 'space-between',
+                      gap: '20px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                        <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                          🏆
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontWeight: 900, fontSize: '1.1rem', color: '#0f172a' }}>Mark Sheet</h4>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Merit List</span>
+                        </div>
+                      </div>
+                      <p style={{ color: '#64748b', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+                        Complete merit list with student GPAs, rank, and total marks.
+                      </p>
                     </div>
-                  ))}
+                    <button
+                      onClick={() => navigate(`/result-list/${id}`)}
+                      style={{
+                        width: '100%',
+                        padding: '11px 16px',
+                        borderRadius: '12px',
+                        background: '#4f46e5',
+                        border: 'none',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(79,70,229,0.25)',
+                      }}
+                    >
+                      Open Merit List →
+                    </button>
+                  </div>
+
+                  {/* 2. Failure Analytics */}
+                  <div
+                    style={{
+                      padding: '24px',
+                      borderRadius: '24px',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justify: 'space-between',
+                      gap: '20px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                        <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: '#fee2e2', color: '#b91c1c', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                          ❌
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontWeight: 900, fontSize: '1.1rem', color: '#0f172a' }}>Failure Analytics</h4>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fail Report</span>
+                        </div>
+                      </div>
+                      <p style={{ color: '#64748b', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+                        Identify students who failed one or more subjects with details.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/fail-report/${id}`)}
+                      style={{
+                        width: '100%',
+                        padding: '11px 16px',
+                        borderRadius: '12px',
+                        background: '#f8fafc',
+                        border: '1.5px solid #cbd5e1',
+                        fontWeight: 800,
+                        color: '#334155',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      View Fail Report →
+                    </button>
+                  </div>
+
+                  {/* 3. Bulk Print */}
+                  <div
+                    style={{
+                      padding: '24px',
+                      borderRadius: '24px',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justify: 'space-between',
+                      gap: '20px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                        <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                          🖨️
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontWeight: 900, fontSize: '1.1rem', color: '#0f172a' }}>Bulk Print Center</h4>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Print Hub</span>
+                        </div>
+                      </div>
+                      <p style={{ color: '#64748b', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+                        Generate and batch print marksheets for entire session.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/print-results/${id}`)}
+                      style={{
+                        width: '100%',
+                        padding: '11px 16px',
+                        borderRadius: '12px',
+                        background: '#f8fafc',
+                        border: '1.5px solid #cbd5e1',
+                        fontWeight: 800,
+                        color: '#334155',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Print Center →
+                    </button>
+                  </div>
+
+                  {/* 4. General Summary */}
+                  <div
+                    style={{
+                      padding: '24px',
+                      borderRadius: '24px',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justify: 'space-between',
+                      gap: '20px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                        <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                          📋
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontWeight: 900, fontSize: '1.1rem', color: '#0f172a' }}>General Summary</h4>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Overview</span>
+                        </div>
+                      </div>
+                      <p style={{ color: '#64748b', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+                        High-level statistical overview and session summary.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/summary`)}
+                      style={{
+                        width: '100%',
+                        padding: '11px 16px',
+                        borderRadius: '12px',
+                        background: '#f8fafc',
+                        border: '1.5px solid #cbd5e1',
+                        fontWeight: 800,
+                        color: '#334155',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      View Summary →
+                    </button>
+                  </div>
+
+                  {/* 5. Full SMS Gateway (Password 112233) */}
+                  <div
+                    style={{
+                      padding: '24px',
+                      borderRadius: '24px',
+                      background: '#ffffff',
+                      border: '1.5px solid #e2e8f0',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justify: 'space-between',
+                      gap: '20px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+                        <div style={{ width: '46px', height: '46px', borderRadius: '14px', background: '#fce7f3', color: '#be185d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                          ✉️
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontWeight: 900, fontSize: '1.1rem', color: '#0f172a' }}>Full SMS Gateway</h4>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: '#db2777', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Password Required 🔒</span>
+                        </div>
+                      </div>
+                      <p style={{ color: '#64748b', fontSize: '13px', margin: 0, lineHeight: 1.5 }}>
+                        Advanced SMS messaging system with delivery logs & formatters.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const pass = prompt('🔒 Enter Password for Full SMS Gateway:')
+                        if (pass === '112233') {
+                          sessionStorage.setItem('sms_gateway_auth', '112233')
+                          navigate(`/sms-full/${id}`)
+                        } else if (pass !== null) {
+                          alert('❌ Incorrect password!')
+                        }
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '11px 16px',
+                        borderRadius: '12px',
+                        background: '#4f46e5',
+                        border: 'none',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(79,70,229,0.25)',
+                      }}
+                    >
+                      Open Gateway 🔒
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
