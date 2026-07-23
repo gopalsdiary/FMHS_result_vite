@@ -771,7 +771,7 @@ export default function TeacherAccessListPage() {
                       fontWeight: 800,
                       color: '#1e293b',
                       fontSize: '12px',
-                      width: '26%',
+                      width: '24%',
                       borderRight: '1.5px solid #cbd5e1',
                     }}
                   >
@@ -783,7 +783,7 @@ export default function TeacherAccessListPage() {
                       fontWeight: 800,
                       color: '#1e293b',
                       fontSize: '12px',
-                      width: '20%',
+                      width: '18%',
                       borderRight: '1.5px solid #cbd5e1',
                     }}
                   >
@@ -795,7 +795,7 @@ export default function TeacherAccessListPage() {
                       fontWeight: 800,
                       color: '#1e293b',
                       fontSize: '12px',
-                      width: '28%',
+                      width: '24%',
                       borderRight: '1.5px solid #cbd5e1',
                     }}
                   >
@@ -807,10 +807,22 @@ export default function TeacherAccessListPage() {
                       fontWeight: 800,
                       color: '#1e293b',
                       fontSize: '12px',
-                      width: '26%',
+                      width: '20%',
+                      borderRight: '1.5px solid #cbd5e1',
                     }}
                   >
                     মার্ক এন্ট্রি অগ্রগতি (Entry Status)
+                  </th>
+                  <th
+                    style={{
+                      padding: '8px 12px',
+                      fontWeight: 800,
+                      color: '#1e293b',
+                      fontSize: '12px',
+                      width: '14%',
+                    }}
+                  >
+                    Final Submit
                   </th>
                 </tr>
               </thead>
@@ -852,11 +864,14 @@ export default function TeacherAccessListPage() {
                       }
                     }
 
+                    const isSubmitted = !!assign.final_submitted
+                    const rowBg = isSubmitted ? '#f0fdf4' : groupBg
+
                     return (
                       <tr
                         key={`${group.email || group.nameEn}-${assignIdx}`}
                         style={{
-                          background: groupBg,
+                          background: rowBg,
                           borderBottom: isLastInGroup
                             ? '2px solid #cbd5e1'
                             : '1px solid #e2e8f0',
@@ -979,6 +994,7 @@ export default function TeacherAccessListPage() {
                           style={{
                             padding: '6px 12px',
                             verticalAlign: 'middle',
+                            borderRight: '1.5px solid #cbd5e1',
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -1022,6 +1038,32 @@ export default function TeacherAccessListPage() {
                               />
                             </div>
                           </div>
+                        </td>
+
+                        {/* Column 5: Final Submit Status */}
+                        <td
+                          style={{
+                            padding: '6px 12px',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              background: isSubmitted ? '#dcfce7' : '#f1f5f9',
+                              color: isSubmitted ? '#15803d' : '#64748b',
+                              border: isSubmitted ? '1px solid #bbf7d0' : '1px solid #cbd5e1',
+                              padding: '2px 8px',
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {isSubmitted ? '✅ Final Submit' : '⏳ '}
+                          </span>
                         </td>
                       </tr>
                     )
