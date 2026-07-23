@@ -1033,7 +1033,7 @@ export default function ExamPanelPage() {
            
            <div style={{ width: '1px', height: '24px', background: '#e2e8f0', alignSelf: 'center', margin: '0 4px' }}></div>
            
-
+           <button onClick={() => navigate(`/teacher_access_list/${id}`)} style={tabStyle('')}>📋 Teacher Access List</button>
            <button onClick={() => navigate(`/subject-gpa/${id}`)} style={tabStyle('')}>🧪 Subject GPA</button>
            <button onClick={() => navigate(`/gpa-final/${id}`)} style={tabStyle('')}>🎯 GPA Final</button>
            
@@ -1174,114 +1174,168 @@ export default function ExamPanelPage() {
 
             {/* ── SETUP TAB ── */}
             {activeTab === 'setup' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-                <div style={{ background: '#fff', padding: '32px', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                  <h3 style={{ margin: '0 0 24px 0', fontWeight: 900 }}>1. Load Students</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                    <div>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '6px' }}>SOURCE YEAR</label>
-                      <select className="form-control" style={{ borderRadius: '12px' }} value={sourceYear} onChange={e => setSourceYear(e.target.value)}>
-                        <option value="">Select Year</option>
-                        {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Upper Section: 2 Columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  
+                  {/* CARD 1: LOAD & IMPORT STUDENTS */}
+                  <div style={{ background: '#fff', padding: '20px 24px', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px' }}>1</div>
+                      <h3 style={{ margin: 0, fontWeight: 900, fontSize: '1.05rem', color: '#0f172a' }}>Load & Import Students</h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>SOURCE YEAR</label>
+                        <select className="form-control" style={{ borderRadius: '10px', padding: '8px 12px', fontSize: '12px', fontWeight: 700 }} value={sourceYear} onChange={e => setSourceYear(e.target.value)}>
+                          <option value="">Select Year</option>
+                          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>TARGET CLASS</label>
+                        <select className="form-control" style={{ borderRadius: '10px', padding: '8px 12px', fontSize: '12px', fontWeight: 700 }} value={gridClass} onChange={e => setGridClass(e.target.value)}>
+                          <option value="">Select Class</option>
+                          {sourceClasses.map(c => <option key={c} value={c}>Class {c}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: '16px' }}>
+                      <label style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>TARGET SECTION</label>
+                      <select className="form-control" style={{ borderRadius: '10px', padding: '8px 12px', fontSize: '12px', fontWeight: 700 }} value={gridSection} onChange={e => setGridSection(e.target.value)}>
+                        <option value="All">All Sections</option>
+                        {(sourceSectionsByClass[gridClass] || []).map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
-                    <div>
-                      <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '6px' }}>TARGET CLASS</label>
-                      <select className="form-control" style={{ borderRadius: '12px' }} value={gridClass} onChange={e => setGridClass(e.target.value)}>
-                        <option value="">Select Class</option>
-                        {sourceClasses.map(c => <option key={c} value={c}>Class {c}</option>)}
-                      </select>
+
+                    <button onClick={importStudents} style={{ width: '100%', padding: '10px', borderRadius: '12px', background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)', color: '#fff', border: 'none', fontWeight: 800, fontSize: '12px', boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)', cursor: 'pointer', marginBottom: '14px' }}>
+                      📥 IMPORT {previewCount !== null ? `${previewCount} ` : ''}STUDENTS
+                    </button>
+
+                    <div style={{ margin: '12px 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ position: 'absolute', width: '100%', height: '1px', background: '#e2e8f0' }}></div>
+                      <span style={{ position: 'relative', background: '#fff', padding: '0 12px', fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Or Add Manually</span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <button 
+                        onClick={() => setShowManualModal(true)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', borderRadius: '10px', background: '#fff', border: '1.5px solid #cbd5e1', color: '#334155', fontWeight: 800, fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#334155'; }}
+                      >
+                        ✏️ Add Manually
+                      </button>
+                      <button 
+                        onClick={() => setShowCsvModal(true)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', borderRadius: '10px', background: '#fff', border: '1.5px solid #cbd5e1', color: '#334155', fontWeight: 800, fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#334155'; }}
+                      >
+                        📤 Upload CSV
+                      </button>
                     </div>
                   </div>
-                  <div style={{ marginBottom: '32px' }}>
-                    <label style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', display: 'block', marginBottom: '6px' }}>TARGET SECTION</label>
-                    <select className="form-control" style={{ borderRadius: '12px' }} value={gridSection} onChange={e => setGridSection(e.target.value)}>
-                      <option value="All">All Sections</option>
-                      {(sourceSectionsByClass[gridClass] || []).map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <button onClick={importStudents} style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 800, marginBottom: '24px' }}>IMPORT {previewCount !== null ? `${previewCount} ` : ''}STUDENTS</button>
 
-                  <div style={{ margin: '24px 0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ position: 'absolute', width: '100%', height: '1px', background: '#e2e8f0' }}></div>
-                    <span style={{ position: 'relative', background: '#fff', padding: '0 16px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Or Add Manually</span>
-                  </div>
+                  {/* RIGHT COLUMN: 2. SUBJECT RULES & 3. TEACHER ACCESS */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    
+                    {/* CARD 2: SUBJECT RULES */}
+                    <div style={{ background: '#fff', padding: '20px 24px', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#dcfce7', color: '#15803d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px' }}>2</div>
+                          <h3 style={{ margin: 0, fontWeight: 900, fontSize: '1.05rem', color: '#0f172a' }}>Subject Rules</h3>
+                        </div>
+                        <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 800, color: '#475569' }}>
+                          {subjectRules.length} Configured
+                        </span>
+                      </div>
+                      <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 14px 0' }}>Define which subjects belong to this exam and set pass & total mark criteria.</p>
+                      <button 
+                        onClick={() => navigate(`/exam-subjects/${id}`)} 
+                        style={{ width: '100%', padding: '10px', borderRadius: '12px', background: '#f8fafc', border: '1.5px solid #cbd5e1', fontWeight: 800, fontSize: '12px', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      >
+                        📐 MANAGE SUBJECT RULES
+                      </button>
+                    </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <button 
-                      onClick={() => setShowManualModal(true)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', background: '#fff', border: '2px solid #e2e8f0', color: '#1e293b', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
-                    >
-                      ✏️ Add Manually
-                    </button>
-                    <button 
-                      onClick={() => setShowCsvModal(true)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', background: '#fff', border: '2px solid #e2e8f0', color: '#1e293b', fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
-                    >
-                      📤 Upload CSV
-                    </button>
+                    {/* CARD 3: TEACHER ACCESS & PROGRESS */}
+                    <div style={{ background: '#fff', padding: '20px 24px', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#e0f2fe', color: '#0369a1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px' }}>3</div>
+                        <h3 style={{ margin: 0, fontWeight: 900, fontSize: '1.05rem', color: '#0f172a' }}>Teacher Access & Permissions</h3>
+                      </div>
+                      <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 14px 0' }}>Grant teacher access for classes & subjects and track mark entry progress list.</p>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <button 
+                          onClick={() => navigate(`/exam-teachers/${id}`)} 
+                          style={{ width: '100%', padding: '10px', borderRadius: '12px', background: '#f8fafc', border: '1.5px solid #cbd5e1', fontWeight: 800, fontSize: '12px', color: '#0f172a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          ⚙️ Configure Access
+                        </button>
+                        <button 
+                          onClick={() => navigate(`/teacher_access_list/${id}`)} 
+                          style={{ width: '100%', padding: '10px', borderRadius: '12px', background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', color: '#ffffff', border: 'none', fontWeight: 800, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)' }}
+                        >
+                          📋 Teacher Access List
+                        </button>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <div style={{ background: '#fff', padding: '32px', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                    <h3 style={{ margin: '0 0 12px 0', fontWeight: 900 }}>2. Subject Rules</h3>
-                    <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Define which subjects belong to this exam and their pass criteria.</p>
-                    <button onClick={() => navigate(`/exam-subjects/${id}`)} style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 700, color: '#1e293b' }}>MANAGE SUBJECT RULES ({subjectRules.length})</button>
+                {/* LOWER SECTION: 4. TOTAL SUBJECTS CONFIGURATION (GPA DIVISORS) */}
+                <div style={{ background: '#fff', padding: '20px 24px', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#fef3c7', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px' }}>4</div>
+                      <h3 style={{ margin: 0, fontWeight: 900, fontSize: '1.05rem', color: '#0f172a' }}>Total Subjects Configuration (GPA Divisors)</h3>
+                    </div>
+                    {!isEditingCounts ? (
+                      <button onClick={() => setIsEditingCounts(true)} style={{ padding: '6px 14px', borderRadius: '10px', background: '#f1f5f9', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '12px', color: '#4f46e5', cursor: 'pointer' }}>✏️ Edit Settings</button>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button onClick={() => { setIsEditingCounts(false); loadExamData(); }} style={{ padding: '6px 14px', borderRadius: '10px', background: '#fff', border: '1px solid #cbd5e1', fontWeight: 800, fontSize: '12px', color: '#64748b', cursor: 'pointer' }}>Cancel</button>
+                        <button onClick={saveClassCounts} style={{ padding: '6px 16px', borderRadius: '10px', background: '#059669', border: 'none', fontWeight: 800, fontSize: '12px', color: '#fff', cursor: 'pointer', boxShadow: '0 2px 8px rgba(5,150,105,0.2)' }}>Save Configuration</button>
+                      </div>
+                    )}
                   </div>
-                  <div style={{ background: '#fff', padding: '32px', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                    <h3 style={{ margin: '0 0 12px 0', fontWeight: 900 }}>3. Teacher Access</h3>
-                    <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Grant access to teachers for specific classes and subjects.</p>
-                    <button onClick={() => navigate(`/exam-teachers/${id}`)} style={{ width: '100%', padding: '14px', borderRadius: '14px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 700, color: '#1e293b' }}>CONFIGURE ACCESS PERMISSIONS</button>
-                  </div>
+                  <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 14px 0' }}>Set the total number of subjects to divide by when calculating the final GPA for each class.</p>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '12px' }}>
+                    {(() => {
+                      const activeClasses = (availableClasses.length > 0 
+                        ? availableClasses.map(Number)
+                        : (subjectRules.length > 0
+                            ? Array.from(new Set(subjectRules.flatMap(r => (r.exam_class || []).filter((c: any) => c.selected).map((c: any) => Number(c.class))))).filter(n => !isNaN(n) && n > 0)
+                            : [6, 7, 8, 9, 10, 11, 12]
+                          )
+                      ).sort((a, b) => a - b)
 
-                  <div style={{ background: '#fff', padding: '32px', borderRadius: '32px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', gridColumn: '1 / -1' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <h3 style={{ margin: 0, fontWeight: 900 }}>📚 Total Subjects Configuration (GPA Divisors)</h3>
-                      {!isEditingCounts ? (
-                        <button onClick={() => setIsEditingCounts(true)} style={{ padding: '8px 20px', borderRadius: '12px', background: '#f1f5f9', border: '1px solid #e2e8f0', fontWeight: 800, color: '#4f46e5', cursor: 'pointer' }}>✏️ Edit Settings</button>
-                      ) : (
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => { setIsEditingCounts(false); loadExamData(); }} style={{ padding: '8px 20px', borderRadius: '12px', background: '#fff', border: '1px solid #e2e8f0', fontWeight: 800, color: '#64748b', cursor: 'pointer' }}>Cancel</button>
-                          <button onClick={saveClassCounts} style={{ padding: '8px 24px', borderRadius: '12px', background: '#059669', border: 'none', fontWeight: 800, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 10px rgba(5,150,105,0.2)' }}>Save Configuration</button>
+                      return activeClasses.map(c => (
+                        <div key={c} style={{ background: isEditingCounts ? '#fff' : '#f8fafc', padding: '10px', borderRadius: '12px', border: isEditingCounts ? '2px solid #4f46e5' : '1px solid #e2e8f0', transition: '0.2s', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', fontWeight: 900, color: '#64748b', marginBottom: '4px' }}>CLASS {c}</div>
+                          {isEditingCounts ? (
+                            <input 
+                              type="number" 
+                              className="form-control" 
+                              style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.1rem', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '4px' }}
+                              value={draftCounts[c] || 0}
+                              onChange={(e) => setDraftCounts({ ...draftCounts, [c]: Number(e.target.value) })}
+                            />
+                          ) : (
+                            <div style={{ fontWeight: 900, fontSize: '1.3rem', color: '#0f172a' }}>
+                              {exam ? (exam as any)[`class_${c}`] : 0}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>Set the total number of subjects to divide by when calculating the final GPA for each class.</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '20px' }}>
-                      {(() => {
-                        const activeClasses = (availableClasses.length > 0 
-                          ? availableClasses.map(Number)
-                          : (subjectRules.length > 0
-                              ? Array.from(new Set(subjectRules.flatMap(r => (r.exam_class || []).filter((c: any) => c.selected).map((c: any) => Number(c.class))))).filter(n => !isNaN(n) && n > 0)
-                              : [6, 7, 8, 9, 10, 11, 12]
-                            )
-                        ).sort((a, b) => a - b)
-
-                        return activeClasses.map(c => (
-                          <div key={c} style={{ background: isEditingCounts ? '#fff' : '#f8fafc', padding: '16px', borderRadius: '20px', border: isEditingCounts ? '2px solid #4f46e5' : '1px solid #e2e8f0', transition: '0.2s' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 900, color: '#64748b', marginBottom: '8px', textAlign: 'center' }}>CLASS {c}</div>
-                            {isEditingCounts ? (
-                              <input 
-                                type="number" 
-                                className="form-control" 
-                                style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}
-                                value={draftCounts[c] || 0}
-                                onChange={(e) => setDraftCounts({ ...draftCounts, [c]: Number(e.target.value) })}
-                              />
-                            ) : (
-                              <div style={{ textAlign: 'center', fontWeight: 900, fontSize: '1.5rem', color: '#1e293b' }}>
-                                {exam ? (exam as any)[`class_${c}`] : 0}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      })()}
-                    </div>
+                      ))
+                    })()}
                   </div>
                 </div>
               </div>

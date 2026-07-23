@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '@/services/supabaseClient'
 
@@ -29,6 +29,12 @@ interface TeacherGroup {
   assignments: Assignment[]
 }
 
+interface AssignmentProgress {
+  enteredCount: number
+  totalStudents: number
+  percentage: number
+}
+
 export default function TeacherAccessListPage() {
   const { examId } = useParams()
   const navigate = useNavigate()
@@ -38,8 +44,10 @@ export default function TeacherAccessListPage() {
   const [examName, setExamName] = useState<string>('')
   
   const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [studentRows, setStudentRows] = useState<any[]>([])
   const [loading, setLoading] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [filterUnder50, setFilterUnder50] = useState<boolean>(false)
 
   // Load all exams for dropdown selection
   useEffect(() => {
@@ -66,7 +74,7 @@ export default function TeacherAccessListPage() {
     }
   }, [examId])
 
-  // Load assignments whenever selectedExamId changes
+  // Load assignments & student data whenever selectedExamId changes
   useEffect(() => {
     if (!selectedExamId) return
     loadData(Number(selectedExamId))
@@ -142,8 +150,89 @@ export default function TeacherAccessListPage() {
     }
 
     setAssignments(rawAssignments)
+
+    // 4. Fetch student records in FMHS_exam_data for entry progress calculation
+    const { data: eRows } = await supabase
+      .from('FMHS_exam_data')
+      .select('*')
+      .eq('exam_id', targetExamId)
+      .range(0, 4999)
+
+    setStudentRows(eRows || [])
     setLoading(false)
   }
+
+  // Pre-calculate mark entry stats for all assignments
+  const progressMap = useMemo(() => {
+    const map = new Map<string, AssignmentProgress>()
+    if (studentRows.length === 0 || assignments.length === 0) return map
+
+    // Helper: Find matching column keys in studentRows for a subject
+    const sampleRow = studentRows[0] || {}
+    const keys = Object.keys(sampleRow)
+
+    assignments.forEach(assign => {
+      const keyId = `${assign.class}-${assign.section}-${assign.subject_code}`
+      if (map.has(keyId)) return
+
+      const targetClass = Number(assign.class)
+      const targetSection = String(assign.section || '').trim().toLowerCase()
+
+      const classSecStudents = studentRows.filter(s => 
+        Number(s.class) === targetClass && 
+        String(s.section || '').trim().toLowerCase() === targetSection
+      )
+
+      const totalStudents = classSecStudents.length
+      if (totalStudents === 0) {
+        map.set(keyId, { enteredCount: 0, totalStudents: 0, percentage: 0 })
+        return
+      }
+
+      const normName = String(assign.subject_name || '').replace(/^\*+/, '').trim().toLowerCase()
+      const compactName = normName.replace(/[^a-z0-9]/g, '')
+      const normCode = String(assign.subject_code || '').trim().toLowerCase()
+      const exactPrefix = `*${String(assign.subject_name || '').replace(/^\*+/, '').trim()}_`.toLowerCase()
+
+      const matchingKeys = keys.filter(k => {
+        const kLower = k.toLowerCase()
+        if (['id', 'exam_id', 'iid', 'class', 'section', 'roll', 'name', 'student_name', 'father_name', 'mother_name', 'gpa_final', 'total_mark', 'gpa', 'grade', 'remark', 'rank', 'created_at', 'updated_at', 'optional_subject'].includes(kLower)) {
+          return false
+        }
+        if (kLower.startsWith(exactPrefix)) return true
+        const kClean = kLower.replace(/^\*+/, '').trim()
+        const compactKey = kClean.replace(/[^a-z0-9]/g, '')
+        return (
+          kClean.includes(normName) ||
+          (compactName && compactKey.includes(compactName)) ||
+          (normCode && normCode.length >= 2 && (kClean.includes(normCode) || compactKey.includes(normCode)))
+        )
+      })
+
+      if (matchingKeys.length === 0) {
+        map.set(keyId, { enteredCount: 0, totalStudents, percentage: 0 })
+        return
+      }
+
+      let enteredCount = 0
+      classSecStudents.forEach(student => {
+        let hasVal = false
+        for (const mk of matchingKeys) {
+          const val = student[mk]
+          if (val !== null && val !== undefined && String(val).trim() !== '' && String(val).trim() !== 'NaN') {
+            hasVal = true
+            break
+          }
+        }
+        if (hasVal) enteredCount++
+      })
+
+      const percentage = Math.round((enteredCount / totalStudents) * 100)
+      map.set(keyId, { enteredCount, totalStudents, percentage })
+    })
+
+    return map
+  }, [assignments, studentRows])
 
   // Group assignments by teacher email / teacher name
   const teacherMap: Record<string, TeacherGroup> = {}
@@ -168,27 +257,69 @@ export default function TeacherAccessListPage() {
     a.nameEn.localeCompare(b.nameEn)
   )
 
-  // Filter based on search query
-  const filteredGroups = teacherGroups.filter((group) => {
-    const query = searchQuery.toLowerCase()
-    const matchesTeacher =
-      group.nameEn.toLowerCase().includes(query) ||
-      group.nameBn?.toLowerCase().includes(query) ||
-      group.email.toLowerCase().includes(query)
+  // Count assignments under 50% entry
+  const under50Count = useMemo(() => {
+    return assignments.filter(a => {
+      const keyId = `${a.class}-${a.section}-${a.subject_code}`
+      const prog = progressMap.get(keyId)
+      const pct = prog ? prog.percentage : 0
+      return pct < 50
+    }).length
+  }, [assignments, progressMap])
 
-    const matchesAssignment = group.assignments.some(
-      (a) =>
-        a.subject_name.toLowerCase().includes(query) ||
-        a.subject_code.toLowerCase().includes(query) ||
-        String(a.class).includes(query) ||
-        a.section.toLowerCase().includes(query)
-    )
+  // Filter based on search query and < 50% filter
+  const filteredGroups = teacherGroups
+    .map((group) => {
+      const query = searchQuery.toLowerCase()
+      const matchesTeacherName =
+        group.nameEn.toLowerCase().includes(query) ||
+        group.nameBn?.toLowerCase().includes(query) ||
+        group.email.toLowerCase().includes(query)
 
-    return matchesTeacher || matchesAssignment
-  })
+      const matchingAssignments = group.assignments.filter((a) => {
+        const keyId = `${a.class}-${a.section}-${a.subject_code}`
+        const prog = progressMap.get(keyId) || { enteredCount: 0, totalStudents: 0, percentage: 0 }
+
+        const matchesSearch =
+          !query ||
+          matchesTeacherName ||
+          a.subject_name.toLowerCase().includes(query) ||
+          a.subject_code.toLowerCase().includes(query) ||
+          String(a.class).includes(query) ||
+          a.section.toLowerCase().includes(query)
+
+        if (!matchesSearch) return false
+
+        if (filterUnder50) {
+          return prog.percentage < 50
+        }
+
+        return true
+      })
+
+      return {
+        ...group,
+        assignments: matchingAssignments,
+      }
+    })
+    .filter((group) => group.assignments.length > 0)
 
   const totalAssignedTeachers = teacherGroups.length
   const totalAssignedSubjects = assignments.length
+
+  // Calculate Overall Progress
+  let grandTotalStudents = 0
+  let grandEnteredStudents = 0
+  assignments.forEach(assign => {
+    const keyId = `${assign.class}-${assign.section}-${assign.subject_code}`
+    const prog = progressMap.get(keyId)
+    if (prog) {
+      grandTotalStudents += prog.totalStudents
+      grandEnteredStudents += prog.enteredCount
+    }
+  })
+
+  const grandPercentage = grandTotalStudents > 0 ? Math.round((grandEnteredStudents / grandTotalStudents) * 100) : 0
 
   return (
     <div
@@ -196,28 +327,28 @@ export default function TeacherAccessListPage() {
         minHeight: '100vh',
         background: '#f8fafc',
         fontFamily: "'Aneek Bangla', 'Outfit', system-ui, sans-serif",
-        color: '#1e293b',
+        color: '#0f172a',
       }}
     >
-      {/* Header Bar */}
+      {/* Header Bar - Compact */}
       <header
         className="no-print"
         style={{
           background: '#ffffff',
-          padding: '16px 32px',
+          padding: '10px 20px',
           borderBottom: '1px solid #e2e8f0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '16px',
+          gap: '12px',
           position: 'sticky',
           top: 0,
           zIndex: 10,
-          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+          boxShadow: '0 1px 6px rgba(0,0,0,0.03)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() =>
               selectedExamId ? navigate(`/exam-teachers/${selectedExamId}`) : navigate(-1)
@@ -225,32 +356,32 @@ export default function TeacherAccessListPage() {
             style={{
               background: '#f1f5f9',
               border: '1px solid #cbd5e1',
-              color: '#475569',
-              borderRadius: '10px',
-              padding: '8px 16px',
+              color: '#334155',
+              borderRadius: '8px',
+              padding: '6px 12px',
               cursor: 'pointer',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '12px',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '4px',
             }}
           >
             ← Back to Teacher Setup
           </button>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: '#0f172a' }}>
-              📋 Teacher Access List (শিক্ষক বিষয় একসেস তালিকা)
+            <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+              📋 Teacher Access & Progress List (শিক্ষক বিষয় ও এন্ট্রি তালিকা)
             </h1>
-            <p style={{ margin: 0, fontSize: '12px', color: '#ec4899', fontWeight: 800 }}>
+            <p style={{ margin: 0, fontSize: '11px', color: '#db2777', fontWeight: 700 }}>
               {examName ? examName.toUpperCase() : 'EXAM TEACHER ASSIGNMENTS'}
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Exam Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Exam:</label>
             <select
               value={selectedExamId}
@@ -259,11 +390,11 @@ export default function TeacherAccessListPage() {
                 navigate(`/teacher_access_list/${e.target.value}`)
               }}
               style={{
-                padding: '8px 12px',
-                borderRadius: '10px',
+                padding: '6px 10px',
+                borderRadius: '8px',
                 border: '1.5px solid #cbd5e1',
                 background: '#fff',
-                fontSize: '13px',
+                fontSize: '12px',
                 fontWeight: 700,
                 color: '#0f172a',
                 outline: 'none',
@@ -284,15 +415,15 @@ export default function TeacherAccessListPage() {
               background: '#0284c7',
               color: '#ffffff',
               border: 'none',
-              padding: '8px 16px',
-              borderRadius: '10px',
+              padding: '6px 14px',
+              borderRadius: '8px',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '12px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+              gap: '4px',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.2)',
             }}
           >
             🖨️ Print List
@@ -300,18 +431,18 @@ export default function TeacherAccessListPage() {
         </div>
       </header>
 
-      <main style={{ padding: '24px 32px', maxWidth: '1400px', margin: '0 auto' }}>
+      <main style={{ padding: '16px 20px', maxWidth: '1440px', margin: '0 auto' }}>
         {/* Printable Title for Print Mode */}
-        <div className="only-print" style={{ display: 'none', textAlign: 'center', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 4px 0' }}>
-            Teacher Access List - {examName}
+        <div className="only-print" style={{ display: 'none', textAlign: 'center', marginBottom: '14px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 2px 0' }}>
+            Teacher Access & Mark Entry Progress List - {examName}
           </h2>
-          <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-            Generated on: {new Date().toLocaleDateString('bn-BD')} | Total Teachers: {totalAssignedTeachers}
+          <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>
+            Generated on: {new Date().toLocaleDateString('bn-BD')} | Total Teachers: {totalAssignedTeachers} | Total Assignments: {totalAssignedSubjects} | Overall Progress: {grandEnteredStudents}/{grandTotalStudents} ({grandPercentage}%)
           </p>
         </div>
 
-        {/* Top Summary Stats & Search */}
+        {/* Top Summary Stats & Search - Compact */}
         <div
           className="no-print"
           style={{
@@ -319,103 +450,145 @@ export default function TeacherAccessListPage() {
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '16px',
-            marginBottom: '20px',
+            gap: '12px',
+            marginBottom: '14px',
           }}
         >
           {/* Summary Badges */}
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Total Teachers */}
             <div
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
-                borderRadius: '14px',
-                padding: '10px 18px',
+                borderRadius: '10px',
+                padding: '6px 12px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                gap: '8px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.02)',
               }}
             >
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: '#e0f2fe',
-                  color: '#0284c7',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 900,
-                  fontSize: '16px',
-                }}
-              >
-                👨‍🏫
-              </div>
+              <span style={{ fontSize: '14px' }}>👨‍🏫</span>
               <div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>
-                  মোট শিক্ষক (Total Teachers)
-                </div>
-                <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, display: 'block', lineHeight: 1 }}>
+                  মোট শিক্ষক
+                </span>
+                <span style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
                   {totalAssignedTeachers} জন
-                </div>
+                </span>
               </div>
             </div>
 
+            {/* Total Subjects */}
             <div
               style={{
                 background: '#ffffff',
                 border: '1px solid #e2e8f0',
-                borderRadius: '14px',
-                padding: '10px 18px',
+                borderRadius: '10px',
+                padding: '6px 12px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                gap: '8px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.02)',
               }}
             >
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  background: '#f0fdf4',
-                  color: '#16a34a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 900,
-                  fontSize: '16px',
-                }}
-              >
-                📚
-              </div>
+              <span style={{ fontSize: '14px' }}>📚</span>
               <div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>
-                  মোট বরাদ্দকৃত বিষয় (Total Assignments)
-                </div>
-                <div style={{ fontSize: '16px', fontWeight: 900, color: '#0f172a' }}>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, display: 'block', lineHeight: 1 }}>
+                  মোট বরাদ্দকৃত বিষয়
+                </span>
+                <span style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a' }}>
                   {totalAssignedSubjects} টি
-                </div>
+                </span>
               </div>
             </div>
+
+            {/* Overall Mark Entry Progress */}
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                padding: '6px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.02)',
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>📈</span>
+              <div>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, display: 'block', lineHeight: 1 }}>
+                  মোট এন্ট্রি অগ্রগতি
+                </span>
+                <span style={{ fontSize: '14px', fontWeight: 900, color: '#059669' }}>
+                  {grandEnteredStudents} / {grandTotalStudents} ({grandPercentage}%)
+                </span>
+              </div>
+            </div>
+
+            {/* Filter Button: < 50% Mark Entry */}
+            <button
+              onClick={() => setFilterUnder50(!filterUnder50)}
+              style={{
+                background: filterUnder50 ? '#fef2f2' : '#ffffff',
+                color: filterUnder50 ? '#991b1b' : '#334155',
+                border: filterUnder50 ? '1.5px solid #ef4444' : '1px solid #cbd5e1',
+                borderRadius: '10px',
+                padding: '6px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: filterUnder50 ? '0 2px 8px rgba(239, 68, 68, 0.2)' : '0 1px 4px rgba(0,0,0,0.02)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>⚠️</span>
+              <div style={{ textAlign: 'left' }}>
+                <span style={{ fontSize: '10px', color: filterUnder50 ? '#b91c1c' : '#64748b', fontWeight: 700, display: 'block', lineHeight: 1 }}>
+                  {filterUnder50 ? 'ফিল্টার চালু' : 'ফিল্টার বাটন'}
+                </span>
+                <span style={{ fontSize: '13px', fontWeight: 900 }}>
+                  ৫০% এর নিচে এন্ট্রি ({under50Count}টি)
+                </span>
+              </div>
+              {filterUnder50 && (
+                <span
+                  style={{
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    borderRadius: '50%',
+                    width: '16px',
+                    height: '16px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '10px',
+                    fontWeight: 900,
+                  }}
+                >
+                  ✓
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Search Box */}
-          <div style={{ position: 'relative', width: '320px' }}>
+          <div style={{ position: 'relative', width: '280px' }}>
             <input
               type="text"
-              placeholder="🔍 Search teacher, class, section, subject..."
+              placeholder="🔍 Search teacher, class, subject..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                padding: '10px 16px',
-                paddingRight: '36px',
-                borderRadius: '12px',
+                padding: '7px 12px',
+                paddingRight: '32px',
+                borderRadius: '8px',
                 border: '1.5px solid #cbd5e1',
-                fontSize: '13px',
+                fontSize: '12px',
                 outline: 'none',
                 background: '#ffffff',
               }}
@@ -425,14 +598,14 @@ export default function TeacherAccessListPage() {
                 onClick={() => setSearchQuery('')}
                 style={{
                   position: 'absolute',
-                  right: '10px',
+                  right: '8px',
                   top: '50%',
                   transform: 'translateY(-50%)',
                   background: 'none',
                   border: 'none',
                   color: '#94a3b8',
                   cursor: 'pointer',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: 800,
                 }}
               >
@@ -442,35 +615,44 @@ export default function TeacherAccessListPage() {
           </div>
         </div>
 
-        {/* Content Table Container */}
+        {/* Compressed Content Table Container */}
         <div
           style={{
             background: '#ffffff',
-            borderRadius: '16px',
+            borderRadius: '12px',
             border: '1.5px solid #cbd5e1',
             overflow: 'hidden',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
           }}
         >
           {loading ? (
             <div
               style={{
-                padding: '60px',
+                padding: '40px',
                 textAlign: 'center',
                 color: '#64748b',
                 fontWeight: 600,
+                fontSize: '13px',
               }}
             >
-              ⏳ Loading teacher access list...
+              ⏳ Loading teacher access & entry progress...
             </div>
           ) : filteredGroups.length === 0 ? (
-            <div style={{ padding: '60px', textAlign: 'center' }}>
-              <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔍</div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#334155' }}>
-                {searchQuery ? 'No matching assignments found' : 'No Teacher Assignments Configured'}
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <div style={{ fontSize: '36px', marginBottom: '8px' }}>
+                {filterUnder50 ? '🎉' : '🔍'}
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#334155' }}>
+                {filterUnder50
+                  ? '৫০% এর নিচে এন্ট্রি বাকি এমন কোনো বিষয় নেই!'
+                  : searchQuery
+                  ? 'No matching assignments found'
+                  : 'No Teacher Assignments Configured'}
               </h3>
-              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '6px' }}>
-                {searchQuery
+              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                {filterUnder50
+                  ? 'সব বিষয়গুলোর এন্ট্রি ৫০% বা তার বেশি সম্পন্ন হয়েছে।'
+                  : searchQuery
                   ? 'Try searching with a different keyword.'
                   : 'Assign teachers to subjects in the Teacher Setup page.'}
               </p>
@@ -480,7 +662,7 @@ export default function TeacherAccessListPage() {
               style={{
                 width: '100%',
                 borderCollapse: 'collapse',
-                fontSize: '13px',
+                fontSize: '12px',
                 textAlign: 'left',
               }}
             >
@@ -488,11 +670,11 @@ export default function TeacherAccessListPage() {
                 <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
                   <th
                     style={{
-                      padding: '12px 18px',
+                      padding: '8px 12px',
                       fontWeight: 800,
                       color: '#1e293b',
-                      fontSize: '13px',
-                      width: '32%',
+                      fontSize: '12px',
+                      width: '26%',
                       borderRight: '1.5px solid #cbd5e1',
                     }}
                   >
@@ -500,11 +682,11 @@ export default function TeacherAccessListPage() {
                   </th>
                   <th
                     style={{
-                      padding: '12px 18px',
+                      padding: '8px 12px',
                       fontWeight: 800,
                       color: '#1e293b',
-                      fontSize: '13px',
-                      width: '28%',
+                      fontSize: '12px',
+                      width: '20%',
                       borderRight: '1.5px solid #cbd5e1',
                     }}
                   >
@@ -512,14 +694,26 @@ export default function TeacherAccessListPage() {
                   </th>
                   <th
                     style={{
-                      padding: '12px 18px',
+                      padding: '8px 12px',
                       fontWeight: 800,
                       color: '#1e293b',
-                      fontSize: '13px',
-                      width: '40%',
+                      fontSize: '12px',
+                      width: '28%',
+                      borderRight: '1.5px solid #cbd5e1',
                     }}
                   >
                     বিষয় (Subject)
+                  </th>
+                  <th
+                    style={{
+                      padding: '8px 12px',
+                      fontWeight: 800,
+                      color: '#1e293b',
+                      fontSize: '12px',
+                      width: '26%',
+                    }}
+                  >
+                    মার্ক এন্ট্রি অগ্রগতি (Entry Status)
                   </th>
                 </tr>
               </thead>
@@ -532,6 +726,35 @@ export default function TeacherAccessListPage() {
                     const isFirstInGroup = assignIdx === 0
                     const isLastInGroup = assignIdx === group.assignments.length - 1
 
+                    // Progress calculations for this specific assignment
+                    const keyId = `${assign.class}-${assign.section}-${assign.subject_code}`
+                    const prog = progressMap.get(keyId) || { enteredCount: 0, totalStudents: 0, percentage: 0 }
+
+                    // Color badge logic
+                    let badgeBg = '#f1f5f9'
+                    let badgeColor = '#64748b'
+                    let barColor = '#cbd5e1'
+
+                    if (prog.totalStudents > 0) {
+                      if (prog.percentage === 100) {
+                        badgeBg = '#dcfce7'
+                        badgeColor = '#15803d'
+                        barColor = '#22c55e'
+                      } else if (prog.percentage >= 50) {
+                        badgeBg = '#e0f2fe'
+                        badgeColor = '#0369a1'
+                        barColor = '#0284c7'
+                      } else if (prog.percentage > 0) {
+                        badgeBg = '#fef3c7'
+                        badgeColor = '#b45309'
+                        barColor = '#f59e0b'
+                      } else {
+                        badgeBg = '#fee2e2'
+                        badgeColor = '#b91c1c'
+                        barColor = '#ef4444'
+                      }
+                    }
+
                     return (
                       <tr
                         key={`${group.email || group.nameEn}-${assignIdx}`}
@@ -542,69 +765,50 @@ export default function TeacherAccessListPage() {
                             : '1px solid #e2e8f0',
                         }}
                       >
-                        {/* Column 1: शिक्षকের নাম (Teacher Name) with RowSpan for first row in group */}
+                        {/* Column 1: Teacher Name with RowSpan */}
                         {isFirstInGroup && (
                           <td
                             rowSpan={group.assignments.length}
                             style={{
-                              padding: '14px 18px',
+                              padding: '8px 12px',
                               verticalAlign: 'top',
                               borderRight: '1.5px solid #cbd5e1',
                               background: groupBg,
                             }}
                           >
-                            <div
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '4px',
-                              }}
-                            >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               <div
                                 style={{
                                   fontWeight: 800,
-                                  fontSize: '14px',
+                                  fontSize: '13px',
                                   color: '#0f172a',
+                                  lineHeight: 1.2,
                                 }}
                               >
                                 {group.nameEn}
                               </div>
                               {group.nameBn && (
-                                <div
-                                  style={{
-                                    fontSize: '12px',
-                                    color: '#475569',
-                                    fontWeight: 600,
-                                  }}
-                                >
+                                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>
                                   {group.nameBn}
                                 </div>
                               )}
                               {group.email && (
-                                <div
-                                  style={{
-                                    fontSize: '11px',
-                                    color: '#94a3b8',
-                                    fontWeight: 500,
-                                  }}
-                                >
+                                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>
                                   {group.email}
                                 </div>
                               )}
-                              {/* Total Subjects Badge */}
-                              <div style={{ marginTop: '6px' }}>
+                              <div style={{ marginTop: '4px' }}>
                                 <span
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '4px',
+                                    gap: '3px',
                                     background: '#0284c7',
                                     color: '#ffffff',
-                                    padding: '3px 10px',
-                                    borderRadius: '12px',
-                                    fontSize: '11px',
+                                    padding: '2px 8px',
+                                    borderRadius: '10px',
+                                    fontSize: '10px',
                                     fontWeight: 800,
-                                    letterSpacing: '0.02em',
                                   }}
                                 >
                                   📚 মোট {group.totalSubjects} টি বিষয়
@@ -614,62 +818,39 @@ export default function TeacherAccessListPage() {
                           </td>
                         )}
 
-                        {/* Column 2: ক্লাস - সেকশন (Class - Section) */}
+                        {/* Column 2: Class - Section */}
                         <td
                           style={{
-                            padding: '12px 18px',
+                            padding: '6px 12px',
                             verticalAlign: 'middle',
                             borderRight: '1.5px solid #cbd5e1',
-                            fontWeight: 700,
-                            color: '#1e293b',
                           }}
                         >
-                          <div
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              background: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
-                              padding: '4px 10px',
-                              borderRadius: '8px',
-                              fontSize: '12px',
-                            }}
-                          >
-                            <span>🏫 Class {assign.class}</span>
-                            <span style={{ color: '#94a3b8' }}>•</span>
-                            <span style={{ color: '#0284c7', fontWeight: 800 }}>
-                              Section {assign.section}
-                            </span>
+                          <div style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a', whiteSpace: 'nowrap' }}>
+                            Class {assign.class} - {assign.section}
                           </div>
                         </td>
 
-                        {/* Column 3: বিষয় (Subject) with serial number */}
+                        {/* Column 3: Subject */}
                         <td
                           style={{
-                            padding: '12px 18px',
+                            padding: '6px 12px',
                             verticalAlign: 'middle',
+                            borderRight: '1.5px solid #cbd5e1',
                           }}
                         >
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                            }}
-                          >
-                            {/* Serial Number Badge */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                width: '24px',
-                                height: '24px',
+                                width: '20px',
+                                height: '20px',
                                 borderRadius: '50%',
                                 background: '#3b82f6',
                                 color: '#ffffff',
-                                fontSize: '11px',
+                                fontSize: '10px',
                                 fontWeight: 800,
                                 flexShrink: 0,
                               }}
@@ -677,27 +858,71 @@ export default function TeacherAccessListPage() {
                               {assignIdx + 1}
                             </span>
                             <div>
-                              <span
-                                style={{
-                                  fontWeight: 800,
-                                  color: '#0f172a',
-                                  fontSize: '13px',
-                                }}
-                              >
+                              <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
                                 {assign.subject_name}
                               </span>
                               {assign.subject_code && (
                                 <span
                                   style={{
-                                    fontSize: '11px',
+                                    fontSize: '10px',
                                     color: '#64748b',
-                                    marginLeft: '6px',
+                                    marginLeft: '4px',
                                     fontWeight: 600,
                                   }}
                                 >
-                                  (Code: {assign.subject_code})
+                                  ({assign.subject_code})
                                 </span>
                               )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Column 4: Mark Entry Progress */}
+                        <td
+                          style={{
+                            padding: '6px 12px',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                              <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
+                                {prog.enteredCount} / {prog.totalStudents} জন
+                              </span>
+                              <span
+                                style={{
+                                  background: badgeBg,
+                                  color: badgeColor,
+                                  padding: '1px 7px',
+                                  borderRadius: '8px',
+                                  fontSize: '10px',
+                                  fontWeight: 900,
+                                  border: `1px solid ${badgeColor}33`,
+                                }}
+                              >
+                                {prog.percentage}%
+                              </span>
+                            </div>
+
+                            {/* Mini Progress Bar */}
+                            <div
+                              style={{
+                                height: '5px',
+                                width: '100%',
+                                background: '#e2e8f0',
+                                borderRadius: '3px',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  height: '100%',
+                                  width: `${Math.min(100, Math.max(0, prog.percentage))}%`,
+                                  background: barColor,
+                                  borderRadius: '3px',
+                                  transition: 'width 0.3s ease',
+                                }}
+                              />
                             </div>
                           </div>
                         </td>
@@ -731,7 +956,13 @@ export default function TeacherAccessListPage() {
             border: 1px solid #000 !important;
           }
           th, td {
+            padding: 4px 6px !important;
             border-color: #000 !important;
+            font-size: 10px !important;
+          }
+          th {
+            background-color: #f1f5f9 !important;
+            -webkit-print-color-adjust: exact;
           }
         }
       `}</style>
