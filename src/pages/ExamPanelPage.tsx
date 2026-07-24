@@ -224,18 +224,21 @@ export default function ExamPanelPage() {
     const classCol = `class_${sourceYear}`
     const sectionCol = `section_${sourceYear}`
     
-    // 1. Get all candidate students from database (non-TC)
+    // 1. Get all candidate students from database
+    // Exclude: status=TC AND student_final_status=false
     let students: any[] = []
     let from = 0
     let to = 999
     let hasMore = true
     while (hasMore) {
-      let q = supabase.from('student_database').select('iid').eq(classCol, gridClass).or('status.is.null,status.neq.TC')
+      let q = supabase.from('student_database').select('iid, student_final_status').eq(classCol, gridClass)
       if (gridSection && gridSection !== 'All') q = q.eq(sectionCol, gridSection)
       const { data, error } = await q.range(from, to)
       if (error) break
       if (data && data.length > 0) {
-        students = [...students, ...data]
+        // Filter out: student_final_status = false
+        const filtered = data.filter((s: any) => s.student_final_status !== false)
+        students = [...students, ...filtered]
         if (data.length < 1000) hasMore = false
         else { from += 1000; to += 1000 }
       } else { hasMore = false }
@@ -643,14 +646,15 @@ export default function ExamPanelPage() {
     let from = 0; let to = 999; let hasMore = true
     while (hasMore) {
       let q = supabase.from('student_database')
-        .select(`iid, student_name_en, father_name_en, status, ${classCol}, ${sectionCol}, ${rollCol}`)
+        .select(`iid, student_name_en, father_name_en, student_final_status, ${classCol}, ${sectionCol}, ${rollCol}`)
         .eq(classCol, gridClass)
-        .or('status.is.null,status.neq.TC')
       if (gridSection && gridSection !== 'All') q = q.eq(sectionCol, gridSection)
       const { data, error } = await q.range(from, to)
       if (error) { alert(`Error fetching students: ${error.message}`); return }
       if (data && data.length > 0) {
-        students = [...students, ...data]
+        // Filter out: student_final_status = false
+        const filtered = (data as any[]).filter((s: any) => s.student_final_status !== false)
+        students = [...students, ...filtered]
         if (data.length < 1000) hasMore = false
         else { from += 1000; to += 1000 }
       } else { hasMore = false }
