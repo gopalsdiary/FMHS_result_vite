@@ -11,21 +11,21 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/supabase-js": "^2.111.0",
     "html2pdf.js": "^0.14.0",
     "qrcode": "^1.5.4",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "react-router-dom": "^7.14.2"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react": "^6.0.5",
     "typescript": "^6.0.3",
-    "vite": "^8.0.10"
+    "vite": "^8.2.0"
   },
   "engines": {
     "node": ">=24.15.0"
