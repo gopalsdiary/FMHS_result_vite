@@ -30,6 +30,14 @@ interface TeacherGroup {
   assignments: Assignment[]
 }
 
+interface ClassGroup {
+  class: number
+  section: string
+  classSecKey: string
+  totalSubjects: number
+  assignments: Assignment[]
+}
+
 interface AssignmentProgress {
   enteredCount: number
   totalStudents: number
@@ -49,6 +57,8 @@ export default function TeacherAccessListPage() {
   const [loading, setLoading] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [filterUnder50, setFilterUnder50] = useState<boolean>(false)
+  const [viewMode, setViewMode] = useState<'teacher' | 'class'>('teacher')
+  const [selectedClassSection, setSelectedClassSection] = useState<string>('')
 
   // Load all exams for dropdown selection
   useEffect(() => {
@@ -266,6 +276,43 @@ export default function TeacherAccessListPage() {
     a.nameEn.localeCompare(b.nameEn)
   )
 
+  // Group assignments by Class - Section
+  const classMap: Record<string, ClassGroup> = {}
+
+  assignments.forEach((assign) => {
+    const classSecKey = `Class ${assign.class} - ${assign.section}`
+    if (!classMap[classSecKey]) {
+      classMap[classSecKey] = {
+        class: Number(assign.class),
+        section: assign.section || '',
+        classSecKey,
+        totalSubjects: 0,
+        assignments: [],
+      }
+    }
+    classMap[classSecKey].assignments.push(assign)
+    classMap[classSecKey].totalSubjects += 1
+  })
+
+  const classGroups: ClassGroup[] = Object.values(classMap).sort((a, b) => {
+    if (a.class !== b.class) return a.class - b.class
+    return a.section.localeCompare(b.section)
+  })
+
+  // Unique Class - Section options for dropdown
+  const classSectionOptions = useMemo(() => {
+    const set = new Set<string>()
+    assignments.forEach((a) => {
+      set.add(`Class ${a.class} - ${a.section}`)
+    })
+    return Array.from(set).sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, '')) || 0
+      const numB = parseInt(b.replace(/\D/g, '')) || 0
+      if (numA !== numB) return numA - numB
+      return a.localeCompare(b)
+    })
+  }, [assignments])
+
   // Count assignments under 50% entry
   const under50Count = useMemo(() => {
     return assignments.filter(a => {
@@ -276,8 +323,8 @@ export default function TeacherAccessListPage() {
     }).length
   }, [assignments, progressMap])
 
-  // Filter based on search query and < 50% filter
-  const filteredGroups = teacherGroups
+  // Filter teacher-wise groups
+  const filteredTeacherGroups = teacherGroups
     .map((group) => {
       const query = searchQuery.toLowerCase()
       const matchesTeacherName =
@@ -286,6 +333,11 @@ export default function TeacherAccessListPage() {
         group.email.toLowerCase().includes(query)
 
       const matchingAssignments = group.assignments.filter((a) => {
+        const classSecStr = `Class ${a.class} - ${a.section}`
+        if (selectedClassSection && classSecStr !== selectedClassSection) {
+          return false
+        }
+
         const keyId = `${a.class}-${a.section}-${a.subject_code}`
         const prog = progressMap.get(keyId) || { enteredCount: 0, totalStudents: 0, percentage: 0 }
 
@@ -296,6 +348,46 @@ export default function TeacherAccessListPage() {
           a.subject_code.toLowerCase().includes(query) ||
           String(a.class).includes(query) ||
           a.section.toLowerCase().includes(query)
+
+        if (!matchesSearch) return false
+
+        if (filterUnder50) {
+          return prog.percentage < 50
+        }
+
+        return true
+      })
+
+      return {
+        ...group,
+        assignments: matchingAssignments,
+      }
+    })
+    .filter((group) => group.assignments.length > 0)
+
+  // Filter class-wise groups
+  const filteredClassGroups = classGroups
+    .map((group) => {
+      const query = searchQuery.toLowerCase()
+
+      if (selectedClassSection && group.classSecKey !== selectedClassSection) {
+        return { ...group, assignments: [] }
+      }
+
+      const matchesClassSecName = group.classSecKey.toLowerCase().includes(query)
+
+      const matchingAssignments = group.assignments.filter((a) => {
+        const keyId = `${a.class}-${a.section}-${a.subject_code}`
+        const prog = progressMap.get(keyId) || { enteredCount: 0, totalStudents: 0, percentage: 0 }
+
+        const matchesSearch =
+          !query ||
+          matchesClassSecName ||
+          a.teacher_name_en?.toLowerCase().includes(query) ||
+          a.teacher_name_bn?.toLowerCase().includes(query) ||
+          a.teacher_email_id?.toLowerCase().includes(query) ||
+          a.subject_name.toLowerCase().includes(query) ||
+          a.subject_code.toLowerCase().includes(query)
 
         if (!matchesSearch) return false
 
@@ -564,8 +656,70 @@ export default function TeacherAccessListPage() {
             marginBottom: '14px',
           }}
         >
-          {/* Summary Badges */}
+          {/* Summary Badges & Controls */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* View Mode Switcher */}
+            <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '10px', padding: '3px', gap: '3px' }}>
+              <button
+                onClick={() => setViewMode('teacher')}
+                style={{
+                  background: viewMode === 'teacher' ? '#ffffff' : 'transparent',
+                  color: viewMode === 'teacher' ? '#0284c7' : '#64748b',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: viewMode === 'teacher' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                👨‍🏫 শিক্ষক অনুযায়ী
+              </button>
+              <button
+                onClick={() => setViewMode('class')}
+                style={{
+                  background: viewMode === 'class' ? '#ffffff' : 'transparent',
+                  color: viewMode === 'class' ? '#0284c7' : '#64748b',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '5px 12px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: viewMode === 'class' ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                🏫 ক্লাস-সেকশন অনুযায়ী
+              </button>
+            </div>
+
+            {/* Class - Section Filter Dropdown */}
+            <select
+              value={selectedClassSection}
+              onChange={(e) => setSelectedClassSection(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '10px',
+                border: '1.5px solid #cbd5e1',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#0f172a',
+                outline: 'none',
+                background: '#ffffff',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="">সব ক্লাস-সেকশন (All)</option>
+              {classSectionOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+
             {/* Total Teachers */}
             <div
               style={{
@@ -735,7 +889,7 @@ export default function TeacherAccessListPage() {
             boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
           }}
         >
-          {filteredGroups.length === 0 && !loading ? (
+          {(viewMode === 'teacher' ? filteredTeacherGroups : filteredClassGroups).length === 0 && !loading ? (
             <div style={{ padding: '40px', textAlign: 'center' }}>
               <div style={{ fontSize: '36px', marginBottom: '8px' }}>
                 {filterUnder50 ? '🎉' : '🔍'}
@@ -743,15 +897,15 @@ export default function TeacherAccessListPage() {
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#334155' }}>
                 {filterUnder50
                   ? '৫০% এর নিচে এন্ট্রি বাকি এমন কোনো বিষয় নেই!'
-                  : searchQuery
+                  : searchQuery || selectedClassSection
                   ? 'No matching assignments found'
                   : 'No Teacher Assignments Configured'}
               </h3>
               <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
                 {filterUnder50
                   ? 'সব বিষয়গুলোর এন্ট্রি ৫০% বা তার বেশি সম্পন্ন হয়েছে।'
-                  : searchQuery
-                  ? 'Try searching with a different keyword.'
+                  : searchQuery || selectedClassSection
+                  ? 'Try searching or clearing filters.'
                   : 'Assign teachers to subjects in the Teacher Setup page.'}
               </p>
             </div>
@@ -766,42 +920,85 @@ export default function TeacherAccessListPage() {
             >
               <thead>
                 <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                  <th
-                    style={{
-                      padding: '8px 12px',
-                      fontWeight: 800,
-                      color: '#1e293b',
-                      fontSize: '12px',
-                      width: '24%',
-                      borderRight: '1.5px solid #cbd5e1',
-                    }}
-                  >
-                    शिक्षকের নাম (Teacher Name)
-                  </th>
-                  <th
-                    style={{
-                      padding: '8px 12px',
-                      fontWeight: 800,
-                      color: '#1e293b',
-                      fontSize: '12px',
-                      width: '18%',
-                      borderRight: '1.5px solid #cbd5e1',
-                    }}
-                  >
-                    ক্লাস - সেকশন (Class - Section)
-                  </th>
-                  <th
-                    style={{
-                      padding: '8px 12px',
-                      fontWeight: 800,
-                      color: '#1e293b',
-                      fontSize: '12px',
-                      width: '24%',
-                      borderRight: '1.5px solid #cbd5e1',
-                    }}
-                  >
-                    বিষয় (Subject)
-                  </th>
+                  {viewMode === 'teacher' ? (
+                    <>
+                      <th
+                        style={{
+                          padding: '8px 12px',
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          fontSize: '12px',
+                          width: '24%',
+                          borderRight: '1.5px solid #cbd5e1',
+                        }}
+                      >
+                        शिक्षকের নাম (Teacher Name)
+                      </th>
+                      <th
+                        style={{
+                          padding: '8px 12px',
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          fontSize: '12px',
+                          width: '18%',
+                          borderRight: '1.5px solid #cbd5e1',
+                        }}
+                      >
+                        ক্লাস - সেকশন (Class - Section)
+                      </th>
+                      <th
+                        style={{
+                          padding: '8px 12px',
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          fontSize: '12px',
+                          width: '24%',
+                          borderRight: '1.5px solid #cbd5e1',
+                        }}
+                      >
+                        বিষয় (Subject)
+                      </th>
+                    </>
+                  ) : (
+                    <>
+                      <th
+                        style={{
+                          padding: '8px 12px',
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          fontSize: '12px',
+                          width: '20%',
+                          borderRight: '1.5px solid #cbd5e1',
+                        }}
+                      >
+                        ক্লাস - সেকশন (Class - Section)
+                      </th>
+                      <th
+                        style={{
+                          padding: '8px 12px',
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          fontSize: '12px',
+                          width: '24%',
+                          borderRight: '1.5px solid #cbd5e1',
+                        }}
+                      >
+                        বিষয় (Subject)
+                      </th>
+                      <th
+                        style={{
+                          padding: '8px 12px',
+                          fontWeight: 800,
+                          color: '#1e293b',
+                          fontSize: '12px',
+                          width: '22%',
+                          borderRight: '1.5px solid #cbd5e1',
+                        }}
+                      >
+                        শিক্ষকের নাম (Teacher Name)
+                      </th>
+                    </>
+                  )}
                   <th
                     style={{
                       padding: '8px 12px',
@@ -828,248 +1025,489 @@ export default function TeacherAccessListPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredGroups.map((group, groupIdx) => {
-                  const isEvenGroup = groupIdx % 2 === 0
-                  const groupBg = isEvenGroup ? '#ffffff' : '#f8fafc'
+                {viewMode === 'teacher'
+                  ? filteredTeacherGroups.map((group, groupIdx) => {
+                      const isEvenGroup = groupIdx % 2 === 0
+                      const groupBg = isEvenGroup ? '#ffffff' : '#f8fafc'
 
-                  return group.assignments.map((assign, assignIdx) => {
-                    const isFirstInGroup = assignIdx === 0
-                    const isLastInGroup = assignIdx === group.assignments.length - 1
+                      return group.assignments.map((assign, assignIdx) => {
+                        const isFirstInGroup = assignIdx === 0
+                        const isLastInGroup = assignIdx === group.assignments.length - 1
 
-                    // Progress calculations for this specific assignment
-                    const keyId = `${assign.class}-${assign.section}-${assign.subject_code}`
-                    const prog = progressMap.get(keyId) || { enteredCount: 0, totalStudents: 0, percentage: 0 }
+                        const keyId = `${assign.class}-${assign.section}-${assign.subject_code}`
+                        const prog = progressMap.get(keyId) || { enteredCount: 0, totalStudents: 0, percentage: 0 }
 
-                    // Color badge logic
-                    let badgeBg = '#f1f5f9'
-                    let badgeColor = '#64748b'
-                    let barColor = '#cbd5e1'
+                        let badgeBg = '#f1f5f9'
+                        let badgeColor = '#64748b'
+                        let barColor = '#cbd5e1'
 
-                    if (prog.totalStudents > 0) {
-                      if (prog.percentage === 100) {
-                        badgeBg = '#dcfce7'
-                        badgeColor = '#15803d'
-                        barColor = '#22c55e'
-                      } else if (prog.percentage >= 50) {
-                        badgeBg = '#e0f2fe'
-                        badgeColor = '#0369a1'
-                        barColor = '#0284c7'
-                      } else if (prog.percentage > 0) {
-                        badgeBg = '#fef3c7'
-                        badgeColor = '#b45309'
-                        barColor = '#f59e0b'
-                      } else {
-                        badgeBg = '#fee2e2'
-                        badgeColor = '#b91c1c'
-                        barColor = '#ef4444'
-                      }
-                    }
+                        if (prog.totalStudents > 0) {
+                          if (prog.percentage === 100) {
+                            badgeBg = '#dcfce7'
+                            badgeColor = '#15803d'
+                            barColor = '#22c55e'
+                          } else if (prog.percentage >= 50) {
+                            badgeBg = '#e0f2fe'
+                            badgeColor = '#0369a1'
+                            barColor = '#0284c7'
+                          } else if (prog.percentage > 0) {
+                            badgeBg = '#fef3c7'
+                            badgeColor = '#b45309'
+                            barColor = '#f59e0b'
+                          } else {
+                            badgeBg = '#fee2e2'
+                            badgeColor = '#b91c1c'
+                            barColor = '#ef4444'
+                          }
+                        }
 
-                    const isSubmitted = !!assign.final_submitted
-                    const rowBg = isSubmitted ? '#f0fdf4' : groupBg
+                        const isSubmitted = !!assign.final_submitted
+                        const rowBg = isSubmitted ? '#f0fdf4' : groupBg
 
-                    return (
-                      <tr
-                        key={`${group.email || group.nameEn}-${assignIdx}`}
-                        style={{
-                          background: rowBg,
-                          borderBottom: isLastInGroup
-                            ? '2px solid #cbd5e1'
-                            : '1px solid #e2e8f0',
-                        }}
-                      >
-                        {/* Column 1: Teacher Name with RowSpan */}
-                        {isFirstInGroup && (
-                          <td
-                            rowSpan={group.assignments.length}
+                        return (
+                          <tr
+                            key={`${group.email || group.nameEn}-${assignIdx}`}
                             style={{
-                              padding: '8px 12px',
-                              verticalAlign: 'top',
-                              borderRight: '1.5px solid #cbd5e1',
-                              background: groupBg,
+                              background: rowBg,
+                              borderBottom: isLastInGroup
+                                ? '2px solid #cbd5e1'
+                                : '1px solid #e2e8f0',
                             }}
                           >
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <div
+                            {/* Column 1: Teacher Name with RowSpan */}
+                            {isFirstInGroup && (
+                              <td
+                                rowSpan={group.assignments.length}
                                 style={{
-                                  fontWeight: 800,
-                                  fontSize: '13px',
-                                  color: '#0f172a',
-                                  lineHeight: 1.2,
+                                  padding: '8px 12px',
+                                  verticalAlign: 'top',
+                                  borderRight: '1.5px solid #cbd5e1',
+                                  background: groupBg,
                                 }}
                               >
-                                {group.nameEn}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <div
+                                    style={{
+                                      fontWeight: 800,
+                                      fontSize: '13px',
+                                      color: '#0f172a',
+                                      lineHeight: 1.2,
+                                    }}
+                                  >
+                                    {group.nameEn}
+                                  </div>
+                                  {group.nameBn && (
+                                    <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>
+                                      {group.nameBn}
+                                    </div>
+                                  )}
+                                  {group.email && (
+                                    <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>
+                                      {group.email}
+                                    </div>
+                                  )}
+                                  <div style={{ marginTop: '4px' }}>
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        background: '#0284c7',
+                                        color: '#ffffff',
+                                        padding: '2px 8px',
+                                        borderRadius: '10px',
+                                        fontSize: '10px',
+                                        fontWeight: 800,
+                                      }}
+                                    >
+                                      📚 মোট {group.totalSubjects} টি বিষয়
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                            )}
+
+                            {/* Column 2: Class - Section */}
+                            <td
+                              style={{
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                                borderRight: '1.5px solid #cbd5e1',
+                              }}
+                            >
+                              <div style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a', whiteSpace: 'nowrap' }}>
+                                Class {assign.class} - {assign.section}
                               </div>
-                              {group.nameBn && (
-                                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>
-                                  {group.nameBn}
-                                </div>
-                              )}
-                              {group.email && (
-                                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>
-                                  {group.email}
-                                </div>
-                              )}
-                              <div style={{ marginTop: '4px' }}>
+                            </td>
+
+                            {/* Column 3: Subject */}
+                            <td
+                              style={{
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                                borderRight: '1.5px solid #cbd5e1',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
-                                    gap: '3px',
-                                    background: '#0284c7',
+                                    justifyContent: 'center',
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    background: '#3b82f6',
                                     color: '#ffffff',
-                                    padding: '2px 8px',
-                                    borderRadius: '10px',
                                     fontSize: '10px',
                                     fontWeight: 800,
+                                    flexShrink: 0,
                                   }}
                                 >
-                                  📚 মোট {group.totalSubjects} টি বিষয়
+                                  {assignIdx + 1}
                                 </span>
+                                <div>
+                                  <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
+                                    {assign.subject_name}
+                                  </span>
+                                  {assign.subject_code && (
+                                    <span
+                                      style={{
+                                        fontSize: '10px',
+                                        color: '#64748b',
+                                        marginLeft: '4px',
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      ({assign.subject_code})
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                        )}
+                            </td>
 
-                        {/* Column 2: Class - Section */}
-                        <td
-                          style={{
-                            padding: '6px 12px',
-                            verticalAlign: 'middle',
-                            borderRight: '1.5px solid #cbd5e1',
-                          }}
-                        >
-                          <div style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a', whiteSpace: 'nowrap' }}>
-                            Class {assign.class} - {assign.section}
-                          </div>
-                        </td>
-
-                        {/* Column 3: Subject */}
-                        <td
-                          style={{
-                            padding: '6px 12px',
-                            verticalAlign: 'middle',
-                            borderRight: '1.5px solid #cbd5e1',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span
+                            {/* Column 4: Mark Entry Progress */}
+                            <td
                               style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '20px',
-                                height: '20px',
-                                borderRadius: '50%',
-                                background: '#3b82f6',
-                                color: '#ffffff',
-                                fontSize: '10px',
-                                fontWeight: 800,
-                                flexShrink: 0,
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                                borderRight: '1.5px solid #cbd5e1',
                               }}
                             >
-                              {assignIdx + 1}
-                            </span>
-                            <div>
-                              <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
-                                {assign.subject_name}
-                              </span>
-                              {assign.subject_code && (
-                                <span
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                  <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
+                                    {prog.enteredCount} / {prog.totalStudents} জন
+                                  </span>
+                                  <span
+                                    style={{
+                                      background: badgeBg,
+                                      color: badgeColor,
+                                      padding: '1px 7px',
+                                      borderRadius: '8px',
+                                      fontSize: '10px',
+                                      fontWeight: 900,
+                                      border: `1px solid ${badgeColor}33`,
+                                    }}
+                                  >
+                                    {prog.percentage}%
+                                  </span>
+                                </div>
+
+                                {/* Mini Progress Bar */}
+                                <div
                                   style={{
-                                    fontSize: '10px',
-                                    color: '#64748b',
-                                    marginLeft: '4px',
-                                    fontWeight: 600,
+                                    height: '5px',
+                                    width: '100%',
+                                    background: '#e2e8f0',
+                                    borderRadius: '3px',
+                                    overflow: 'hidden',
                                   }}
                                 >
-                                  ({assign.subject_code})
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
+                                  <div
+                                    style={{
+                                      height: '100%',
+                                      width: `${Math.min(100, Math.max(0, prog.percentage))}%`,
+                                      background: barColor,
+                                      borderRadius: '3px',
+                                      transition: 'width 0.3s ease',
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
 
-                        {/* Column 4: Mark Entry Progress */}
-                        <td
-                          style={{
-                            padding: '6px 12px',
-                            verticalAlign: 'middle',
-                            borderRight: '1.5px solid #cbd5e1',
-                          }}
-                        >
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
-                              <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
-                                {prog.enteredCount} / {prog.totalStudents} জন
-                              </span>
+                            {/* Column 5: Final Submit Status */}
+                            <td
+                              style={{
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                              }}
+                            >
                               <span
                                 style={{
-                                  background: badgeBg,
-                                  color: badgeColor,
-                                  padding: '1px 7px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  background: isSubmitted ? '#dcfce7' : '#f1f5f9',
+                                  color: isSubmitted ? '#15803d' : '#64748b',
+                                  border: isSubmitted ? '1px solid #bbf7d0' : '1px solid #cbd5e1',
+                                  padding: '2px 8px',
                                   borderRadius: '8px',
-                                  fontSize: '10px',
-                                  fontWeight: 900,
-                                  border: `1px solid ${badgeColor}33`,
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                {prog.percentage}%
+                                {isSubmitted ? '✅ Final Submit' : '⏳ '}
                               </span>
-                            </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    })
+                  : filteredClassGroups.map((group, groupIdx) => {
+                      const isEvenGroup = groupIdx % 2 === 0
+                      const groupBg = isEvenGroup ? '#ffffff' : '#f8fafc'
 
-                            {/* Mini Progress Bar */}
-                            <div
-                              style={{
-                                height: '5px',
-                                width: '100%',
-                                background: '#e2e8f0',
-                                borderRadius: '3px',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  height: '100%',
-                                  width: `${Math.min(100, Math.max(0, prog.percentage))}%`,
-                                  background: barColor,
-                                  borderRadius: '3px',
-                                  transition: 'width 0.3s ease',
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
+                      return group.assignments.map((assign, assignIdx) => {
+                        const isFirstInGroup = assignIdx === 0
+                        const isLastInGroup = assignIdx === group.assignments.length - 1
 
-                        {/* Column 5: Final Submit Status */}
-                        <td
-                          style={{
-                            padding: '6px 12px',
-                            verticalAlign: 'middle',
-                          }}
-                        >
-                          <span
+                        const keyId = `${assign.class}-${assign.section}-${assign.subject_code}`
+                        const prog = progressMap.get(keyId) || { enteredCount: 0, totalStudents: 0, percentage: 0 }
+
+                        let badgeBg = '#f1f5f9'
+                        let badgeColor = '#64748b'
+                        let barColor = '#cbd5e1'
+
+                        if (prog.totalStudents > 0) {
+                          if (prog.percentage === 100) {
+                            badgeBg = '#dcfce7'
+                            badgeColor = '#15803d'
+                            barColor = '#22c55e'
+                          } else if (prog.percentage >= 50) {
+                            badgeBg = '#e0f2fe'
+                            badgeColor = '#0369a1'
+                            barColor = '#0284c7'
+                          } else if (prog.percentage > 0) {
+                            badgeBg = '#fef3c7'
+                            badgeColor = '#b45309'
+                            barColor = '#f59e0b'
+                          } else {
+                            badgeBg = '#fee2e2'
+                            badgeColor = '#b91c1c'
+                            barColor = '#ef4444'
+                          }
+                        }
+
+                        const isSubmitted = !!assign.final_submitted
+                        const rowBg = isSubmitted ? '#f0fdf4' : groupBg
+
+                        return (
+                          <tr
+                            key={`${group.classSecKey}-${assignIdx}`}
                             style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              background: isSubmitted ? '#dcfce7' : '#f1f5f9',
-                              color: isSubmitted ? '#15803d' : '#64748b',
-                              border: isSubmitted ? '1px solid #bbf7d0' : '1px solid #cbd5e1',
-                              padding: '2px 8px',
-                              borderRadius: '8px',
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              whiteSpace: 'nowrap',
+                              background: rowBg,
+                              borderBottom: isLastInGroup
+                                ? '2px solid #cbd5e1'
+                                : '1px solid #e2e8f0',
                             }}
                           >
-                            {isSubmitted ? '✅ Final Submit' : '⏳ '}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })
-                })}
+                            {/* Column 1: Class - Section with RowSpan */}
+                            {isFirstInGroup && (
+                              <td
+                                rowSpan={group.assignments.length}
+                                style={{
+                                  padding: '8px 12px',
+                                  verticalAlign: 'top',
+                                  borderRight: '1.5px solid #cbd5e1',
+                                  background: groupBg,
+                                }}
+                              >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div
+                                    style={{
+                                      fontWeight: 900,
+                                      fontSize: '13px',
+                                      color: '#0f172a',
+                                      whiteSpace: 'nowrap',
+                                    }}
+                                  >
+                                    Class {group.class} - {group.section}
+                                  </div>
+                                  <div>
+                                    <span
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        background: '#0284c7',
+                                        color: '#ffffff',
+                                        padding: '2px 8px',
+                                        borderRadius: '10px',
+                                        fontSize: '10px',
+                                        fontWeight: 800,
+                                      }}
+                                    >
+                                      📚 মোট {group.totalSubjects} টি বিষয়
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                            )}
+
+                            {/* Column 2: Subject */}
+                            <td
+                              style={{
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                                borderRight: '1.5px solid #cbd5e1',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    background: '#3b82f6',
+                                    color: '#ffffff',
+                                    fontSize: '10px',
+                                    fontWeight: 800,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {assignIdx + 1}
+                                </span>
+                                <div>
+                                  <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '12px' }}>
+                                    {assign.subject_name}
+                                  </span>
+                                  {assign.subject_code && (
+                                    <span
+                                      style={{
+                                        fontSize: '10px',
+                                        color: '#64748b',
+                                        marginLeft: '4px',
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      ({assign.subject_code})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Column 3: Teacher Name */}
+                            <td
+                              style={{
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                                borderRight: '1.5px solid #cbd5e1',
+                              }}
+                            >
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                <div style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
+                                  {assign.teacher_name_en || 'Unnamed Teacher'}
+                                </div>
+                                {assign.teacher_name_bn && (
+                                  <div style={{ fontSize: '10px', color: '#475569', fontWeight: 600 }}>
+                                    {assign.teacher_name_bn}
+                                  </div>
+                                )}
+                                {assign.teacher_email_id && (
+                                  <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 500 }}>
+                                    {assign.teacher_email_id}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Column 4: Mark Entry Progress */}
+                            <td
+                              style={{
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                                borderRight: '1.5px solid #cbd5e1',
+                              }}
+                            >
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                                  <span style={{ fontWeight: 800, fontSize: '12px', color: '#0f172a' }}>
+                                    {prog.enteredCount} / {prog.totalStudents} জন
+                                  </span>
+                                  <span
+                                    style={{
+                                      background: badgeBg,
+                                      color: badgeColor,
+                                      padding: '1px 7px',
+                                      borderRadius: '8px',
+                                      fontSize: '10px',
+                                      fontWeight: 900,
+                                      border: `1px solid ${badgeColor}33`,
+                                    }}
+                                  >
+                                    {prog.percentage}%
+                                  </span>
+                                </div>
+
+                                {/* Mini Progress Bar */}
+                                <div
+                                  style={{
+                                    height: '5px',
+                                    width: '100%',
+                                    background: '#e2e8f0',
+                                    borderRadius: '3px',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      height: '100%',
+                                      width: `${Math.min(100, Math.max(0, prog.percentage))}%`,
+                                      background: barColor,
+                                      borderRadius: '3px',
+                                      transition: 'width 0.3s ease',
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Column 5: Final Submit Status */}
+                            <td
+                              style={{
+                                padding: '6px 12px',
+                                verticalAlign: 'middle',
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  background: isSubmitted ? '#dcfce7' : '#f1f5f9',
+                                  color: isSubmitted ? '#15803d' : '#64748b',
+                                  border: isSubmitted ? '1px solid #bbf7d0' : '1px solid #cbd5e1',
+                                  padding: '2px 8px',
+                                  borderRadius: '8px',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {isSubmitted ? '✅ Final Submit' : '⏳ '}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    })}
               </tbody>
             </table>
           )}
