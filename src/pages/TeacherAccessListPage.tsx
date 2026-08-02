@@ -19,6 +19,7 @@ interface Assignment {
   subject_name: string
   subject_code: string
   comment?: string
+  final_submitted?: boolean
 }
 
 interface TeacherGroup {

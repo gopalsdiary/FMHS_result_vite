@@ -28,6 +28,7 @@ interface Assignment {
   teacher_name_bn: string;
   comment: string;
   exam_id: number;
+  final_submitted?: boolean;
 }
 
 interface ClassSubjectRule {

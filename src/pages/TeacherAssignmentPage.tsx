@@ -8,6 +8,7 @@ interface Assignment {
   class: number
   section: string
   subject_code: string
+  final_submitted?: boolean
 }
 
 interface Subject {
