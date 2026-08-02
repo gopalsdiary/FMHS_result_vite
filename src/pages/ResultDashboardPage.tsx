@@ -69,21 +69,7 @@ export default function ResultDashboardPage() {
     }
   }
 
-  async function deleteExam(e: React.MouseEvent, id: number, name: string) {
-    e.preventDefault()
-    e.stopPropagation()
 
-    const { count } = await supabase.from('FMHS_exam_data').select('*', { count: 'exact', head: true }).eq('exam_id', id)
-    if (count && count > 0) {
-      alert(`❌ ডিলিট করা যাচ্ছে না!\n\n"${name}" পরীক্ষায় ${count} জন শিক্ষার্থীর ডাটা আছে।\nআগে সব ডাটা মুছে তারপর ডিলিট করুন।`)
-      return
-    }
-
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return
-    const { error } = await supabase.from('FMHS_exams_names').delete().eq('id', id)
-    if (error) alert(error.message)
-    else loadExams()
-  }
 
   if (loading && !user) return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -210,10 +196,6 @@ export default function ResultDashboardPage() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '14px', fontWeight: 800, color: '#4f46e5' }}>OPEN PANEL →</span>
-                  <button 
-                    onClick={(e) => deleteExam(e, exam.id, exam.exam_name)}
-                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '18px', padding: '4px' }}
-                  >🗑️</button>
                 </div>
               </div>
             </Link>

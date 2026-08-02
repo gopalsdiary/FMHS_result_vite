@@ -96,32 +96,7 @@ export default function ExamManagerPage() {
     }
   }
 
-  async function deleteExam(id: number, examName: string) {
-    // Check if any marks exist for this exam
-    const { count } = await supabase
-      .from('FMHS_exam_data')
-      .select('*', { count: 'exact', head: true })
-      .eq('exam_id', id)
-    
-    if (count && count > 0) {
-      alert(`❌ ডিলিট করা যাচ্ছে না!\n\n"${examName}" পরীক্ষায় ${count} জন শিক্ষার্থীর ডাটা আছে।\nআগে সব ডাটা মুছে তারপর ডিলিট করুন।`)
-      return
-    }
 
-    if (!confirm(`"${examName}" পরীক্ষাটি ডিলিট করতে চান?`)) return
-    
-    // Also delete subject rules and teacher assignments
-    await supabase.from('FMHS_exam_subjects').delete().eq('exam_id', id)
-    await supabase.from('FMHS_exam_teacher_selection').delete().eq('exam_id', id)
-    
-    const { error } = await supabase.from('FMHS_exams_names').delete().eq('id', id)
-    if (error) {
-      setStatus('Error: ' + error.message)
-    } else {
-      setStatus('Exam deleted!')
-      loadExams()
-    }
-  }
 
   return (
     <PageShell title="Exam Manager">
@@ -194,13 +169,6 @@ export default function ExamManagerPage() {
                     <span style={{ fontSize: '12px', fontWeight: 700, color: '#0366d6', background: '#eff6ff', padding: '2px 8px', borderRadius: '12px' }}>
                       {exam.year}
                     </span>
-                    <button 
-                      onClick={() => deleteExam(exam.id, exam.exam_name)} 
-                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
-                      title="Delete Exam"
-                    >
-                      🗑️
-                    </button>
                   </div>
                   
                   <h4 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', color: '#1e293b' }}>{exam.exam_name}</h4>
