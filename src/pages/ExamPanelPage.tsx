@@ -77,6 +77,23 @@ export default function ExamPanelPage() {
   const [csvStudents, setCsvStudents] = useState<any[]>([])
   const [isProcessingCsv, setIsProcessingCsv] = useState(false)
 
+  // Edit Student Info state
+  const [showEditStudentModal, setShowEditStudentModal] = useState(false)
+  const [editSearchIid, setEditSearchIid] = useState('')
+  const [isSearchingStudent, setIsSearchingStudent] = useState(false)
+  const [editingStudentRow, setEditingStudentRow] = useState<any | null>(null)
+  const [editStudentError, setEditStudentError] = useState('')
+  const [editStudentSuccess, setEditStudentSuccess] = useState('')
+  const [isSavingStudentEdit, setIsSavingStudentEdit] = useState(false)
+  const [editStudentForm, setEditStudentForm] = useState({
+    student_name_en: '',
+    father_name_en: '',
+    class: '',
+    section: '',
+    roll: '',
+    father_mobile: ''
+  })
+
   // Filters / Import state
   const [gridClass, setGridClass] = useState('')
   const [gridSection, setGridSection] = useState('')
@@ -991,6 +1008,103 @@ export default function ExamPanelPage() {
     setTimeout(() => setStatus(''), 3000)
   }
 
+  // EDIT STUDENT INFO HANDLERS
+  async function handleSearchStudentByIid(e?: React.FormEvent) {
+    if (e) e.preventDefault()
+    setEditStudentError('')
+    setEditStudentSuccess('')
+    setEditingStudentRow(null)
+
+    const trimmedIid = editSearchIid.trim()
+    if (!trimmedIid) {
+      setEditStudentError('Please enter a Student IID.')
+      return
+    }
+
+    const numericIid = Number(trimmedIid)
+    if (isNaN(numericIid)) {
+      setEditStudentError('IID must be a valid number.')
+      return
+    }
+
+    setIsSearchingStudent(true)
+    try {
+      // First attempt to search within current exam
+      let query = supabase.from('FMHS_exam_data').select('*').eq('iid', numericIid)
+      if (id) {
+        query = query.eq('exam_id', Number(id))
+      }
+      let { data, error } = await query
+
+      // Fallback search by iid alone if not found in current exam_id
+      if ((!data || data.length === 0) && id) {
+        const fallback = await supabase.from('FMHS_exam_data').select('*').eq('iid', numericIid)
+        data = fallback.data
+        error = fallback.error
+      }
+
+      if (error) {
+        setEditStudentError('Error searching student: ' + error.message)
+      } else if (!data || data.length === 0) {
+        setEditStudentError(`No student found with IID "${trimmedIid}".`)
+      } else {
+        const row = data[0]
+        setEditingStudentRow(row)
+        setEditStudentForm({
+          student_name_en: row.student_name_en || '',
+          father_name_en: row.father_name_en || '',
+          class: row.class !== null && row.class !== undefined ? String(row.class) : '',
+          section: row.section || '',
+          roll: row.roll !== null && row.roll !== undefined ? String(row.roll) : '',
+          father_mobile: row.father_mobile !== null && row.father_mobile !== undefined ? String(row.father_mobile) : ''
+        })
+      }
+    } catch (err: any) {
+      setEditStudentError('Unexpected error: ' + err.message)
+    } finally {
+      setIsSearchingStudent(false)
+    }
+  }
+
+  async function handleSaveStudentEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingStudentRow) return
+    setEditStudentError('')
+    setEditStudentSuccess('')
+    setIsSavingStudentEdit(true)
+
+    try {
+      const payload: Record<string, any> = {
+        student_name_en: editStudentForm.student_name_en.trim() || null,
+        father_name_en: editStudentForm.father_name_en.trim() || null,
+        class: editStudentForm.class === '' ? null : Number(editStudentForm.class),
+        section: editStudentForm.section.trim() || null,
+        roll: editStudentForm.roll === '' ? null : Number(editStudentForm.roll),
+        father_mobile: editStudentForm.father_mobile === '' ? null : Number(editStudentForm.father_mobile)
+      }
+
+      const { error } = await supabase
+        .from('FMHS_exam_data')
+        .update(payload)
+        .eq('id', editingStudentRow.id)
+
+      if (error) {
+        setEditStudentError('Failed to update student: ' + error.message)
+      } else {
+        setEditStudentSuccess('✅ Student information updated successfully!')
+        setEditingStudentRow({ ...editingStudentRow, ...payload })
+        loadMarks()
+        loadMetadata()
+        loadTotalEnrollment()
+        loadReportSummary()
+      }
+    } catch (err: any) {
+      setEditStudentError('Unexpected error: ' + err.message)
+    } finally {
+      setIsSavingStudentEdit(false)
+    }
+  }
+
 
   if (loading && !exam) return <div className="spinner" />
 
@@ -1221,7 +1335,7 @@ export default function ExamPanelPage() {
                       <span style={{ position: 'relative', background: '#fff', padding: '0 12px', fontSize: '10px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Or Add Manually</span>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                       <button 
                         onClick={() => setShowManualModal(true)}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', borderRadius: '10px', background: '#fff', border: '1.5px solid #cbd5e1', color: '#334155', fontWeight: 800, fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -1239,6 +1353,21 @@ export default function ExamPanelPage() {
                         📤 Upload CSV
                       </button>
                     </div>
+
+                    <button 
+                      onClick={() => {
+                        setEditSearchIid('')
+                        setEditingStudentRow(null)
+                        setEditStudentError('')
+                        setEditStudentSuccess('')
+                        setShowEditStudentModal(true)
+                      }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '8px 12px', borderRadius: '10px', background: '#fff', border: '1.5px solid #cbd5e1', color: '#334155', fontWeight: 800, fontSize: '12px', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#4f46e5'; e.currentTarget.style.color = '#4f46e5'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#334155'; }}
+                    >
+                      ✏️ Edit Student Info
+                    </button>
                   </div>
 
                   {/* RIGHT COLUMN: 2. SUBJECT RULES & 3. TEACHER ACCESS */}
@@ -2161,6 +2290,177 @@ export default function ExamPanelPage() {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT STUDENT INFO MODAL */}
+        {showEditStudentModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+            <div style={{ background: '#fff', borderRadius: '32px', padding: '36px', width: '560px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: '#0f172a' }}>✏️ Edit Student Info</h3>
+                <button 
+                  onClick={() => {
+                    setShowEditStudentModal(false);
+                    setEditingStudentRow(null);
+                    setEditSearchIid('');
+                    setEditStudentError('');
+                    setEditStudentSuccess('');
+                  }} 
+                  style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b' }}
+                >
+                  ×
+                </button>
+              </div>
+              <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>
+                Enter student <b>IID</b> to fetch and update information in <code>FMHS_exam_data</code>.
+              </p>
+
+              {/* SEARCH BOX */}
+              <form onSubmit={handleSearchStudentByIid} style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase' }}>
+                  Student IID
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="number"
+                    required
+                    className="form-control"
+                    style={{ flex: 1, borderRadius: '12px', padding: '10px 14px', fontSize: '14px', fontWeight: 700 }}
+                    placeholder="Enter Student IID (e.g. 1001)"
+                    value={editSearchIid}
+                    onChange={e => setEditSearchIid(e.target.value)}
+                  />
+                  <button 
+                    type="submit"
+                    disabled={isSearchingStudent}
+                    style={{ padding: '10px 20px', borderRadius: '12px', background: '#4f46e5', border: 'none', color: '#fff', fontWeight: 800, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {isSearchingStudent ? 'Searching...' : '🔍 Fetch Info'}
+                  </button>
+                </div>
+              </form>
+
+              {/* ALERTS */}
+              {editStudentError && (
+                <div style={{ padding: '12px 16px', borderRadius: '12px', background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}>
+                  ⚠️ {editStudentError}
+                </div>
+              )}
+
+              {editStudentSuccess && (
+                <div style={{ padding: '12px 16px', borderRadius: '12px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#059669', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}>
+                  {editStudentSuccess}
+                </div>
+              )}
+
+              {/* EDIT FORM (When Student Found) */}
+              {editingStudentRow && (
+                <form onSubmit={handleSaveStudentEdit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 700 }}>Record ID: <b>#{editingStudentRow.id}</b></span>
+                    <span style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 800 }}>IID: <b>{editingStudentRow.iid}</b></span>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Student Name (EN)</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: 600 }}
+                      value={editStudentForm.student_name_en} 
+                      onChange={e => setEditStudentForm({ ...editStudentForm, student_name_en: e.target.value })} 
+                      placeholder="e.g. Rahim Ahmed"
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Father's Name (EN)</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: 600 }}
+                      value={editStudentForm.father_name_en} 
+                      onChange={e => setEditStudentForm({ ...editStudentForm, father_name_en: e.target.value })} 
+                      placeholder="e.g. Karim Ahmed"
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Class</label>
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        style={{ borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: 600 }}
+                        value={editStudentForm.class} 
+                        onChange={e => setEditStudentForm({ ...editStudentForm, class: e.target.value })} 
+                        placeholder="Class (e.g. 6)"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Section</label>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        style={{ borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: 600 }}
+                        value={editStudentForm.section} 
+                        onChange={e => setEditStudentForm({ ...editStudentForm, section: e.target.value })} 
+                        placeholder="Section (e.g. A)"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Roll No</label>
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        style={{ borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: 600 }}
+                        value={editStudentForm.roll} 
+                        onChange={e => setEditStudentForm({ ...editStudentForm, roll: e.target.value })} 
+                        placeholder="Roll (e.g. 1)"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Father's Mobile</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      style={{ borderRadius: '12px', padding: '10px 14px', fontSize: '13px', fontWeight: 600 }}
+                      value={editStudentForm.father_mobile} 
+                      onChange={e => setEditStudentForm({ ...editStudentForm, father_mobile: e.target.value })} 
+                      placeholder="e.g. 01712345678"
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                    <button 
+                      type="submit" 
+                      disabled={isSavingStudentEdit}
+                      style={{ flex: 2, borderRadius: '14px', padding: '14px', background: '#059669', border: 'none', fontWeight: 800, color: '#fff', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 10px rgba(5,150,105,0.2)' }}
+                    >
+                      {isSavingStudentEdit ? 'Saving...' : '💾 Save Changes'}
+                    </button>
+                    <button 
+                      type="button" 
+                      style={{ flex: 1, borderRadius: '14px', padding: '14px', background: '#f1f5f9', border: 'none', fontWeight: 700, color: '#475569', cursor: 'pointer', fontSize: '14px' }} 
+                      onClick={() => {
+                        setShowEditStudentModal(false);
+                        setEditingStudentRow(null);
+                        setEditSearchIid('');
+                        setEditStudentError('');
+                        setEditStudentSuccess('');
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         )}
